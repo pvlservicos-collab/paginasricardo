@@ -44,7 +44,7 @@ Isso baixa tudo de `lp.grupor1.com` para `public/wp-content/uploads/`. Depois fa
 
 1. Crie um repositório no GitHub e suba esta pasta:
    ```bash
-   git remote add origin https://github.com/SEU-USUARIO/painel-paginas-r1.git
+   git remote add origin https://github.com/pvlservicos-collab/paginasricardo.git
    git push -u origin main
    ```
 2. Na Vercel: **Add New → Project →** escolha o repositório. Não precisa mudar nada (o `vercel.json` já define o build). Deploy.
@@ -54,7 +54,7 @@ Isso baixa tudo de `lp.grupor1.com` para `public/wp-content/uploads/`. Depois fa
    | Nome | Valor |
    |---|---|
    | `GITHUB_TOKEN` | o token do passo 3 |
-   | `GITHUB_REPO` | `SEU-USUARIO/painel-paginas-r1` |
+   | `GITHUB_REPO` | `pvlservicos-collab/paginasricardo` |
    | `GITHUB_BRANCH` | `main` |
    | `SESSION_SECRET` | um texto longo qualquer |
 5. Faça um **Redeploy**. Pronto: `https://seu-projeto.vercel.app/painel`.
