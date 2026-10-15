@@ -62,7 +62,7 @@ a{color:inherit}
 .lado{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:6px;padding:20px 14px;border-right:1px solid var(--line);background:#0e0e10}
 .lado .marca{padding:4px 8px 18px}
 .nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;color:var(--mut);text-decoration:none;font-weight:600}
-.nav a svg{width:18px;height:18px}
+.nav a svg{width:18px;height:18px;flex:none}
 .nav a:hover{background:var(--s1);color:var(--tx)}
 .nav a.on{background:var(--gold-soft);color:var(--gold-lt)}
 .lado .fim{margin-top:auto;display:flex;flex-direction:column;gap:10px}
