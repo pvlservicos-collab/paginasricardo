@@ -87,7 +87,7 @@ function telaLogin() {
 /* ================= carga ================= */
 async function carregarPaginas(copias = false) {
   const d = await api('paginas' + (copias ? '?copias=1' : ''));
-  Object.assign(E, { cfg: d.config, podeGravar: d.podeGravar, usandoGitHub: d.usandoGitHub, temRedis: d.temRedis, temHubspot: d.temHubspot, deploy: d.deploy });
+  Object.assign(E, { cfg: d.config, podeGravar: d.podeGravar, usandoGitHub: d.usandoGitHub, usandoBanco: d.usandoBanco, temRedis: d.temRedis, temHubspot: d.temHubspot, deploy: d.deploy });
   if (d.copias) E.copias = d.copias;
   E.publicando = Boolean(d.deploy.publicado && d.deploy.atual && d.deploy.publicado !== d.deploy.atual);
   return d;
@@ -190,7 +190,9 @@ function render() {
     ? '<b><span class="ponto pulsa"></span>Publicando…</b>A Vercel está gerando a nova versão.'
     : E.usandoGitHub
       ? `<b><span class="ponto"></span>Tudo publicado</b><span class="mono">${h((E.deploy.atual || '').slice(0, 7))}</span>`
-      : `<b><span class="ponto"></span>${E.podeGravar ? 'Modo local' : 'Somente leitura'}</b>${E.podeGravar ? 'Alterações gravadas na pasta.' : 'Configure o GitHub na Vercel.'}`;
+      : E.usandoBanco
+        ? '<b><span class="ponto"></span>Tudo publicado</b>Banco de dados · cada alteração entra no ar em segundos.'
+        : `<b><span class="ponto"></span>${E.podeGravar ? 'Modo local' : 'Somente leitura'}</b>${E.podeGravar ? 'Alterações gravadas na pasta.' : 'Conecte o banco Postgres na Vercel.'}`;
   $('#app').innerHTML = `
   <div class="app">
     <aside class="lado">
@@ -208,7 +210,7 @@ function render() {
 }
 
 function avisosGerais() {
-  if (!E.podeGravar) return `<div class="aviso">${I.alerta}<div><b>Modo somente leitura.</b> Para ativar/desativar, trocar URL e editar o HTML pelo painel, adicione <span class="mono">GITHUB_TOKEN</span> e <span class="mono">GITHUB_REPO</span> nas variáveis do projeto na Vercel (veja o README).</div></div>`;
+  if (!E.podeGravar) return `<div class="aviso">${I.alerta}<div><b>Modo somente leitura.</b> Para ativar/desativar, trocar URL e editar o HTML pelo painel, conecte um banco Postgres (Neon) ao projeto em Vercel → Storage e faça um Redeploy.</div></div>`;
   return '';
 }
 
@@ -595,7 +597,7 @@ function abrirDominio() {
     titulo: 'Domínio e rastreamento',
     corpo: `<label class="campo"><span>Endereço onde as páginas ficam no ar</span><input id="dom" value="${h(E.cfg.dominio)}" placeholder="https://lp.grupor1.com"><small>Usado para conferir se estão online e para medir a nota do Google. Em branco = este endereço (${h(location.host)}).</small></label>
       <label class="campo"><span>Pixel da Meta (Facebook)</span><input id="pixel" value="${h(E.cfg.pixelMeta || '')}" inputmode="numeric" placeholder="554651949023828"><small>Vale para todas as páginas. Em branco = sem pixel.</small></label>
-      <label class="campo"><span>Microsoft Clarity (ID do projeto)</span><input id="clarity" value="${h(E.cfg.clarity || '')}" placeholder="yy6pgr4e6u"><small>Vale para todas as páginas. Em branco = sem Clarity. Ao salvar, as páginas são publicadas de novo em ≈30 s.</small></label>`,
+      <label class="campo"><span>Microsoft Clarity (ID do projeto)</span><input id="clarity" value="${h(E.cfg.clarity || '')}" placeholder="yy6pgr4e6u"><small>Vale para todas as páginas. Em branco = sem Clarity. Ao salvar, já vale para todas as páginas.</small></label>`,
     pe: `<button class="bt" data-fechar>Cancelar</button><button class="bt bt-ouro" id="dom-salvar" ${E.podeGravar ? '' : 'disabled'}>Salvar</button>`,
   });
   $('#dom-salvar', md.el).onclick = async () => {
@@ -605,7 +607,7 @@ function abrirDominio() {
       await carregarPaginas(E.vista === 'funil');
       render();
       verificarStatus();
-      toast('Salvo. As páginas são publicadas de novo em ≈30 s.', 'ok');
+      toast(E.usandoGitHub ? 'Salvo. As páginas são publicadas de novo em ≈30 s.' : 'Salvo. Já está no ar.', 'ok');
     } catch (e) { toast(e.message, 'bad'); }
   };
 }
@@ -668,7 +670,7 @@ document.addEventListener('click', async (ev) => {
       catch (e) { toast(e.message, 'bad'); }
       break;
     case 'excluir':
-      if (await confirmar('Excluir página', `Excluir <b>${h(p.titulo)}</b> (/${h(p.url)})? Ela sai do ar. O histórico continua guardado no GitHub.`, 'Excluir', true)) {
+      if (await confirmar('Excluir página', `Excluir <b>${h(p.titulo)}</b> (/${h(p.url)})? Ela sai do ar.`, 'Excluir', true)) {
         try { await api('pagina?slug=' + encodeURIComponent(slug), { method: 'DELETE' }); depoisDeSalvar('Página excluída.'); }
         catch (e) { toast(e.message, 'bad'); }
       }

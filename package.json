@@ -4,13 +4,17 @@
   "private": true,
   "description": "Painel de páginas do Ricardo Nunes (Grupo R1): páginas estáticas + painel de gestão.",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build.mjs",
     "imagens": "node scripts/imagens.mjs"
   },
   "dependencies": {
+    "@neondatabase/serverless": "1.1.0",
+    "@vercel/blob": "2.8.0",
     "@vercel/functions": "^2.0.0"
   }
 }

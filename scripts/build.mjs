@@ -1,12 +1,9 @@
 // Gera a pasta dist/ que a Vercel publica.
-// Cada página vira um HTML estático e puro: nenhum código do painel entra nelas.
+// Contém o painel e os arquivos de public/ (imagens). As páginas saem da api/servir.
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  ARQUIVO_CONFIG, PASTA_PAGINAS, mesclarConfig, validarUrls, normalizarUrl,
-  montarDocumento, documentoInativo, documentoRedirecionamento,
-} from '../lib/core.mjs';
+import { ARQUIVO_CONFIG, PASTA_PAGINAS, mesclarConfig, validarUrls, documentoInativo } from '../lib/core.mjs';
 import { baixarFaltantes } from './imagens.mjs';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -25,46 +22,19 @@ async function copiarPasta(origem, destino) {
   return n;
 }
 
-async function escrever(urlRel, conteudo) {
-  const destino = path.join(DIST, `${urlRel}.html`);
-  await fs.mkdir(path.dirname(destino), { recursive: true });
-  await fs.writeFile(destino, conteudo);
-}
-
 export async function build({ silencioso = false, imagens = !process.argv.includes('--sem-imagens') } = {}) {
   const log = silencioso ? () => {} : console.log;
   await fs.rm(DIST, { recursive: true, force: true });
   await fs.mkdir(DIST, { recursive: true });
 
+  // As páginas não são geradas aqui: a api/servir entrega cada uma direto do banco (ou da pasta
+  // paginas/, sem banco), então uma alteração no painel entra no ar sem precisar de deploy.
   const arquivos = (await fs.readdir(path.join(RAIZ, PASTA_PAGINAS))).filter((n) => /\.html?$/i.test(n)).sort();
   let bruta = null;
   try { bruta = JSON.parse(await fs.readFile(path.join(RAIZ, ARQUIVO_CONFIG), 'utf8')); } catch {}
   const cfg = mesclarConfig(bruta, arquivos);
   const problema = validarUrls(cfg);
   if (problema) throw new Error(problema);
-
-  const ocupadas = new Set();
-  for (const p of cfg.paginas) {
-    const url = normalizarUrl(p.url);
-    ocupadas.add(url);
-    if (!p.ativa) {
-      await escrever(url, p.redirecionarInativaPara ? documentoRedirecionamento(p.redirecionarInativaPara, p.titulo) : documentoInativo(p.titulo));
-      log(`  ○ /${url}  (desativada${p.redirecionarInativaPara ? ' → /' + normalizarUrl(p.redirecionarInativaPara) : ''})`);
-      continue;
-    }
-    const html = await fs.readFile(path.join(RAIZ, PASTA_PAGINAS, p.arquivo), 'utf8');
-    await escrever(url, montarDocumento(html, p.titulo, { pixelMeta: cfg.pixelMeta, clarity: cfg.clarity }));
-    log(`  ● /${url}  ← ${p.arquivo}`);
-  }
-
-  // URLs antigas continuam levando para a nova (mantém UTMs dos anúncios já rodando)
-  for (const r of cfg.redirecionamentos) {
-    const de = normalizarUrl(r.de);
-    if (!de || ocupadas.has(de)) continue;
-    ocupadas.add(de);
-    await escrever(de, documentoRedirecionamento(r.para, 'Redirecionando'));
-    log(`  ↪ /${de} → /${normalizarUrl(r.para)}`);
-  }
 
   await fs.writeFile(path.join(DIST, '404.html'), documentoInativo('Página não encontrada').replace('Esta página não está disponível no momento.', 'Página não encontrada.'));
   const nPublic = await copiarPasta(path.join(RAIZ, 'public'), DIST);

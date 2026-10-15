@@ -1,5 +1,6 @@
 // Servidor para usar o painel no seu computador:  npm run dev  →  http://localhost:3000/painel
-// Faz o mesmo que a Vercel: serve o dist/, roda a pasta api/ e refaz o build depois de cada alteração.
+// Faz o mesmo que a Vercel: serve o dist/ (painel e imagens), roda a pasta api/ e entrega as páginas pela api/servir.
+// Com DATABASE_URL (ex.: num arquivo .env.local) usa o mesmo banco da Vercel; sem ele, a pasta do projeto.
 import http from 'node:http';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -14,6 +15,13 @@ const TIPOS = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', mp4: 'video/mp4', ico: 'image/x-icon', avif: 'image/avif',
 };
 
+try {
+  for (const linha of (await fs.readFile(path.join(RAIZ, '.env.local'), 'utf8')).split(/\r?\n/)) {
+    const m = /^\s*([A-Z0-9_]+)\s*=\s*"?(.*?)"?\s*$/.exec(linha);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
+  }
+} catch {}
+
 await build({ imagens: false });
 
 async function arquivo(caminho) {
@@ -26,23 +34,18 @@ async function arquivo(caminho) {
   return null;
 }
 
-async function api(req, res, nome) {
+async function api(req, res, nome, url = req.url) {
   const mod = await import(pathToFileURL(path.join(RAIZ, 'api', `${nome}.js`)).href + `?t=${Date.now()}`).catch(() => null);
   const fn = mod?.[req.method];
   if (!fn) { res.writeHead(404).end('{"erro":"rota não existe"}'); return; }
   const corpo = ['GET', 'HEAD'].includes(req.method) ? undefined : await new Promise((ok) => {
     const partes = []; req.on('data', (c) => partes.push(c)); req.on('end', () => ok(Buffer.concat(partes)));
   });
-  const request = new Request(`http://localhost:${PORTA}${req.url}`, { method: req.method, headers: req.headers, body: corpo });
+  const request = new Request(`http://localhost:${PORTA}${url}`, { method: req.method, headers: req.headers, body: corpo });
   const resposta = await fn(request);
-  // refaz o build antes de responder (como a Vercel faria depois do commit)
-  if (req.method !== 'GET' && resposta.ok && nome !== 'login') await rebuild();
   res.writeHead(resposta.status, Object.fromEntries(resposta.headers));
   res.end(Buffer.from(await resposta.arrayBuffer()));
 }
-
-let fila = Promise.resolve();
-const rebuild = () => (fila = fila.then(() => build({ silencioso: true, imagens: false })).catch((e) => console.error('Build:', e.message)));
 
 http.createServer(async (req, res) => {
   try {
@@ -60,7 +63,8 @@ http.createServer(async (req, res) => {
       const r = await fetch('https://lp.grupor1.com' + pathname).catch(() => null);
       if (r?.ok) { res.writeHead(200, { 'Content-Type': r.headers.get('content-type') || '' }); res.end(Buffer.from(await r.arrayBuffer())); return; }
     }
-    res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' }).end(await fs.readFile(path.join(DIST, '404.html')));
+    // páginas publicadas: mesma função que a Vercel usa
+    return await api(req, res, 'servir', `/api/servir?caminho=${encodeURIComponent(pathname.slice(1))}`);
   } catch (e) {
     console.error(e);
     if (!res.headersSent) res.writeHead(500).end(String(e.message));

@@ -1,5 +1,5 @@
 import { protegido, json, erro, carregarConfig, salvarConfig, temRedis } from '../lib/servidor.mjs';
-import { lerArquivo, podeGravar, usandoGitHub, shaAtual } from '../lib/store.mjs';
+import { lerArquivo, podeGravar, usandoGitHub, usandoBanco, shaAtual } from '../lib/store.mjs';
 import { normalizarUrl, PASTA_PAGINAS, extrairCopy, limparPixelMeta, limparClarity } from '../lib/core.mjs';
 
 // Lista as páginas + estado do deploy.
@@ -9,6 +9,7 @@ export const GET = protegido(async (request, url) => {
     config: cfg,
     podeGravar,
     usandoGitHub,
+    usandoBanco,
     temRedis,
     temHubspot: Boolean(process.env.HUBSPOT_TOKEN),
     deploy: { publicado: process.env.VERCEL_GIT_COMMIT_SHA || null, atual: await shaAtual().catch(() => null) },

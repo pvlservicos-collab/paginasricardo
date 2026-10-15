@@ -4,16 +4,17 @@ Painel para gerenciar as páginas do Ricardo Nunes: ver todas em grade, lista ou
 
 **Login:** usuário `ricardo` · senha `2026` (dá para trocar pelas variáveis `PAINEL_USUARIO` e `PAINEL_SENHA`).
 
-## Por que as páginas continuam com nota 100
+## Como funciona
 
-As páginas são publicadas como **HTML estático puro**. Nada do painel entra nelas:
-
-- O painel mora só em `/painel` e conversa com a pasta `api/`, que roda no servidor.
-- Quando você muda algo no painel, ele grava um commit no GitHub e a Vercel gera de novo os arquivos estáticos (≈30 s). O visitante sempre recebe um HTML pronto, sem banco de dados e sem script extra.
-- As visitas são contadas **no servidor** (`middleware.js`), depois de a página já ter sido entregue. Nenhum script de métrica é colocado na página.
-- O build só envolve o HTML colado num documento completo (`<!doctype>`, `<head>`), levando para o `<head>` as tags `<meta>`/`<link>` do topo, e coloca no fim do `<body>` o Pixel da Meta e o Clarity (se configurados). O conteúdo da página não é alterado.
-- O Pixel da Meta entra no `<head>` com o código oficial do Gerenciador de Eventos. O Clarity só baixa no primeiro toque, rolagem ou tecla do visitante, ou 3 segundos depois de a página terminar de abrir (o que vier primeiro).
+- **Banco de dados (Neon Postgres) + Vercel Blob**, conectados ao projeto em Vercel → Storage. A Vercel cria sozinha as variáveis (`DATABASE_URL` e `BLOB_READ_WRITE_TOKEN`); não precisa configurar nada à mão.
+- Tudo o que o painel muda (HTML, URL, ativar/desativar, pixel, Clarity, criativo) é gravado no banco e **entra no ar em segundos, sem deploy**. As imagens dos criativos ficam no Blob.
+- Na primeira vez que o site roda com o banco, ele copia para o banco o que está em `paginas/` e `criativos/`. Depois disso, **quem manda é o banco**: mudar arquivos em `paginas/` no GitHub não altera mais as páginas no ar (use o painel).
+- As páginas são entregues pela função `api/servir.js` (região São Paulo, `gru1`), com cache de alguns segundos na CDN e na memória. O visitante recebe o HTML pronto, sem nenhum código do painel.
+- O build só envolve o HTML colado num documento completo (`<!doctype>`, `<head>`), levando para o `<head>` as tags `<meta>`/`<link>` do topo, e acrescenta o Pixel da Meta (no `<head>`) e o Clarity (no fim do `<body>`), se configurados. O conteúdo da página não é alterado.
+- O Clarity só baixa no primeiro toque, rolagem ou tecla do visitante, ou 3 segundos depois de a página terminar de abrir (o que vier primeiro).
 - **Atenção:** o pixel tem *permissões de tráfego* na Meta (Gerenciador de Eventos → Configurações → Permissões de tráfego). Ele só dispara nos domínios liberados lá — hoje `lp.grupor1.com`. Em `*.vercel.app` ele é bloqueado pela própria Meta.
+- As visitas são contadas **no servidor** (`middleware.js`). Nenhum script de métrica é colocado na página.
+- Imagens novas em `/wp-content/...` que ainda não estejam no projeto são buscadas em `lp.grupor1.com` automaticamente.
 
 ## Estrutura
 
