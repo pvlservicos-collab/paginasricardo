@@ -53,7 +53,7 @@ export async function build({ silencioso = false, imagens = !process.argv.includ
       continue;
     }
     const html = await fs.readFile(path.join(RAIZ, PASTA_PAGINAS, p.arquivo), 'utf8');
-    await escrever(url, montarDocumento(html, p.titulo));
+    await escrever(url, montarDocumento(html, p.titulo, { pixelMeta: cfg.pixelMeta, clarity: cfg.clarity }));
     log(`  ● /${url}  ← ${p.arquivo}`);
   }
 

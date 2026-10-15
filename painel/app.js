@@ -198,7 +198,7 @@ function render() {
       <nav class="nav">${nav.map(([k, n]) => `<a href="#${k}" class="${E.vista === k ? 'on' : ''}">${I[k]}${n}</a>`).join('')}</nav>
       <div class="fim">
         <div class="deploy">${dep}</div>
-        <button class="bt bt-sm" data-acao="dominio" title="Domínio usado para status e PageSpeed">${I.globo}<span>${h(E.cfg.dominio ? E.cfg.dominio.replace(/^https?:\/\//, '') : 'Domínio')}</span></button>
+        <button class="bt bt-sm" data-acao="dominio" title="Domínio (status e PageSpeed), Pixel da Meta e Clarity">${I.globo}<span>${h(E.cfg.dominio ? E.cfg.dominio.replace(/^https?:\/\//, '') : 'Domínio')}</span></button>
         <button class="bt bt-sm" data-acao="sair">${I.sair}<span>Sair</span></button>
       </div>
     </aside>
@@ -592,18 +592,20 @@ function abrirNova() {
 
 function abrirDominio() {
   const md = modal({
-    titulo: 'Domínio das páginas',
-    corpo: `<label class="campo"><span>Endereço onde as páginas ficam no ar</span><input id="dom" value="${h(E.cfg.dominio)}" placeholder="https://lp.grupor1.com"><small>Usado para conferir se estão online e para medir a nota do Google. Em branco = este endereço (${h(location.host)}).</small></label>`,
+    titulo: 'Domínio e rastreamento',
+    corpo: `<label class="campo"><span>Endereço onde as páginas ficam no ar</span><input id="dom" value="${h(E.cfg.dominio)}" placeholder="https://lp.grupor1.com"><small>Usado para conferir se estão online e para medir a nota do Google. Em branco = este endereço (${h(location.host)}).</small></label>
+      <label class="campo"><span>Pixel da Meta (Facebook)</span><input id="pixel" value="${h(E.cfg.pixelMeta || '')}" inputmode="numeric" placeholder="554651949023828"><small>Vale para todas as páginas. Em branco = sem pixel.</small></label>
+      <label class="campo"><span>Microsoft Clarity (ID do projeto)</span><input id="clarity" value="${h(E.cfg.clarity || '')}" placeholder="yy6pgr4e6u"><small>Vale para todas as páginas. Em branco = sem Clarity. Ao salvar, as páginas são publicadas de novo em ≈30 s.</small></label>`,
     pe: `<button class="bt" data-fechar>Cancelar</button><button class="bt bt-ouro" id="dom-salvar" ${E.podeGravar ? '' : 'disabled'}>Salvar</button>`,
   });
   $('#dom-salvar', md.el).onclick = async () => {
     try {
-      await api('paginas', { method: 'POST', body: { acao: 'dominio', dominio: $('#dom', md.el).value } });
+      await api('paginas', { method: 'POST', body: { acao: 'dominio', dominio: $('#dom', md.el).value, pixelMeta: $('#pixel', md.el).value, clarity: $('#clarity', md.el).value } });
       md.fechar();
       await carregarPaginas(E.vista === 'funil');
       render();
       verificarStatus();
-      toast('Domínio salvo.', 'ok');
+      toast('Salvo. As páginas são publicadas de novo em ≈30 s.', 'ok');
     } catch (e) { toast(e.message, 'bad'); }
   };
 }

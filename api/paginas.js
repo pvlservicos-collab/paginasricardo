@@ -1,6 +1,6 @@
 import { protegido, json, erro, carregarConfig, salvarConfig, temRedis } from '../lib/servidor.mjs';
 import { lerArquivo, podeGravar, usandoGitHub, shaAtual } from '../lib/store.mjs';
-import { normalizarUrl, PASTA_PAGINAS, extrairCopy } from '../lib/core.mjs';
+import { normalizarUrl, PASTA_PAGINAS, extrairCopy, limparPixelMeta, limparClarity } from '../lib/core.mjs';
 
 // Lista as páginas + estado do deploy.
 export const GET = protegido(async (request, url) => {
@@ -56,7 +56,9 @@ export const POST = protegido(async (request) => {
   if (d.acao === 'dominio') {
     cfg.dominio = String(d.dominio || '').trim().replace(/\/+$/, '');
     if (cfg.dominio && !/^https?:\/\//.test(cfg.dominio)) cfg.dominio = 'https://' + cfg.dominio;
-    const r = await salvarConfig(cfg, `Domínio: ${cfg.dominio || '(padrão)'}`);
+    if (d.pixelMeta !== undefined) cfg.pixelMeta = limparPixelMeta(d.pixelMeta);
+    if (d.clarity !== undefined) cfg.clarity = limparClarity(d.clarity);
+    const r = await salvarConfig(cfg, `Domínio: ${cfg.dominio || '(padrão)'} · Pixel: ${cfg.pixelMeta || '(nenhum)'} · Clarity: ${cfg.clarity || '(nenhum)'}`);
     return json({ ok: true, sha: r.sha });
   }
 

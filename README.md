@@ -11,7 +11,8 @@ As páginas são publicadas como **HTML estático puro**. Nada do painel entra n
 - O painel mora só em `/painel` e conversa com a pasta `api/`, que roda no servidor.
 - Quando você muda algo no painel, ele grava um commit no GitHub e a Vercel gera de novo os arquivos estáticos (≈30 s). O visitante sempre recebe um HTML pronto, sem banco de dados e sem script extra.
 - As visitas são contadas **no servidor** (`middleware.js`), depois de a página já ter sido entregue. Nenhum script de métrica é colocado na página.
-- O build só envolve o HTML colado num documento completo (`<!doctype>`, `<head>`), levando para o `<head>` as tags `<meta>`/`<link>` do topo. O conteúdo da página não é alterado.
+- O build só envolve o HTML colado num documento completo (`<!doctype>`, `<head>`), levando para o `<head>` as tags `<meta>`/`<link>` do topo, e coloca no fim do `<body>` o Pixel da Meta e o Clarity (se configurados). O conteúdo da página não é alterado.
+- O Pixel da Meta e o Clarity registram a visita assim que a página abre, mas os scripts deles (~150 KB) só baixam no primeiro toque, rolagem ou tecla do visitante — a mesma regra do formulário do HubSpot. Quem abre e sai sem tocar em nada não é contado por eles.
 
 ## Estrutura
 
@@ -31,7 +32,7 @@ vercel.json
 
 ## Imagens
 
-As páginas usam imagens em `/wp-content/uploads/...`. Para guardar todas dentro do projeto, rode uma vez no seu computador:
+As páginas usam imagens em `/wp-content/uploads/...`, que já estão dentro do projeto em `public/wp-content/uploads/` (com versões menores para celular: `-400`, `-600`, `-76`, `-320`). Se alguma página nova usar imagens do WordPress que ainda não estão aqui, rode no seu computador:
 
 ```bash
 npm install
@@ -65,9 +66,11 @@ Isso baixa tudo de `lp.grupor1.com` para `public/wp-content/uploads/`. Depois fa
 - **Leads por página:** HubSpot → Settings → Integrations → **Private Apps** → crie um app com o escopo `forms` e coloque o token em `HUBSPOT_TOKEN`. O painel lê os envios do formulário que está em cada página e separa pela URL onde a pessoa se inscreveu.
 - **Nota do Google (PageSpeed):** o botão **Medir** funciona sem chave, mas o Google limita o uso. Para não ter limite, crie uma chave da *PageSpeed Insights API* no Google Cloud e coloque em `PAGESPEED_API_KEY`.
 
-### Domínio
+### Domínio, Pixel da Meta e Clarity
 
-Para as páginas ficarem em `lp.grupor1.com`, adicione o domínio em Vercel → Settings → Domains e, no painel, clique em **Domínio** e informe `https://lp.grupor1.com` (é o endereço que o painel usa para conferir se as páginas estão no ar). Antes de apontar o domínio, rode `npm run imagens` e faça o commit, para as imagens já estarem dentro do projeto.
+Para as páginas ficarem em `lp.grupor1.com`, adicione o domínio em Vercel → Settings → Domains e, no painel, clique em **Domínio** e informe `https://lp.grupor1.com` (é o endereço que o painel usa para conferir se as páginas estão no ar).
+
+Na mesma janela ficam o **Pixel da Meta** (hoje `554651949023828`) e o **Microsoft Clarity** (hoje `yy6pgr4e6u`). Valem para todas as páginas, inclusive as novas. Deixe em branco para tirar. Ao salvar, as páginas são publicadas de novo (≈30 s).
 
 ## O que o painel faz
 
