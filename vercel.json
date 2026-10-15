@@ -152,7 +152,7 @@
   "rewrites": [
     {
       "source": "/wp-content/:path*",
-      "destination": "https://lp.grupor1.com/wp-content/:path*"
+      "destination": "https://mgdpqhggmvokpsko.public.blob.vercel-storage.com/wp-content/:path*"
     },
     {
       "source": "/:caminho((?!api/|api$|painel|wp-content|_vercel).+)",

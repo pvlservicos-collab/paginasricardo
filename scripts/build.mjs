@@ -1,10 +1,10 @@
 // Gera a pasta dist/ que a Vercel publica.
-// Contém o painel e os arquivos de public/ (imagens). As páginas saem da api/servir.
+// Contém só o painel e o 404. As páginas saem da api/servir (banco) e as imagens/vídeos de
+// /wp-content/ saem do Vercel Blob (veja vercel.json e scripts/imagens.mjs).
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ARQUIVO_CONFIG, PASTA_PAGINAS, mesclarConfig, validarUrls, documentoInativo } from '../lib/core.mjs';
-import { baixarFaltantes } from './imagens.mjs';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(RAIZ, 'dist');
@@ -22,7 +22,7 @@ async function copiarPasta(origem, destino) {
   return n;
 }
 
-export async function build({ silencioso = false, imagens = !process.argv.includes('--sem-imagens') } = {}) {
+export async function build({ silencioso = false } = {}) {
   const log = silencioso ? () => {} : console.log;
   await fs.rm(DIST, { recursive: true, force: true });
   await fs.mkdir(DIST, { recursive: true });
@@ -37,13 +37,8 @@ export async function build({ silencioso = false, imagens = !process.argv.includ
   if (problema) throw new Error(problema);
 
   await fs.writeFile(path.join(DIST, '404.html'), documentoInativo('Página não encontrada').replace('Esta página não está disponível no momento.', 'Página não encontrada.'));
-  const nPublic = await copiarPasta(path.join(RAIZ, 'public'), DIST);
   await copiarPasta(path.join(RAIZ, 'painel'), path.join(DIST, 'painel'));
-  if (imagens) {
-    try { await baixarFaltantes({ destinos: [DIST], log }); }
-    catch (e) { log('Imagens: não foi possível baixar agora (' + e.message + ').'); }
-  }
-  log(`Build pronto: ${cfg.paginas.length} página(s), ${nPublic} arquivo(s) de public/.`);
+  log(`Build pronto: painel + ${cfg.paginas.length} página(s) iniciais (imagens no Blob).`);
   return cfg;
 }
 

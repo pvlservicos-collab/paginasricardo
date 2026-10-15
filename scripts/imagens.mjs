@@ -1,65 +1,52 @@
-// Baixa as imagens/vídeos que as páginas usam (/wp-content/uploads/...) do site atual.
-//   npm run imagens            → salva em public/wp-content/uploads (rode uma vez e suba no GitHub)
-// O build também chama isto para buscar só o que estiver faltando, então o deploy
-// nunca sai com imagem quebrada, mesmo antes de você rodar o comando acima.
+// Sobe as imagens e vídeos de public/wp-content/ para o Vercel Blob, com o mesmo caminho
+// (ex.: wp-content/uploads/foto.webp). O site entrega /wp-content/... direto do Blob.
+//   npm run imagens        → sobe só o que ainda não está no Blob
+//   npm run imagens -- --todas   → sobe tudo de novo (substitui)
+// Usa o BLOB_READ_WRITE_TOKEN do arquivo .env.local.
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const ORIGEM = (process.env.IMAGENS_ORIGEM || 'https://lp.grupor1.com').replace(/\/+$/, '');
-const RE = /\/wp-content\/uploads\/[A-Za-z0-9._\/-]+\.(?:webp|png|jpe?g|gif|svg|avif|mp4|webm)/g;
-
-export async function caminhosUsados() {
-  const pasta = path.join(RAIZ, 'paginas');
-  const set = new Set();
-  for (const nome of await fs.readdir(pasta)) {
-    if (!/\.html?$/i.test(nome)) continue;
-    const html = await fs.readFile(path.join(pasta, nome), 'utf8');
-    for (const m of html.matchAll(RE)) set.add(m[0]);
+try {
+  for (const linha of (await fs.readFile(path.join(RAIZ, '.env.local'), 'utf8')).split(/\r?\n/)) {
+    const m = /^\s*([A-Z0-9_]+)\s*=\s*"?(.*?)"?\s*$/.exec(linha);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
   }
-  return [...set].sort();
-}
+} catch {}
+const token = process.env.BLOB_READ_WRITE_TOKEN;
+if (!token) { console.log('Falta BLOB_READ_WRITE_TOKEN (coloque no .env.local).'); process.exit(1); }
+const { put, list } = await import('@vercel/blob');
 
-const existe = (p) => fs.access(p).then(() => true, () => false);
-
-export async function baixarFaltantes({ destinos, log = console.log }) {
-  const lista = await caminhosUsados();
-  const faltando = [];
-  for (const c of lista) {
-    let tem = false;
-    for (const d of destinos) if (await existe(path.join(d, c))) { tem = true; break; }
-    if (!tem) faltando.push(c);
+async function arquivos(dir, base = '') {
+  const out = [];
+  for (const i of await fs.readdir(dir, { withFileTypes: true }).catch(() => [])) {
+    if (i.isDirectory()) out.push(...await arquivos(path.join(dir, i.name), `${base}${i.name}/`));
+    else if (i.name !== '.gitkeep') out.push(`${base}${i.name}`);
   }
-  if (!faltando.length) { log(`Imagens: todas as ${lista.length} já estão no projeto.`); return { total: lista.length, baixadas: 0, falhas: [] }; }
-  log(`Imagens: baixando ${faltando.length} de ${ORIGEM} ...`);
-  const falhas = [];
-  let baixadas = 0;
-  const fila = [...faltando];
-  await Promise.all(Array.from({ length: 8 }, async () => {
-    while (fila.length) {
-      const c = fila.shift();
-      try {
-        const r = await fetch(ORIGEM + c, { headers: { 'User-Agent': 'Mozilla/5.0 painel-r1' }, signal: AbortSignal.timeout(30000) });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const buf = Buffer.from(await r.arrayBuffer());
-        const alvo = path.join(destinos[0], c);
-        await fs.mkdir(path.dirname(alvo), { recursive: true });
-        await fs.writeFile(alvo, buf);
-        baixadas++;
-        log(`  ✓ ${c} (${Math.round(buf.length / 1024)} KB)`);
-      } catch (e) {
-        falhas.push(c);
-        log(`  ✗ ${c} — ${e.message}`);
-      }
-    }
-  }));
-  log(`Imagens: ${baixadas} baixada(s), ${falhas.length} falha(s).`);
-  return { total: lista.length, baixadas, falhas };
+  return out;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  baixarFaltantes({ destinos: [path.join(RAIZ, 'public')] }).then((r) => {
-    if (r.falhas.length) process.exitCode = 1;
-  });
-}
+const locais = await arquivos(path.join(RAIZ, 'public', 'wp-content'));
+const existentes = new Set();
+let cursor;
+do {
+  const r = await list({ prefix: 'wp-content/', cursor, limit: 1000, token });
+  r.blobs.forEach((b) => existentes.add(b.pathname));
+  cursor = r.hasMore ? r.cursor : undefined;
+} while (cursor);
+
+const todas = process.argv.includes('--todas');
+const fila = locais.filter((rel) => todas || !existentes.has(`wp-content/${rel}`));
+console.log(`${locais.length} arquivo(s) locais · ${existentes.size} já no Blob · subindo ${fila.length}`);
+let ok = 0;
+await Promise.all(Array.from({ length: 6 }, async () => {
+  while (fila.length) {
+    const rel = fila.shift();
+    const dados = await fs.readFile(path.join(RAIZ, 'public', 'wp-content', rel));
+    await put(`wp-content/${rel}`, dados, { access: 'public', addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: 31536000, token });
+    ok++;
+    console.log(`  ✓ /wp-content/${rel} (${Math.round(dados.length / 1024)} KB)`);
+  }
+}));
+console.log(`Pronto: ${ok} enviado(s).`);

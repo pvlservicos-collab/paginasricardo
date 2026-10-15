@@ -14,7 +14,6 @@ Painel para gerenciar as páginas do Ricardo Nunes: ver todas em grade, lista ou
 - O Clarity só baixa no primeiro toque, rolagem ou tecla do visitante, ou 3 segundos depois de a página terminar de abrir (o que vier primeiro).
 - **Atenção:** o pixel tem *permissões de tráfego* na Meta (Gerenciador de Eventos → Configurações → Permissões de tráfego). Ele só dispara nos domínios liberados lá — hoje `lp.grupor1.com`. Em `*.vercel.app` ele é bloqueado pela própria Meta.
 - As visitas são contadas **no servidor** (`middleware.js`). Nenhum script de métrica é colocado na página.
-- Imagens novas em `/wp-content/...` que ainda não estejam no projeto são buscadas em `lp.grupor1.com` automaticamente.
 
 ## Estrutura
 
@@ -32,16 +31,12 @@ vercel.json
 
 **Subir página nova:** coloque o `.html` em `paginas/` e faça o push. Ela aparece no painel ativa, com a URL igual ao nome do arquivo (ex.: `black10x-v6.html` → `/black10x-v6`). Também dá para criar pelo botão **Nova página**.
 
-## Imagens
+## Imagens (Vercel Blob)
 
-As páginas usam imagens em `/wp-content/uploads/...`, que já estão dentro do projeto em `public/wp-content/uploads/` (com versões menores para celular: `-400`, `-600`, `-76`, `-320`). Se alguma página nova usar imagens do WordPress que ainda não estão aqui, rode no seu computador:
-
-```bash
-npm install
-npm run imagens
-```
-
-Isso baixa tudo de `lp.grupor1.com` para `public/wp-content/uploads/`. Depois faça o commit. Enquanto isso não for feito, o build na Vercel baixa sozinho o que estiver faltando, então o site nunca sai com imagem quebrada. Quando trocar o HTML e ele usar imagens novas do WordPress, o build também busca essas.
+- Todas as imagens e vídeos do site ficam no **Vercel Blob** (pasta `wp-content/uploads/`). O site entrega `/wp-content/uploads/...` direto do Blob (rewrite no `vercel.json`), então as páginas usam sempre o mesmo endereço.
+- No painel, **Imagens**: arraste, cole (Ctrl+V) ou escolha; JPG/PNG viram WEBP automaticamente; depois é só **Copiar link** e usar na página. Apagar só é permitido ao admin e quando nenhuma página usa a imagem.
+- Os **criativos** (Funil) também ficam no Blob; o banco guarda o link.
+- `public/wp-content/` no repositório é só uma cópia de segurança. Para subir essa pasta de novo para o Blob: `npm run imagens` (usa o `BLOB_READ_WRITE_TOKEN` do `.env.local`).
 
 ## Publicar
 

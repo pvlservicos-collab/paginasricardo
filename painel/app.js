@@ -23,6 +23,7 @@ const I = {
   cima: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>',
   baixo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
   fechar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  imagens: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>',
   imagem: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>',
   alerta: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
   sair: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3"/></svg>',
@@ -32,6 +33,7 @@ const I = {
 const E = {
   cfg: null, usuario: null, rastreio: {}, podeGravar: false, usandoGitHub: false, temRedis: false, temHubspot: false,
   deploy: {}, publicando: false, versao: Date.now().toString(36),
+  imagens: null, otimizar: true,
   status: {}, verificando: false, metricas: null, dias: 7, copias: null, psi: {},
   vista: 'grade', previa: 'celular', funilPrevia: true,
 };
@@ -166,13 +168,14 @@ function vigiarDeploy() {
 /* ================= estrutura ================= */
 function iniciar() {
   E.vista = (location.hash.slice(1) || 'grade').split('?')[0];
-  if (!['grade', 'lista', 'funil', 'metricas'].includes(E.vista)) E.vista = 'grade';
+  if (!['grade', 'lista', 'imagens', 'funil', 'metricas'].includes(E.vista)) E.vista = 'grade';
   $('#app').innerHTML = '<div class="boot">Carregando páginas…</div>';
   carregarPaginas(E.vista === 'funil')
     .then(() => {
       render();
       verificarStatus();
       if (ehAdmin()) carregarMetricas();
+      if (E.vista === 'imagens') carregarImagens();
       carregarPsi();
       if (E.publicando) vigiarDeploy();
     })
@@ -184,11 +187,12 @@ window.addEventListener('hashchange', () => {
   if (v === E.vista || !E.cfg) return;
   E.vista = v;
   if (v === 'funil' && !E.copias && ehAdmin()) carregarPaginas(true).then(render);
+  if (v === 'imagens' && !E.imagens) carregarImagens();
   render();
 });
 
 function render() {
-  const nav = [['grade', 'Páginas'], ['lista', 'Lista'], ['funil', 'Funil'], ['metricas', 'Métricas']];
+  const nav = [['grade', 'Páginas'], ['lista', 'Lista'], ['imagens', 'Imagens'], ['funil', 'Funil'], ['metricas', 'Métricas']];
   const dep = E.publicando
     ? '<b><span class="ponto pulsa"></span>Publicando…</b>A Vercel está gerando a nova versão.'
     : E.usandoGitHub
@@ -222,7 +226,7 @@ function renderVista(rolarTopo = true) {
   const c = $('#conteudo');
   if (!c) return;
   const scroll = window.scrollY;
-  const v = EM_OBRA.includes(E.vista) && !ehAdmin() ? vistaEmObra : ({ grade: vistaGrade, lista: vistaLista, funil: vistaFunil, metricas: vistaMetricas }[E.vista] || vistaGrade);
+  const v = EM_OBRA.includes(E.vista) && !ehAdmin() ? vistaEmObra : ({ grade: vistaGrade, lista: vistaLista, imagens: vistaImagens, funil: vistaFunil, metricas: vistaMetricas }[E.vista] || vistaGrade);
   c.innerHTML = avisosGerais() + v();
   $$('.nav a').forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + E.vista));
   ajustarTelas();
@@ -652,6 +656,78 @@ function tagsRastreio(p) {
   return `<div class="tags">${[...px, ...cl, ...sem].join('')}</div>`;
 }
 
+/* ================= imagens do site (Vercel Blob) ================= */
+async function carregarImagens() {
+  try { E.imagens = (await api('imagens')).imagens; }
+  catch (e) { E.imagens = []; toast(e.message, 'bad'); }
+  if (E.vista === 'imagens') renderVista(false);
+}
+
+function vistaImagens() {
+  const acoes = `<label class="chave" title="JPG e PNG viram WEBP (bem mais leves), no máximo 2400 px de largura"><input type="checkbox" id="img-otimizar" ${E.otimizar ? 'checked' : ''}><i></i>Otimizar (WebP)</label>
+    <button class="bt bt-ouro" data-acao="img-escolher" ${E.podeGravar ? '' : 'disabled'}>${I.mais}Subir imagens</button>
+    <input type="file" id="img-arq" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" multiple hidden>`;
+  const lista = E.imagens;
+  const corpo = !lista ? '<div class="carregando">Carregando imagens…</div>'
+    : !lista.length ? '<div class="vazio-geral">Nenhuma imagem ainda.</div>'
+    : `<div class="img-grade">${lista.map((i) => `<figure class="img-card">
+        <a class="img-mini" href="${h(i.url)}" target="_blank" rel="noopener"><img src="${h(i.url)}" alt="" loading="lazy" decoding="async"></a>
+        <figcaption><b title="${h(i.nome)}">${h(i.nome)}</b><span class="mut">${kb(i.tamanho)} · ${new Date(i.em).toLocaleDateString('pt-BR')}</span></figcaption>
+        <div class="img-acoes"><button class="bt bt-sm" data-acao="img-copiar" data-v="${h(i.url)}">Copiar link</button>${ehAdmin() ? `<button class="bt bt-sm bt-icone bt-perigo" data-acao="img-apagar" data-v="${h(i.nome)}" aria-label="Apagar" title="Apagar">${I.fechar}</button>` : ''}</div>
+      </figure>`).join('')}</div>`;
+  return topo('Imagens', `${lista ? lista.length + ' imagem(ns) no Vercel Blob · ' : ''}use o link nas páginas (ex.: &lt;img src="/wp-content/uploads/…"&gt;)`, acoes) +
+    `<div class="img-drop" data-acao="img-escolher" tabindex="0" role="button">${I.imagem}<span><b>Arraste imagens aqui</b>, cole com Ctrl+V ou clique para escolher</span><small class="mut">JPG, PNG, WEBP, GIF ou AVIF · até 4 MB cada</small></div>
+    <div id="img-fila"></div>${corpo}`;
+}
+
+// JPG/PNG → WEBP (qualidade 0,85, até 2400 px). Só troca se ficar menor.
+async function otimizarImagem(arq) {
+  if (!E.otimizar || !/^image\/(jpeg|png)$/.test(arq.type)) return arq;
+  try {
+    const bmp = await createImageBitmap(arq);
+    const esc = Math.min(1, 2400 / bmp.width);
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * esc); c.height = Math.round(bmp.height * esc);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const webp = await new Promise((ok) => c.toBlob(ok, 'image/webp', 0.85));
+    return webp && webp.size < arq.size ? new File([webp], arq.name.replace(/\.[a-z0-9]+$/i, '') + '.webp', { type: 'image/webp' }) : arq;
+  } catch { return arq; }
+}
+
+async function subirImagens(arquivos) {
+  const imgs = arquivos.filter((f) => f && f.type.startsWith('image/'));
+  if (!imgs.length) { toast('Escolha arquivos de imagem.'); return; }
+  if (!E.podeGravar) { toast('Modo somente leitura.', 'bad'); return; }
+  const fila = $('#img-fila');
+  let ok = 0;
+  for (const original of imgs) {
+    const linha = document.createElement('div');
+    linha.className = 'img-linha';
+    linha.textContent = `Enviando ${original.name}…`;
+    fila?.prepend(linha);
+    try {
+      const arq = await otimizarImagem(original);
+      if (arq.size > 4 * 1024 * 1024) throw new Error('maior que 4 MB');
+      const r = await fetch('/api/imagens', { method: 'POST', headers: { 'Content-Type': arq.type, 'X-Nome': encodeURIComponent(arq.name) }, body: arq, credentials: 'same-origin' });
+      const d = await r.json().catch(() => ({}));
+      if (r.status === 401) { telaLogin(); return; }
+      if (!r.ok) throw new Error(d.erro || `erro ${r.status}`);
+      linha.classList.add('feita');
+      linha.innerHTML = `✔ ${h(original.name)} → <span class="mono">${h(d.url)}</span> (${kb(d.tamanho)})`;
+      ok++;
+    } catch (e) {
+      linha.classList.add('erro');
+      linha.textContent = `✘ ${original.name}: ${e.message}`;
+    }
+  }
+  if (ok) {
+    toast(`${ok} imagem(ns) enviada(s). Clique em “Copiar link” para usar nas páginas.`, 'ok');
+    const filaHtml = fila?.innerHTML || '';
+    await carregarImagens();
+    if ($('#img-fila')) $('#img-fila').innerHTML = filaHtml;
+  }
+}
+
 /* ================= em construção ================= */
 function vistaEmObra() {
   const nome = E.vista === 'funil' ? 'Funil' : 'Métricas';
@@ -746,6 +822,14 @@ document.addEventListener('click', async (ev) => {
     case 'status': verificarStatus(); break;
     case 'nova': abrirNova(); break;
     case 'massa': abrirMassa(); break;
+    case 'img-escolher': $('#img-arq').click(); break;
+    case 'img-copiar': await navigator.clipboard.writeText(v); toast('Link copiado: ' + v); break;
+    case 'img-apagar':
+      if (await confirmar('Apagar imagem', `Apagar <b>${h(v)}</b> do Blob? Se alguma página usar essa imagem, o painel não deixa.`, 'Apagar', true)) {
+        try { await api('imagens?nome=' + encodeURIComponent(v), { method: 'DELETE' }); E.imagens = E.imagens.filter((i) => i.nome !== v); renderVista(false); toast('Imagem apagada.'); }
+        catch (e) { toast(e.message, 'bad'); }
+      }
+      break;
     case 'dominio': abrirDominio(); break;
     case 'editar': abrirEditor(slug); break;
     case 'config': abrirConfig(slug); break;
@@ -817,12 +901,16 @@ document.addEventListener('change', async (ev) => {
   }
   if (t.matches('[data-acao="funil-previa"]')) { E.funilPrevia = t.checked; renderVista(false); }
   if (t.matches('input[data-arquivo]')) enviarCriativo(t.dataset.arquivo, t.files[0]);
+  if (t.matches('#img-arq')) { subirImagens([...t.files]); t.value = ''; }
+  if (t.matches('#img-otimizar')) E.otimizar = t.checked;
 });
 
 document.addEventListener('keydown', (ev) => {
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('.criativo-img')) { ev.preventDefault(); ev.target.click(); }
 });
 ['dragover', 'dragleave', 'drop'].forEach((tipo) => document.addEventListener(tipo, (ev) => {
+  const zona = ev.target.closest?.('.img-drop');
+  if (zona) { ev.preventDefault(); zona.classList.toggle('arrasta', tipo === 'dragover'); if (tipo === 'drop') subirImagens([...ev.dataTransfer.files]); return; }
   const caixa = ev.target.closest?.('.criativo-img');
   if (!caixa) return;
   ev.preventDefault();
@@ -831,6 +919,10 @@ document.addEventListener('keydown', (ev) => {
 }));
 document.addEventListener('paste', (ev) => {
   // colar uma imagem (Ctrl+V) com o mouse sobre um criativo
+  if (E.vista === 'imagens' && !ev.target.closest('input,textarea')) {
+    const fs = [...(ev.clipboardData?.files || [])].filter((f) => f.type.startsWith('image/'));
+    if (fs.length) { ev.preventDefault(); subirImagens(fs); return; }
+  }
   const caixa = $('.criativo-img:hover');
   const img = [...(ev.clipboardData?.files || [])].find((f) => f.type.startsWith('image/'));
   if (caixa && img) { ev.preventDefault(); enviarCriativo(caixa.dataset.slug, img); }

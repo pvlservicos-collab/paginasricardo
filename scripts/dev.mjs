@@ -22,7 +22,7 @@ try {
   }
 } catch {}
 
-await build({ imagens: false });
+await build();
 
 async function arquivo(caminho) {
   const limpo = decodeURIComponent(caminho).replace(/\.\.+/g, '');
@@ -59,8 +59,8 @@ http.createServer(async (req, res) => {
       return;
     }
     if (pathname.startsWith('/wp-content/uploads/')) {
-      // imagem ainda não baixada: busca no site atual (rode "npm run imagens" para guardar no projeto)
-      const r = await fetch('https://lp.grupor1.com' + pathname).catch(() => null);
+      // imagens e vídeos ficam no Vercel Blob (igual na Vercel)
+      const r = await fetch('https://mgdpqhggmvokpsko.public.blob.vercel-storage.com' + pathname).catch(() => null);
       if (r?.ok) { res.writeHead(200, { 'Content-Type': r.headers.get('content-type') || '' }); res.end(Buffer.from(await r.arrayBuffer())); return; }
     }
     // páginas publicadas: mesma função que a Vercel usa
