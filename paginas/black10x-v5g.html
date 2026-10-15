@@ -1795,6 +1795,18 @@ html,body,.bf10x{-webkit-text-size-adjust:100% !important;text-size-adjust:100% 
 .bf10x #bfModal .bfm__form .hsfc-DropdownOptions__List__ListItem--selected,
 #bfModal .bfm__form .hsfc-DropdownOptions__List__ListItem:hover,
 #bfModal .bfm__form .hsfc-DropdownOptions__List__ListItem--selected{background:rgba(233,177,102,.28) !important;}
+
+/* Otimizacao 15/10/2026 (PageSpeed): secoes longas fora da tela so sao montadas quando chegam perto
+   (content-visibility). Ao clicar numa ancora (#oferta, #bf-form) tudo e montado antes de rolar. */
+.bf10x .cv-auto{content-visibility:auto;contain-intrinsic-size:auto 900px}
+.bf10x.cv-off .cv-auto,.bf10x.cv-off #oferta ~ section{content-visibility:visible}
+
+/* Otimizacao 15/10/2026: o degrade animado dos botoes verdes anda por transform numa camada propria
+   (composta na GPU) em vez de background-position (que redesenhava o botao a cada quadro). Visual igual. */
+.bf10x a.btn-gold,.bf10x button.btn-gold,.bf10x a.btn-gold.btn-lg,.bf10x a.btn-gold.btn-sm,.bf10x a.sticky-cta__btn{animation:none;background:#0e7c2f;position:relative;overflow:hidden;isolation:isolate}
+.bf10x a.btn-gold::before,.bf10x button.btn-gold::before,.bf10x a.sticky-cta__btn::before{content:"";position:absolute;top:0;bottom:0;left:0;width:800%;z-index:-1;pointer-events:none;background:linear-gradient(-45deg,#0e7c2f,#0a6324,#0e7c2f,#0a6324,#0e7c2f,#0a6324);animation:bfGradVerdeT 15s cubic-bezier(.62,.28,.23,.99) infinite both;will-change:transform}
+@keyframes bfGradVerdeT{0%,100%{transform:translateX(0)}50%{transform:translateX(-87.5%)}}
+@media (prefers-reduced-motion:reduce){.bf10x a.btn-gold::before,.bf10x button.btn-gold::before,.bf10x a.sticky-cta__btn::before{animation:none}}
 </style> <style id="fix-topbar-1110">@media (max-width:860px){.bf10x .topbar5{min-height:45px;display:flex;align-items:center;justify-content:center;box-sizing:border-box}}
 /* ===== 11/10/2026: fotos do mosaico do hero como <img> (mesmas caixas; cover e enquadramento iguais aos do background) ===== */
 .bf10x .mos5__col img.mos5__t{object-fit:cover;object-position:50% 50%;background:none}
@@ -1813,8 +1825,8 @@ html,body,.bf10x{-webkit-text-size-adjust:100% !important;text-size-adjust:100% 
 </header><!-- ============ 01 · HERÓI v5 (cabe numa tela de 640px do Instagram) ============ --><main id="conteudo">
 <section class="hero hero--v5"><a class="hero__media" href="#bf-form" data-checkout-link="1" aria-label="Garantir minha vaga"> <img loading="lazy" class="hero__img-re skip-lazy no-lazy" src="/wp-content/uploads/bf10x-hero-re-800.webp" sizes="(max-width:860px) 100vw, 64vw" srcset="/wp-content/uploads/bf10x-hero-re-800.webp 800w, /wp-content/uploads/bf10x-hero-re-1600.webp 1600w" alt="Ricardo Nunes na Times Square, no comercial de Black Friday da Ricardo Eletro" width="1600" height="900" data-no-lazy="1" decoding="async">
 <div class="mos5" aria-hidden="true">
-<div class="mos5__col"><img class="mos5__t" src="/wp-content/uploads/bf10x-mos-giz-opt.webp" alt="" width="640" height="800" style="aspect-ratio:4/5" fetchpriority="high" decoding="async" data-no-lazy="1" loading="eager"><img class="mos5__t" src="/wp-content/uploads/bf10x-mos-times-opt.webp" alt="" width="800" height="500" style="aspect-ratio:16/10" decoding="async" data-no-lazy="1" loading="eager"><img class="mos5__t mos5__t--d" src="/wp-content/uploads/bf10x-mos-retrato-opt.webp" alt="" width="640" height="800" style="aspect-ratio:4/5" loading="lazy" decoding="async" data-no-lazy="1"></div>
-<div class="mos5__col"><img class="mos5__t mos5__t--m" src="/wp-content/uploads/bf10x-mos-times-opt.webp" alt="" width="800" height="500" style="aspect-ratio:16/10" decoding="async" data-no-lazy="1" loading="eager"><img class="mos5__t" src="/wp-content/uploads/bf10x-mos-guinness-opt.webp" alt="" width="640" height="800" style="aspect-ratio:4/5" decoding="async" data-no-lazy="1" loading="eager"><img class="mos5__t" src="/wp-content/uploads/bf10x-mos-grand-opt.webp" alt="" width="800" height="600" style="aspect-ratio:4/3" loading="lazy" decoding="async" data-no-lazy="1"></div>
+<div class="mos5__col"><img class="mos5__t" src="/wp-content/uploads/bf10x-mos-giz-opt.webp" srcset="/wp-content/uploads/bf10x-mos-giz-400.webp 400w, /wp-content/uploads/bf10x-mos-giz-opt.webp 640w" sizes="(max-width:860px) 48vw, 280px" alt="" width="640" height="800" style="aspect-ratio:4/5" fetchpriority="high" decoding="async" data-no-lazy="1" loading="eager"><img class="mos5__t" src="/wp-content/uploads/bf10x-mos-times-opt.webp" srcset="/wp-content/uploads/bf10x-mos-times-400.webp 400w, /wp-content/uploads/bf10x-mos-times-opt.webp 800w" sizes="(max-width:860px) 43vw, 280px" alt="" width="800" height="500" style="aspect-ratio:16/10" decoding="async" data-no-lazy="1" loading="eager"><img class="mos5__t mos5__t--d" src="/wp-content/uploads/bf10x-mos-retrato-opt.webp" alt="" width="640" height="800" style="aspect-ratio:4/5" loading="lazy" decoding="async" data-no-lazy="1"></div>
+<div class="mos5__col"><img class="mos5__t mos5__t--m" src="/wp-content/uploads/bf10x-mos-times-opt.webp" srcset="/wp-content/uploads/bf10x-mos-times-400.webp 400w, /wp-content/uploads/bf10x-mos-times-opt.webp 800w" sizes="(max-width:860px) 43vw, 280px" alt="" width="800" height="500" style="aspect-ratio:16/10" decoding="async" data-no-lazy="1" loading="eager"><img class="mos5__t" src="/wp-content/uploads/bf10x-mos-guinness-opt.webp" srcset="/wp-content/uploads/bf10x-mos-guinness-400.webp 400w, /wp-content/uploads/bf10x-mos-guinness-opt.webp 640w" sizes="(max-width:860px) 43vw, 280px" alt="" width="640" height="800" style="aspect-ratio:4/5" decoding="async" data-no-lazy="1" loading="eager"><img class="mos5__t" src="/wp-content/uploads/bf10x-mos-grand-opt.webp" alt="" width="800" height="600" style="aspect-ratio:4/3" loading="lazy" decoding="async" data-no-lazy="1"></div>
 </div>
 </a>
 <div class="hero__shade"></div>
@@ -1847,7 +1859,7 @@ html,body,.bf10x{-webkit-text-size-adjust:100% !important;text-size-adjust:100% 
 </div>
 </section>
 <!-- ============ 05 · COMO FUNCIONAM AS 2 NOITES (implementação) ============ -->
-<section class="sec light" style="padding-bottom: clamp(48px,6vw,80px);">
+<section class="cv-auto sec light" style="padding-bottom: clamp(48px,6vw,80px);">
 <div class="wrap">
 <div class="center"><span class="eyebrow on-light">O que é a Imersão Black 10X</span>
 <h2 style="margin-top:18px;max-width:22ch;margin-left:auto;margin-right:auto">Não é aula para assistir. <b><span>É a sua Black Friday sendo desenhada.</span></b></h2>
@@ -1910,7 +1922,7 @@ html,body,.bf10x{-webkit-text-size-adjust:100% !important;text-size-adjust:100% 
 <figure class="deliv__art"><span class="deliv__glow" aria-hidden="true"></span>
 <div class="mock">
 <div class="mock__lid"><span class="mock__cam" aria-hidden="true"></span>
-<div class="mock__screen"><img class="kit__img" src="/wp-content/uploads/bf10x-kit.webp" sizes="(max-width:860px) 92vw, 46vw" srcset="/wp-content/uploads/bf10x-kit-768x509.webp 768w, /wp-content/uploads/bf10x-kit-1024x678.webp 1024w, /wp-content/uploads/bf10x-kit.webp 1400w" alt="Kit Black Friday 10X: planejamento, calendário, canvas e plano de ações" width="1400" height="927" decoding="async" loading="lazy"></div>
+<div class="mock__screen"><img class="kit__img" src="/wp-content/uploads/bf10x-kit.webp" sizes="(max-width:860px) 92vw, 46vw" srcset="/wp-content/uploads/bf10x-kit-600x397.webp 600w, /wp-content/uploads/bf10x-kit-768x509.webp 768w, /wp-content/uploads/bf10x-kit-1024x678.webp 1024w, /wp-content/uploads/bf10x-kit.webp 1400w" alt="Kit Black Friday 10X: planejamento, calendário, canvas e plano de ações" width="1400" height="927" decoding="async" loading="lazy"></div>
 </div>
 <div class="mock__base" aria-hidden="true"><span class="mock__notch"></span></div>
 </div>
@@ -2104,7 +2116,7 @@ html,body,.bf10x{-webkit-text-size-adjust:100% !important;text-size-adjust:100% 
 <h2 style="margin-top:18px">Ricardo Nunes fez da Black Friday um dos <b><span>maiores dias de vendas</span></b> da Ricardo Eletro.</h2>
 <p style="margin-top: 24px;">Na Black Friday, a Ricardo Eletro movimentou<br><b>R$ 1 bilhão em vendas</b> em uma única ação.</p>
 </div>
-<figure class="speaker__photo"><img src="/wp-content/uploads/bf10x-ricardo-montagem-opt.webp" alt="Ricardo Nunes" width="1100" height="1651" decoding="async" loading="lazy"></figure>
+<figure class="speaker__photo"><img src="/wp-content/uploads/bf10x-ricardo-montagem-opt.webp" srcset="/wp-content/uploads/bf10x-ricardo-montagem-640.webp 640w, /wp-content/uploads/bf10x-ricardo-montagem-840.webp 840w, /wp-content/uploads/bf10x-ricardo-montagem-opt.webp 1100w" sizes="(max-width:860px) 87vw, 420px" alt="Ricardo Nunes" width="1100" height="1651" decoding="async" loading="lazy"></figure>
 </div>
 <div class="stats rv">
 <div class="stat"><span class="stat__v">R$ 1 <span>bilhão</span></span><span class="stat__l">em vendas em uma única Black Friday</span></div>
@@ -2166,7 +2178,7 @@ html,body,.bf10x{-webkit-text-size-adjust:100% !important;text-size-adjust:100% 
 </div>
 </main><footer class="footer">
 <p>© 2026 Grupo R1. Todos os direitos reservados.</p>
-<img class="footer__r1" src="/wp-content/uploads/bf10x-logo-r1.webp" alt="Grupo R1" width="700" height="197" decoding="async" loading="lazy"></footer><!-- ============ CTA FIXO MOBILE ============ -->
+<img class="footer__r1" src="/wp-content/uploads/bf10x-logo-r1.webp" srcset="/wp-content/uploads/bf10x-logo-r1-250.webp 250w, /wp-content/uploads/bf10x-logo-r1.webp 700w" sizes="(max-width:860px) 92px, 121px" alt="Grupo R1" width="700" height="197" decoding="async" loading="lazy"></footer><!-- ============ CTA FIXO MOBILE ============ -->
 <div id="bfSticky" class="sticky-cta is-hidden"><a class="sticky-cta__btn" href="#bf-form" data-checkout-link="1">Quero minha vaga gratuita<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M12 5l7 7-7 7"/></svg>
   </a>
 <div class="sticky-cta__vagas"><span>Vagas limitadas</span><i class="sticky-cta__bar"><b></b></i></div>
@@ -2292,3 +2304,9 @@ html,body,.bf10x{-webkit-text-size-adjust:100% !important;text-size-adjust:100% 
 })();
 </script>
 <!-- /wp:html -->
+<script>
+/* Otimizacao 15/10/2026: antes de rolar ate uma ancora, monta as secoes que ainda nao foram montadas */
+(function(){var r=document.querySelector('.bf10x');if(!r)return;var monta=function(){r.classList.add('cv-off')};
+document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href^="#"]');if(a&&a.getAttribute('href').length>1)monta();},true);
+if(location.hash.length>1)monta();})();
+</script>

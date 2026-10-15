@@ -963,6 +963,11 @@ body:has(.bf10x){background:#0b0b0c}.e-con:has(> .e-con-inner .bf10x),.e-con:has
 .bf10x .btn-gold{background:linear-gradient(180deg,#ffd23f 0%,#f2a900 100%) !important;color:#1a1205 !important;box-shadow:0 12px 28px -14px rgba(242,169,0,.85) !important}.bf10x .btn-gold:hover{background:linear-gradient(180deg,#ffdb5c 0%,#f5b313 100%) !important;color:#1a1205 !important}
 .bf10x .btn-gold,.bf10x #bfSticky .sticky-cta__btn,#bf-form .hsfc-Button,.bf10x #bfModal .bfm__form .hsfc-Button{background:linear-gradient(180deg,#15803d 0%,#0f6630 100%) !important;color:#fff !important;border:1px solid #0c5a2a !important;box-shadow:0 14px 30px -14px rgba(21,128,61,.75),inset 0 1px 0 rgba(255,255,255,.18) !important;text-shadow:0 1px 1px rgba(0,0,0,.25)}.bf10x .btn-gold:hover,.bf10x #bfSticky .sticky-cta__btn:hover,#bf-form .hsfc-Button:hover,.bf10x #bfModal .bfm__form .hsfc-Button:hover,.bf10x .btn-gold:focus-visible,.bf10x #bfSticky .sticky-cta__btn:focus-visible,#bf-form .hsfc-Button:focus-visible,.bf10x #bfModal .bfm__form .hsfc-Button:focus-visible{background:linear-gradient(180deg,#178a42 0%,#116e34 100%) !important;color:#fff !important}.bf10x .btn-gold svg,.bf10x #bfSticky .sticky-cta__btn svg{color:#fff;stroke:#fff}#bf-form .hsfc-Button::after,.bf10x #bfModal .bfm__form .hsfc-Button::after{color:#fff !important}
 /* /BFX */
+
+/* Otimizacao 15/10/2026 (PageSpeed): secoes longas fora da tela so sao montadas quando chegam perto
+   (content-visibility). Ao clicar numa ancora (#oferta, #bf-form) tudo e montado antes de rolar. */
+.bf10x .cv-auto{content-visibility:auto;contain-intrinsic-size:auto 900px}
+.bf10x.cv-off .cv-auto,.bf10x.cv-off #oferta ~ section{content-visibility:visible}
 </style>
 
 <style>
@@ -1190,7 +1195,7 @@ body:has(.bf10x){background:#0b0b0c}.e-con:has(> .e-con-inner .bf10x),.e-con:has
   <div class="rvw-dots" id="bfDots"><button type="button" aria-label="Case 1"></button><button type="button" aria-label="Case 2"></button><button type="button" aria-label="Case 3"></button><button type="button" aria-label="Case 4"></button><button type="button" aria-label="Case 5"></button></div>
 <div class="rvw-nav"><button type="button" data-dir="prev" aria-label="Case anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 19l-7-7 7-7"></path></svg></button><button type="button" data-dir="next" aria-label="Proximo case"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg></button></div>
 </section>
-<section class="sec dark">
+<section class="cv-auto sec dark">
   <div class="wrap">
     <div class="center">
       
@@ -1233,7 +1238,7 @@ body:has(.bf10x){background:#0b0b0c}.e-con:has(> .e-con-inner .bf10x),.e-con:has
 </section>
 
 <!-- ============ FATUROMETRO ============ -->
-<section class="sec dark">
+<section class="cv-auto sec dark">
   <div class="wrap">
     <div class="center">
       <h2 class="rv" style="margin:0 auto">Faturômetro <b><span>Black 10X</span></b></h2>
@@ -1248,7 +1253,7 @@ body:has(.bf10x){background:#0b0b0c}.e-con:has(> .e-con-inner .bf10x),.e-con:has
 <!-- ============ DOBRA DE TRANSIÇÃO ============ -->
 
 
-<section class="sec--tight light" style="padding-top:clamp(56px,7vw,88px);padding-bottom:clamp(56px,7vw,88px)">
+<section class="cv-auto sec--tight light" style="padding-top:clamp(56px,7vw,88px);padding-bottom:clamp(56px,7vw,88px)">
   <div class="wrap wrap--n center">
     <h2 style="max-width:26ch;margin:0 auto">Esse será o evento mais <b><span>prático e técnico</span></b> que você já participou.</h2>
     <p class="sub" style="margin-top:22px;max-width:60ch;margin-left:auto;margin-right:auto">Você não vai apenas assistir Ricardo Nunes falar sobre Black Friday. Vai construir, durante os 2 dias, a campanha que poderá colocar em prática na sua empresa.</p>
@@ -1265,7 +1270,7 @@ body:has(.bf10x){background:#0b0b0c}.e-con:has(> .e-con-inner .bf10x),.e-con:has
 <!-- ============ DOBRA 06 · OFERTA ============ -->
 
 
-<section class="sec dark">
+<section class="cv-auto sec dark">
   <div class="wrap">
     <div class="center">
       <h2 class="rv" style="max-width:940px;margin-left:auto;margin-right:auto">Chegou a hora de fazer a maior<br class="brd"> Black Friday <b><span>da história da sua empresa!</span></b></h2>
@@ -1323,7 +1328,7 @@ body:has(.bf10x){background:#0b0b0c}.e-con:has(> .e-con-inner .bf10x),.e-con:has
     <span class="eyebrow on-light">Entregas</span>
     <h2 style="margin-top:18px">E ainda recebe estas <b><span>3 entregas:</span></b></h2>
     <p class="sub" style="margin-top:18px;max-width:52ch;margin-left:auto;margin-right:auto">Uma ferramenta prática pra planejar sua Black Friday de ponta a ponta</p>
-    <div class="deliv rv"><span class="deliv__tag">Incluso na sua inscrição</span><div class="deliv__grid"><figure class="deliv__art"><span class="deliv__glow" aria-hidden="true"></span><div class="mock"><div class="mock__lid"><span class="mock__cam" aria-hidden="true"></span><div class="mock__screen"><img class="kit__img" src="/wp-content/uploads/bf10x-kit.webp" srcset="/wp-content/uploads/bf10x-kit-768x509.webp 768w, /wp-content/uploads/bf10x-kit-1024x678.webp 1024w, /wp-content/uploads/bf10x-kit.webp 1400w" sizes="(max-width:860px) 92vw, 46vw" alt="Kit Black Friday 10X: planejamento, calendário, canvas e plano de ações" width="1400" height="927" loading="lazy" decoding="async"></div></div><div class="mock__base" aria-hidden="true"><span class="mock__notch"></span></div></div></figure><div class="deliv__body"><span class="deliv__k">O que fica na sua mão</span><h3>A sua Black Friday sai escrita, não anotada.</h3><p class="deliv__sub">A ferramenta de planejamento é onde a sua campanha fica registrada. Você preenche durante as 2 noites e, no dia 21, entrega para a sua equipe executar.</p><ul class="deliv__list"><li><span class="deliv__n">01</span><div><b>Ferramenta de Planejamento da Black Friday 10X</b><small>Meta de caixa, oferta e margem da sua campanha escritas em um só lugar.</small></div></li><li><span class="deliv__n">02</span><div><b>Calendário Black Friday 10X</b><small>O que a sua empresa precisa fazer em cada semana até o dia da campanha.</small></div></li><li><span class="deliv__n">03</span><div><b>Manual passo a passo</b><small>O roteiro para desenhar a sua Black Friday do zero, do caixa à execução.</small></div></li></ul><p class="deliv__foot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Tudo liberado para quem garantir a vaga.</p></div></div></div>
+    <div class="deliv rv"><span class="deliv__tag">Incluso na sua inscrição</span><div class="deliv__grid"><figure class="deliv__art"><span class="deliv__glow" aria-hidden="true"></span><div class="mock"><div class="mock__lid"><span class="mock__cam" aria-hidden="true"></span><div class="mock__screen"><img class="kit__img" src="/wp-content/uploads/bf10x-kit.webp" srcset="/wp-content/uploads/bf10x-kit-600x397.webp 600w, /wp-content/uploads/bf10x-kit-768x509.webp 768w, /wp-content/uploads/bf10x-kit-1024x678.webp 1024w, /wp-content/uploads/bf10x-kit.webp 1400w" sizes="(max-width:860px) 92vw, 46vw" alt="Kit Black Friday 10X: planejamento, calendário, canvas e plano de ações" width="1400" height="927" loading="lazy" decoding="async"></div></div><div class="mock__base" aria-hidden="true"><span class="mock__notch"></span></div></div></figure><div class="deliv__body"><span class="deliv__k">O que fica na sua mão</span><h3>A sua Black Friday sai escrita, não anotada.</h3><p class="deliv__sub">A ferramenta de planejamento é onde a sua campanha fica registrada. Você preenche durante as 2 noites e, no dia 21, entrega para a sua equipe executar.</p><ul class="deliv__list"><li><span class="deliv__n">01</span><div><b>Ferramenta de Planejamento da Black Friday 10X</b><small>Meta de caixa, oferta e margem da sua campanha escritas em um só lugar.</small></div></li><li><span class="deliv__n">02</span><div><b>Calendário Black Friday 10X</b><small>O que a sua empresa precisa fazer em cada semana até o dia da campanha.</small></div></li><li><span class="deliv__n">03</span><div><b>Manual passo a passo</b><small>O roteiro para desenhar a sua Black Friday do zero, do caixa à execução.</small></div></li></ul><p class="deliv__foot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Tudo liberado para quem garantir a vaga.</p></div></div></div>
   </div>
 </section>
 
@@ -1341,7 +1346,7 @@ body:has(.bf10x){background:#0b0b0c}.e-con:has(> .e-con-inner .bf10x),.e-con:has
         <p>Agora, Ricardo vai abrir essa experiência para ajudar você a construir a Black Friday da sua empresa.</p>
       </div>
       <!-- FOTO DO RICARDO: trocar a div .ph por <img src="..." alt="Ricardo Nunes"> -->
-      <figure class="speaker__photo"><img src="/wp-content/uploads/bf10x-ricardo-montagem-opt.webp" alt="Ricardo Nunes" width="1100" height="1651" loading="lazy" decoding="async"></figure>
+      <figure class="speaker__photo"><img src="/wp-content/uploads/bf10x-ricardo-montagem-opt.webp" srcset="/wp-content/uploads/bf10x-ricardo-montagem-640.webp 640w, /wp-content/uploads/bf10x-ricardo-montagem-840.webp 840w, /wp-content/uploads/bf10x-ricardo-montagem-opt.webp 1100w" sizes="(max-width:860px) 87vw, 420px" alt="Ricardo Nunes" width="1100" height="1651" loading="lazy" decoding="async"></figure>
     </div>
     <div class="stats rv">
       <div class="stat"><span class="stat__v">R$ 1 <span>Bilhão</span> em vendas</span><span class="stat__l">em uma única Black Friday</span></div>
@@ -1418,7 +1423,7 @@ body:has(.bf10x){background:#0b0b0c}.e-con:has(> .e-con-inner .bf10x),.e-con:has
 </main>
 <footer class="footer">
   <p>© 2026 Grupo R1. Todos os direitos reservados.</p>
-  <img class="footer__r1" src="/wp-content/uploads/bf10x-logo-r1.webp" alt="Grupo R1" width="700" height="197" loading="lazy" decoding="async">
+  <img class="footer__r1" src="/wp-content/uploads/bf10x-logo-r1.webp" srcset="/wp-content/uploads/bf10x-logo-r1-250.webp 250w, /wp-content/uploads/bf10x-logo-r1.webp 700w" sizes="(max-width:860px) 92px, 121px" alt="Grupo R1" width="700" height="197" loading="lazy" decoding="async">
 </footer>
 
 <!-- ============ CTA FIXO MOBILE ============ -->
@@ -1968,3 +1973,9 @@ body:has(.bf10x){background:#0b0b0c}.e-con:has(> .e-con-inner .bf10x),.e-con:has
 })();
 </script>
 <!-- /wp:html -->
+<script>
+/* Otimizacao 15/10/2026: antes de rolar ate uma ancora, monta as secoes que ainda nao foram montadas */
+(function(){var r=document.querySelector('.bf10x');if(!r)return;var monta=function(){r.classList.add('cv-off')};
+document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href^="#"]');if(a&&a.getAttribute('href').length>1)monta();},true);
+if(location.hash.length>1)monta();})();
+</script>

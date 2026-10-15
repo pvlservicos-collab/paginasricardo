@@ -1453,6 +1453,18 @@ body:has(.bf10x){background:#0b0b0c}.e-con:has(> .e-con-inner .bf10x),.e-con:has
 .bf10x #bfModal .bfm__form .hsfc-DropdownOptions__List__ListItem--selected,
 #bfModal .bfm__form .hsfc-DropdownOptions__List__ListItem:hover,
 #bfModal .bfm__form .hsfc-DropdownOptions__List__ListItem--selected{background:rgba(233,177,102,.28) !important;}
+
+/* Otimizacao 15/10/2026 (PageSpeed): secoes longas fora da tela so sao montadas quando chegam perto
+   (content-visibility). Ao clicar numa ancora (#oferta, #bf-form) tudo e montado antes de rolar. */
+.bf10x .cv-auto{content-visibility:auto;contain-intrinsic-size:auto 900px}
+.bf10x.cv-off .cv-auto,.bf10x.cv-off #oferta ~ section{content-visibility:visible}
+
+/* Otimizacao 15/10/2026: o degrade animado dos botoes verdes anda por transform numa camada propria
+   (composta na GPU) em vez de background-position (que redesenhava o botao a cada quadro). Visual igual. */
+.bf10x a.btn-gold,.bf10x button.btn-gold,.bf10x a.btn-gold.btn-lg,.bf10x a.btn-gold.btn-sm,.bf10x a.sticky-cta__btn{animation:none;background:#0e7c2f;position:relative;overflow:hidden;isolation:isolate}
+.bf10x a.btn-gold::before,.bf10x button.btn-gold::before,.bf10x a.sticky-cta__btn::before{content:"";position:absolute;top:0;bottom:0;left:0;width:800%;z-index:-1;pointer-events:none;background:linear-gradient(-45deg,#0e7c2f,#0a6324,#0e7c2f,#0a6324,#0e7c2f,#0a6324);animation:bfGradVerdeT 15s cubic-bezier(.62,.28,.23,.99) infinite both;will-change:transform}
+@keyframes bfGradVerdeT{0%,100%{transform:translateX(0)}50%{transform:translateX(-87.5%)}}
+@media (prefers-reduced-motion:reduce){.bf10x a.btn-gold::before,.bf10x button.btn-gold::before,.bf10x a.sticky-cta__btn::before{animation:none}}
 </style> <style id="fix-topbar-1110">@media (max-width:860px){.bf10x .topbar5{min-height:45px;display:flex;align-items:center;justify-content:center;box-sizing:border-box}}</style>
 <div class="topbar5">Para empresários que faturam pelo menos R$ 200 mil por mês</div>
 <header class="nav">
@@ -1465,7 +1477,7 @@ body:has(.bf10x){background:#0b0b0c}.e-con:has(> .e-con-inner .bf10x),.e-con:has
 </div>
 </header><main id="conteudo"><!-- ============ 01 · HERO (frase do IMG AD02) ============ -->
 <section class="hero">
-<div class="hero__media"><img class="hero__img-desk skip-lazy no-lazy" src="/wp-content/uploads/bf10x-hero-desk3.webp" srcset="/wp-content/uploads/bf10x-hero-desk3-300x152.webp 300w, /wp-content/uploads/bf10x-hero-desk3.webp 1800w" sizes="(max-width:860px) 1px, 1800px" alt="Ricardo Nunes, fundador da Ricardo Eletro e do Grupo R1" width="1800" height="913" data-no-lazy="1" decoding="async" loading="eager" fetchpriority="high"> <img class="hero__img-mob skip-lazy no-lazy" src="/wp-content/uploads/28.webp" sizes="(max-width:860px) 100vw, 1px" srcset="/wp-content/uploads/28-576x1024.webp 576w, /wp-content/uploads/28-768x1365.webp 768w, /wp-content/uploads/28-864x1536.webp 864w, /wp-content/uploads/28.webp 1080w" alt="Ricardo Nunes, fundador da Ricardo Eletro e do Grupo R1" width="1080" height="1920" data-no-lazy="1" decoding="async" loading="eager" fetchpriority="high"></div>
+<div class="hero__media"><img class="hero__img-desk skip-lazy no-lazy" src="/wp-content/uploads/bf10x-hero-desk3.webp" srcset="/wp-content/uploads/bf10x-hero-desk3-300x152.webp 300w, /wp-content/uploads/bf10x-hero-desk3.webp 1800w" sizes="(max-width:860px) 1px, 1800px" alt="Ricardo Nunes, fundador da Ricardo Eletro e do Grupo R1" width="1800" height="913" data-no-lazy="1" decoding="async" loading="eager" fetchpriority="high"> <img class="hero__img-mob skip-lazy no-lazy" fetchpriority="high" loading="eager" src="/wp-content/uploads/28.webp" sizes="(max-width:860px) 100vw, 1px" srcset="/wp-content/uploads/28-576x1024.webp 576w, /wp-content/uploads/28-768x1365.webp 768w, /wp-content/uploads/28-864x1536.webp 864w, /wp-content/uploads/28.webp 1080w" alt="Ricardo Nunes, fundador da Ricardo Eletro e do Grupo R1" width="1080" height="1920" data-no-lazy="1" decoding="async" loading="eager" fetchpriority="high"></div>
 <div class="hero__shade"></div>
 <!-- só no celular: logo e data ao lado da foto -->
 <div class="hero__top"><img class="hero__top-logo skip-lazy no-lazy" src="/wp-content/uploads/bf10x-logo-evento-opt.webp" alt="Black Friday 10X" width="900" height="354" data-no-lazy="1" decoding="async" loading="eager" srcset="/wp-content/uploads/bf10x-logo-evento-320.webp 320w, /wp-content/uploads/bf10x-logo-evento-400.webp 400w, /wp-content/uploads/bf10x-logo-evento-600.webp 600w, /wp-content/uploads/bf10x-logo-evento-opt.webp 900w" sizes="(max-width:860px) 44vw, 240px">
@@ -1492,7 +1504,7 @@ body:has(.bf10x){background:#0b0b0c}.e-con:has(> .e-con-inner .bf10x),.e-con:has
 </div>
 </section>
 <!-- ============ 03 · IDENTIFICAÇÃO ============ --><!-- ============ 04 · MECANISMO ============ --><!-- ============ 05 · COMO FUNCIONAM AS 2 NOITES (implementação) ============ -->
-<section class="sec light" style="padding-bottom: clamp(48px,6vw,80px);">
+<section class="cv-auto sec light" style="padding-bottom: clamp(48px,6vw,80px);">
 <div class="wrap">
 <div class="center"><span class="eyebrow on-light">O que é a Imersão Black 10X</span>
 <h2 style="margin-top:18px;max-width:22ch;margin-left:auto;margin-right:auto">Não é aula para assistir. <b><span>É a sua Black Friday sendo desenhada.</span></b></h2>
@@ -1555,7 +1567,7 @@ body:has(.bf10x){background:#0b0b0c}.e-con:has(> .e-con-inner .bf10x),.e-con:has
 <figure class="deliv__art"><span class="deliv__glow" aria-hidden="true"></span>
 <div class="mock">
 <div class="mock__lid"><span class="mock__cam" aria-hidden="true"></span>
-<div class="mock__screen"><img class="kit__img" src="/wp-content/uploads/bf10x-kit.webp" sizes="(max-width:860px) 92vw, 46vw" srcset="/wp-content/uploads/bf10x-kit-768x509.webp 768w, /wp-content/uploads/bf10x-kit-1024x678.webp 1024w, /wp-content/uploads/bf10x-kit.webp 1400w" alt="Kit Black Friday 10X: planejamento, calendário, canvas e plano de ações" width="1400" height="927" decoding="async" loading="lazy"></div>
+<div class="mock__screen"><img class="kit__img" src="/wp-content/uploads/bf10x-kit.webp" sizes="(max-width:860px) 92vw, 46vw" srcset="/wp-content/uploads/bf10x-kit-600x397.webp 600w, /wp-content/uploads/bf10x-kit-768x509.webp 768w, /wp-content/uploads/bf10x-kit-1024x678.webp 1024w, /wp-content/uploads/bf10x-kit.webp 1400w" alt="Kit Black Friday 10X: planejamento, calendário, canvas e plano de ações" width="1400" height="927" decoding="async" loading="lazy"></div>
 </div>
 <div class="mock__base" aria-hidden="true"><span class="mock__notch"></span></div>
 </div>
@@ -1581,7 +1593,7 @@ body:has(.bf10x){background:#0b0b0c}.e-con:has(> .e-con-inner .bf10x),.e-con:has
 </div>
 </section>
 <!-- ============ 06 · PARA QUEM É ============ -->
-<section class="sec dark sec--fit">
+<section class="cv-auto sec dark sec--fit">
 <div class="wrap wrap--n">
 <div class="center"><span class="eyebrow">Antes de garantir sua vaga</span>
 <h2 style="margin-top:18px">Essa imersão <b><span>é para você?</span></b></h2>
@@ -1749,7 +1761,7 @@ body:has(.bf10x){background:#0b0b0c}.e-con:has(> .e-con-inner .bf10x),.e-con:has
 <h2 style="margin-top:18px">Ricardo Nunes fez da Black Friday um dos <b><span>maiores dias de vendas</span></b> da Ricardo Eletro.</h2>
 <p style="margin-top: 24px;">Na Black Friday, a Ricardo Eletro movimentou<br><b>R$ 1 bilhão em vendas</b> em uma única ação.</p>
 </div>
-<figure class="speaker__photo"><img src="/wp-content/uploads/bf10x-ricardo-montagem-opt.webp" alt="Ricardo Nunes" width="1100" height="1651" decoding="async" loading="lazy"></figure>
+<figure class="speaker__photo"><img src="/wp-content/uploads/bf10x-ricardo-montagem-opt.webp" srcset="/wp-content/uploads/bf10x-ricardo-montagem-640.webp 640w, /wp-content/uploads/bf10x-ricardo-montagem-840.webp 840w, /wp-content/uploads/bf10x-ricardo-montagem-opt.webp 1100w" sizes="(max-width:860px) 87vw, 420px" alt="Ricardo Nunes" width="1100" height="1651" decoding="async" loading="lazy"></figure>
 </div>
 <div class="stats rv">
 <div class="stat"><span class="stat__v">R$ 1 <span>bilhão</span></span><span class="stat__l">em vendas em uma única Black Friday</span></div>
@@ -1812,7 +1824,7 @@ body:has(.bf10x){background:#0b0b0c}.e-con:has(> .e-con-inner .bf10x),.e-con:has
 </div>
 <footer class="footer">
 <p>© 2026 Grupo R1. Todos os direitos reservados.</p>
-<img class="footer__r1" src="/wp-content/uploads/bf10x-logo-r1.webp" alt="Grupo R1" width="700" height="197" decoding="async" loading="lazy"></footer><!-- ============ CTA FIXO MOBILE ============ -->
+<img class="footer__r1" src="/wp-content/uploads/bf10x-logo-r1.webp" srcset="/wp-content/uploads/bf10x-logo-r1-250.webp 250w, /wp-content/uploads/bf10x-logo-r1.webp 700w" sizes="(max-width:860px) 92px, 121px" alt="Grupo R1" width="700" height="197" decoding="async" loading="lazy"></footer><!-- ============ CTA FIXO MOBILE ============ -->
 <div id="bfSticky" class="sticky-cta is-hidden">
 <div class="sticky-cta__info"><b>Gratuito</b><span data-cdlabel-live="">A live começa em</span> <b data-cdlive="">--</b></div>
 <a class="sticky-cta__btn" href="#bf-form" data-checkout-link="1">Quero minha vaga gratuita<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M12 5l7 7-7 7"/></svg>
@@ -1939,3 +1951,9 @@ body:has(.bf10x){background:#0b0b0c}.e-con:has(> .e-con-inner .bf10x),.e-con:has
 })();
 </script>
 <!-- /wp:html -->
+<script>
+/* Otimizacao 15/10/2026: antes de rolar ate uma ancora, monta as secoes que ainda nao foram montadas */
+(function(){var r=document.querySelector('.bf10x');if(!r)return;var monta=function(){r.classList.add('cv-off')};
+document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href^="#"]');if(a&&a.getAttribute('href').length>1)monta();},true);
+if(location.hash.length>1)monta();})();
+</script>
