@@ -1,0 +1,48 @@
+{
+  "dominio": "",
+  "paginas": [
+    {
+      "arquivo": "black10x-v5g.html",
+      "titulo": "Black 10X · v5g",
+      "url": "black10x-v5g",
+      "ativa": true,
+      "ordem": 1,
+      "redirecionarInativaPara": "",
+      "criativo": {
+        "imagem": "",
+        "texto": "",
+        "link": ""
+      },
+      "notas": "Hero com mosaico de fotos. Promessa: faturar em 1 dia o que leva um mês."
+    },
+    {
+      "arquivo": "black10x-v4g.html",
+      "titulo": "Black 10X · v4g",
+      "url": "black10x-v4g",
+      "ativa": true,
+      "ordem": 2,
+      "redirecionarInativaPara": "",
+      "criativo": {
+        "imagem": "",
+        "texto": "",
+        "link": ""
+      },
+      "notas": "Hero com foto do Ricardo e contagem regressiva."
+    },
+    {
+      "arquivo": "black10x-g.html",
+      "titulo": "Black 10X · g",
+      "url": "black10x-g",
+      "ativa": true,
+      "ordem": 3,
+      "redirecionarInativaPara": "",
+      "criativo": {
+        "imagem": "",
+        "texto": "",
+        "link": ""
+      },
+      "notas": "Versão com as 7 decisões, gráfico e faturômetro."
+    }
+  ],
+  "redirecionamentos": []
+}
