@@ -2,7 +2,7 @@
 
 Painel para gerenciar as páginas do Ricardo Nunes: ver todas em grade, lista ou funil (com o criativo ao lado para comparar a copy), conferir se estão no ar, ver métricas por página, ativar/desativar, trocar a URL e trocar o HTML colando direto no painel.
 
-**Endereço:** https://paginasricardo.vercel.app/painel · os usuários ficam no banco (veja *Usuários e segurança*).
+**Endereço:** https://ricardonunes.grupor1.com/painel · os usuários ficam no banco (veja *Usuários e segurança*).
 
 ## Como funciona
 
@@ -12,7 +12,7 @@ Painel para gerenciar as páginas do Ricardo Nunes: ver todas em grade, lista ou
 - As páginas são entregues pela função `api/servir.js` (região São Paulo, `gru1`), com cache de alguns segundos na CDN e na memória. O visitante recebe o HTML pronto, sem nenhum código do painel.
 - O build só envolve o HTML colado num documento completo (`<!doctype>`, `<head>`), levando para o `<head>` as tags `<meta>`/`<link>` do topo, e acrescenta o Pixel da Meta (no `<head>`) e o Clarity (no fim do `<body>`), se configurados. O conteúdo da página não é alterado.
 - O Clarity só baixa no primeiro toque, rolagem ou tecla do visitante, ou 3 segundos depois de a página terminar de abrir (o que vier primeiro).
-- **Atenção:** o pixel tem *permissões de tráfego* na Meta (Gerenciador de Eventos → Configurações → Permissões de tráfego). Ele só dispara nos domínios liberados lá — hoje `lp.grupor1.com`. Em `*.vercel.app` ele é bloqueado pela própria Meta.
+- **Atenção:** o pixel tem *permissões de tráfego* na Meta (Gerenciador de Eventos → Configurações → Permissões de tráfego). Ele só dispara nos domínios liberados lá — libere `ricardonunes.grupor1.com` lá.
 - As visitas são contadas **no servidor** (`middleware.js`). Nenhum script de métrica é colocado na página.
 
 ## Estrutura
@@ -40,7 +40,7 @@ vercel.json
 
 ## Conector do Claude (MCP)
 
-- Endereço: `https://paginasricardo.vercel.app/api/mcp` (no Claude: Configurações → Conectores → Adicionar conector personalizado). Tutorial em PDF na pasta do projeto.
+- Endereço: `https://ricardonunes.grupor1.com/api/mcp` (no Claude: Configurações → Conectores → Adicionar conector personalizado). Tutorial em PDF na pasta do projeto.
 - Login por OAuth: o Claude abre `/api/oauth/autorizar`, a pessoa entra com o usuário do painel e o Claude recebe um token de 1 h (renovado sozinho por até 30 dias). O Claude nunca vê a senha; trocar a senha derruba as conexões.
 - Ferramentas: `listar_opcoes`, `listar_paginas`, `ver_pagina`, `criar_pagina` (exige o domínio escolhido pelo usuário), `atualizar_pagina` (HTML, título, URL, domínio, ativa, pixel, Clarity), `excluir_pagina` (exige `confirmar=true`), `analisar_imagens` (no app × domínios externos), `migrar_imagens` (traz as externas para o Blob e troca os links), `importar_imagem`, `listar_imagens`.
 - Mesmas regras e permissões do painel (lib/operacoes.mjs); tudo vai para a tabela `eventos` com `origem: claude`; limite de 300 alterações por hora por usuário; download de imagens bloqueia endereços internos (anti-SSRF) e só aceita JPG/PNG/WEBP/GIF/AVIF.
