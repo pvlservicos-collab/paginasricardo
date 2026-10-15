@@ -12,7 +12,8 @@ As páginas são publicadas como **HTML estático puro**. Nada do painel entra n
 - Quando você muda algo no painel, ele grava um commit no GitHub e a Vercel gera de novo os arquivos estáticos (≈30 s). O visitante sempre recebe um HTML pronto, sem banco de dados e sem script extra.
 - As visitas são contadas **no servidor** (`middleware.js`), depois de a página já ter sido entregue. Nenhum script de métrica é colocado na página.
 - O build só envolve o HTML colado num documento completo (`<!doctype>`, `<head>`), levando para o `<head>` as tags `<meta>`/`<link>` do topo, e coloca no fim do `<body>` o Pixel da Meta e o Clarity (se configurados). O conteúdo da página não é alterado.
-- O Pixel da Meta e o Clarity registram a visita assim que a página abre, mas os scripts deles (~150 KB) só baixam no primeiro toque, rolagem ou tecla do visitante, ou 3 segundos depois de a página terminar de abrir (o que vier primeiro), para não atrasar o carregamento.
+- O Pixel da Meta entra no `<head>` com o código oficial do Gerenciador de Eventos. O Clarity só baixa no primeiro toque, rolagem ou tecla do visitante, ou 3 segundos depois de a página terminar de abrir (o que vier primeiro).
+- **Atenção:** o pixel tem *permissões de tráfego* na Meta (Gerenciador de Eventos → Configurações → Permissões de tráfego). Ele só dispara nos domínios liberados lá — hoje `lp.grupor1.com`. Em `*.vercel.app` ele é bloqueado pela própria Meta.
 
 ## Estrutura
 
