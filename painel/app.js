@@ -600,7 +600,7 @@ function abrirNova() {
 }
 
 function abrirDominio() {
-  const md = modal({ titulo: 'Domínios, pixels e Clarity', largo: false, corpo: '<div id="cad-listas"></div>', pe: '<button class="bt" data-fechar>Fechar</button>' });
+  const md = modal({ titulo: 'Domínios, pixels, Clarity e GTM', largo: false, corpo: '<div id="cad-listas"></div>', pe: '<button class="bt" data-fechar>Fechar</button>' });
   const pinta = () => {
     const c = E.cfg;
     const bloco = (tipo, titulo, itens, padrao, dica) => `<div class="cad-bloco"><div class="bloco-tit"><h4>${titulo}</h4>${tipo !== 'dominio' || ehAdmin() ? `<button class="bt bt-sm" data-cad-add="${tipo}">${I.mais}Adicionar</button>` : ''}</div>
@@ -609,7 +609,8 @@ function abrirDominio() {
     $('#cad-listas', md.el).innerHTML =
       bloco('dominio', 'Domínios', (c.dominios || []).map((d) => ({ id: d })), (c.dominio || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '') || c.dominios?.[0], 'O domínio também precisa estar em Vercel → Settings → Domains, com o DNS apontado. Cada página escolhe o seu na lista suspensa.') +
       bloco('pixel', 'Pixels da Meta', c.pixels || [], c.pixelMeta, 'O padrão vai nas páginas novas. Cada página escolhe o seu na lista suspensa azul.') +
-      bloco('clarity', 'Microsoft Clarity', c.clarities || [], c.clarity, 'O padrão vai nas páginas novas. Cada página escolhe o seu na lista suspensa branca.');
+      bloco('clarity', 'Microsoft Clarity', c.clarities || [], c.clarity, 'O padrão vai nas páginas novas. Cada página escolhe o seu na lista suspensa branca.') +
+      bloco('gtm', 'Google Tag Manager', c.gtms || [], c.gtm, 'Carrega sem travar a página (no 1º toque/rolagem ou 6 s após abrir). Cada página escolhe o seu na lista suspensa verde.');
   };
   pinta();
   const recarregar = async (msg) => { await carregarPaginas(E.vista === 'funil'); pinta(); render(); toast(msg, 'ok'); };
@@ -660,7 +661,7 @@ async function enviarCriativo(slug, arquivo) {
 // Listas suspensas em cada página: domínio (cinza), pixel (azul) e Clarity (branca), com "+ Adicionar…".
 // Se o código da própria página já traz um pixel/Clarity, ele aparece fixo (não dá para trocar pelo painel).
 function tagsRastreio(p) {
-  const r = E.rastreio[p.slug] || { pixel: [], clarity: [] };
+  const r = { pixel: [], clarity: [], gtm: [], ...(E.rastreio[p.slug] || {}) };
   const off = E.podeGravar ? '' : 'disabled';
   const fixos = (tipo) => r[tipo].filter((x) => x.origem === 'pagina');
   const sel = (tipo, rotulo, lista, padrao, classe) => {
@@ -672,7 +673,7 @@ function tagsRastreio(p) {
   const host = E.hosts?.[p.slug] || E.hostPadrao || location.host;
   const doms = E.cfg.dominios?.length ? E.cfg.dominios : [host];
   const dom = `<select class="tag-sel tag-dom" data-sel="dominio" data-slug="${p.slug}" ${off} title="Domínio onde a página fica no ar">${doms.map((d) => `<option value="${h(d)}" ${d === host ? 'selected' : ''}>${h(d)}</option>`).join('')}${ehAdmin() ? '<option value="__novo">+ Adicionar domínio…</option>' : ''}</select>`;
-  return `<div class="tags">${dom}${sel('pixel', 'Pixel', E.cfg.pixels || [], E.cfg.pixelMeta, 'tag-px')}${sel('clarity', 'Clarity', E.cfg.clarities || [], E.cfg.clarity, 'tag-cl')}</div>`;
+  return `<div class="tags">${dom}${sel('pixel', 'Pixel', E.cfg.pixels || [], E.cfg.pixelMeta, 'tag-px')}${sel('clarity', 'Clarity', E.cfg.clarities || [], E.cfg.clarity, 'tag-cl')}${sel('gtm', 'GTM', E.cfg.gtms || [], E.cfg.gtm, 'tag-gtm')}</div>`;
 }
 
 // Cadastrar pixel, Clarity ou domínio (da opção "+ Adicionar…"). Devolve o ID cadastrado ou null.
@@ -680,6 +681,7 @@ function abrirCadastro(tipo) {
   const info = {
     pixel: ['Adicionar pixel da Meta', 'ID do pixel', '554651949023828', 'Gerenciador de Eventos → Fontes de dados → o número do pixel.'],
     clarity: ['Adicionar Clarity', 'ID do projeto Clarity', 'yy6pgr4e6u', 'clarity.microsoft.com → Configurações → ID do projeto (ou cole o código de instalação).'],
+    gtm: ['Adicionar Google Tag Manager', 'ID do contêiner', 'GTM-XXXXXXX', 'tagmanager.google.com → o ID que começa com GTM-. Se o GTM também tiver o pixel da Meta, desligue o pixel da página para não contar em dobro.'],
     dominio: ['Adicionar domínio', 'Domínio', 'lp.seudominio.com.br', 'Ele também precisa estar em Vercel → Settings → Domains (com o DNS apontado). Peça ao administrador se não souber.'],
   }[tipo];
   return new Promise((ok) => {
@@ -697,7 +699,7 @@ function abrirCadastro(tipo) {
       e.target.disabled = true;
       try {
         const r = await api('paginas', { method: 'POST', body: { acao: 'cadastrar', tipo, id: $('#cad-id', md.el).value, nome: $('#cad-nome', md.el)?.value || '', padrao: $('#cad-padrao', md.el).checked } });
-        const lista = tipo === 'pixel' ? r.pixels : tipo === 'clarity' ? r.clarities : r.dominios.map((d) => ({ id: d }));
+        const lista = tipo === 'pixel' ? r.pixels : tipo === 'clarity' ? r.clarities : tipo === 'gtm' ? r.gtms : r.dominios.map((d) => ({ id: d }));
         md.fechar();
         ok(lista[lista.length - 1]?.id || null);
       } catch (err) { toast(err.message, 'bad'); e.target.disabled = false; }
@@ -717,7 +719,7 @@ async function trocarSeletor(t) {
     await api('pagina', { method: 'PATCH', body: { slug, [tipo]: valor } });
     await carregarPaginas(E.vista === 'funil');
     renderVista(false);
-    toast(tipo === 'dominio' ? `/${p.url} agora fica em ${valor}.` : `${tipo === 'pixel' ? 'Pixel' : 'Clarity'} de /${p.url} atualizado. Já está no ar.`, 'ok');
+    toast(tipo === 'dominio' ? `/${p.url} agora fica em ${valor}.` : `${{ pixel: 'Pixel', clarity: 'Clarity', gtm: 'GTM' }[tipo]} de /${p.url} atualizado. Já está no ar.`, 'ok');
   } catch (e) { toast(e.message, 'bad'); renderVista(false); }
 }
 

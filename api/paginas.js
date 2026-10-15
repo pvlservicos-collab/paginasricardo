@@ -56,14 +56,14 @@ export const POST = protegido(async (request, url, usuario) => {
   const quem = { login: usuario.login, papel: usuario.papel, ip: ipDe(request), origem: 'painel', hostAtual: (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').replace(/:[0-9]+$/, '') };
 
   if (d.acao === 'criar') {
-    const { pagina } = await criarPagina({ url: d.url, titulo: d.titulo, html: d.html, ativa: d.ativa, dominio: d.dominio, pixel: d.pixel, clarity: d.clarity }, quem);
+    const { pagina } = await criarPagina({ url: d.url, titulo: d.titulo, html: d.html, ativa: d.ativa, dominio: d.dominio, pixel: d.pixel, clarity: d.clarity, gtm: d.gtm }, quem);
     return json({ ok: true, sha: null, url: pagina.url, slug: pagina.slug });
   }
 
   // listas suspensas: cadastrar/remover pixel, Clarity ou domínio
   if (d.acao === 'cadastrar') {
     const c = await cadastrar(String(d.tipo || ''), { id: d.id, nome: d.nome, padrao: d.padrao }, quem);
-    return json({ ok: true, pixels: c.pixels, clarities: c.clarities, dominios: c.dominios });
+    return json({ ok: true, pixels: c.pixels, clarities: c.clarities, gtms: c.gtms, dominios: c.dominios });
   }
   if (d.acao === 'descadastrar') {
     await descadastrar(String(d.tipo || ''), String(d.id || ''), quem);

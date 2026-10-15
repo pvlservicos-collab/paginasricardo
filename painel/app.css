@@ -324,3 +324,5 @@ td .tags{margin-top:6px}
 .cad-padrao{margin-left:auto;font-style:normal;font-size:11px;font-weight:700;color:var(--ok);background:var(--ok-soft);padding:2px 8px;border-radius:999px}
 .passos{margin:0 0 12px;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px}
 #mcp-url{font-family:var(--fm);font-size:13px}
+
+.tag-sel.tag-gtm{background-color:#1e8e3e;color:#fff;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23fff' stroke-width='1.6'/%3E%3C/svg%3E")}

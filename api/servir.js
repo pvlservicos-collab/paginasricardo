@@ -53,7 +53,9 @@ export async function GET(request) {
       if (!p.ativa) return resposta(p.redirecionarInativaPara ? documentoRedirecionamento(p.redirecionarInativaPara, p.titulo) : documentoInativo(p.titulo));
       const h = await html(p.arquivo);
       if (h == null) return resposta(documentoInativo(p.titulo), 404);
-      return resposta(montarDocumento(h, p.titulo, rastreioDaPagina(p, cfg)));
+      const rastreio = rastreioDaPagina(p, cfg);
+      rastreio.capi = Boolean(rastreio.pixelMeta && process.env[`META_CAPI_TOKEN_${rastreio.pixelMeta}`]);
+      return resposta(montarDocumento(h, p.titulo, rastreio));
     }
     // URLs antigas continuam levando para a nova (mantém UTMs dos anúncios já rodando)
     const r = cfg.redirecionamentos.find((x) => normalizarUrl(x.de) === caminho);

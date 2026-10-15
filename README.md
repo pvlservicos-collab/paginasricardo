@@ -45,6 +45,11 @@ vercel.json
 - Ferramentas: `listar_opcoes`, `listar_paginas`, `ver_pagina`, `criar_pagina` (exige o domínio escolhido pelo usuário), `atualizar_pagina` (HTML, título, URL, domínio, ativa, pixel, Clarity), `excluir_pagina` (exige `confirmar=true`), `analisar_imagens` (no app × domínios externos), `migrar_imagens` (traz as externas para o Blob e troca os links), `importar_imagem`, `listar_imagens`.
 - Mesmas regras e permissões do painel (lib/operacoes.mjs); tudo vai para a tabela `eventos` com `origem: claude`; limite de 300 alterações por hora por usuário; download de imagens bloqueia endereços internos (anti-SSRF) e só aceita JPG/PNG/WEBP/GIF/AVIF.
 
+## API de Conversões da Meta e Google Tag Manager
+
+- **API de Conversões:** se existir a variável `META_CAPI_TOKEN_<id do pixel>` na Vercel (secreta), cada PageView sai também pelo servidor (`/api/capi`), com o mesmo `eventID` do pixel do navegador (a Meta deduplica). A página só manda um beacon de ~300 bytes logo após abrir; o token nunca vai para a página. Para testar no Gerenciador de Eventos, crie `META_CAPI_TEST_CODE` com o código da aba "Testar eventos" (e apague depois).
+- **Google Tag Manager:** cadastre o ID (GTM-XXXXXXX) em **Domínios e pixels** e escolha por página (lista verde). O `dataLayer` existe desde o início; o `gtm.js` baixa junto com o pixel e o Clarity (1º gesto ou 6 s após abrir). Se o GTM também tiver o pixel da Meta, deixe a página "sem pixel" para não contar em dobro.
+
 ## Domínios, pixels e Clarity
 
 - Cada página tem o seu domínio, pixel e Clarity (listas suspensas no card da página, com “+ Adicionar…”). Os cadastros e os padrões ficam em **Domínios e pixels** no painel.

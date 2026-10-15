@@ -17,7 +17,7 @@ const aviso = (msg) => Object.assign(new Error(msg), { status: 400 }); // erro q
 const INSTRUCOES = `Este conector publica e edita landing pages no Painel de Páginas (Grupo R1).
 Regras de uso:
 1. Antes de CRIAR uma página, chame listar_opcoes e PERGUNTE ao usuário em qual domínio publicar, mostrando a lista de domínios como opções numeradas (e o padrão). Se houver mais de um pixel ou Clarity, pergunte também qual usar. Nunca escolha o domínio sozinho.
-2. Mande o HTML completo e responsivo (pode ser um documento <!DOCTYPE html> inteiro). Não coloque o código do Pixel da Meta nem do Clarity no HTML: o sistema adiciona sozinho o que foi escolhido.
+2. Mande o HTML completo e responsivo (pode ser um documento <!DOCTYPE html> inteiro). Não coloque o código do Pixel da Meta, do Clarity nem do Google Tag Manager no HTML: o sistema adiciona sozinho o que foi escolhido (sem deixar a página lenta) e envia o PageView também pela API de Conversões.
 3. Depois de criar ou atualizar, mostre o relatório de imagens ao usuário: quantas já estão no nosso app e quantas vêm de domínios externos (diga quais domínios). Se houver externas, ofereça migrá-las com migrar_imagens para que tudo fique hospedado no nosso app.
 4. Para usar uma imagem nova, envie-a com importar_imagem e use o link /wp-content/uploads/... que ela devolver.
 5. Para trocar o domínio de uma página, use atualizar_pagina com o campo dominio (pergunte ao usuário antes).
@@ -29,6 +29,7 @@ function ferramentas(cfg, hostAtual) {
   const doms = cfg.dominios.length ? cfg.dominios : [hostPadrao(cfg, hostAtual)].filter(Boolean);
   const pix = ['nenhum', 'padrao', ...cfg.pixels.map((x) => x.id)];
   const cla = ['nenhum', 'padrao', ...cfg.clarities.map((x) => x.id)];
+  const gtm = ['nenhum', 'padrao', ...cfg.gtms.map((x) => x.id)];
   const pagina = { type: 'string', description: 'URL da página (ex.: "black10x-v6" ou o link completo).' };
   return [
     { name: 'listar_opcoes', title: 'Domínios, pixels e Clarity disponíveis',
@@ -53,10 +54,11 @@ function ferramentas(cfg, hostAtual) {
         ativa: { type: 'boolean', default: true, description: 'false = cria desativada.' },
         pixel: { type: 'string', enum: pix, description: 'Pixel da Meta (padrão = o do painel; nenhum = sem pixel).' },
         clarity: { type: 'string', enum: cla, description: 'Clarity (padrão = o do painel; nenhum = sem Clarity).' },
+        gtm: { type: 'string', enum: gtm, description: 'Google Tag Manager (padrão = o do painel; nenhum = sem GTM).' },
       }, required: ['url', 'dominio', 'html'], additionalProperties: false },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false } },
     { name: 'atualizar_pagina', title: 'Editar página',
-      description: 'Altera uma página existente: HTML, título, URL (a antiga continua redirecionando), domínio, ativa/desativada, pixel ou Clarity. Só os campos enviados mudam.',
+      description: 'Altera uma página existente: HTML, título, URL (a antiga continua redirecionando), domínio, ativa/desativada, pixel, Clarity ou GTM. Só os campos enviados mudam.',
       inputSchema: { type: 'object', properties: {
         pagina,
         html: { type: 'string', description: 'HTML novo completo (opcional).' },
@@ -66,6 +68,7 @@ function ferramentas(cfg, hostAtual) {
         ativa: { type: 'boolean' },
         pixel: { type: 'string', enum: pix },
         clarity: { type: 'string', enum: cla },
+        gtm: { type: 'string', enum: gtm },
       }, required: ['pagina'], additionalProperties: false },
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false } },
     { name: 'excluir_pagina', title: 'Excluir página',
@@ -99,6 +102,7 @@ const resumoPagina = (p, cfg, hostAtual, rastreio) => ({
   url: p.url, titulo: p.titulo, dominio: hostDaPagina(p, cfg, hostAtual), link: linkDaPagina(p, cfg, hostAtual), ativa: p.ativa,
   pixel: rastreio?.pixel?.map((x) => x.id).join(', ') || rastreioDaPagina(p, cfg).pixelMeta || 'nenhum',
   clarity: rastreio?.clarity?.map((x) => x.id).join(', ') || rastreioDaPagina(p, cfg).clarity || 'nenhum',
+  gtm: rastreio?.gtm?.map((x) => x.id).join(', ') || rastreioDaPagina(p, cfg).gtm || 'nenhum',
 });
 
 const resumoImagens = (r) => {
@@ -124,6 +128,8 @@ async function executar(nome, a, ctx) {
         dominios: doms.map((d) => ({ dominio: d, padrao: d === hostPadrao(cfg, hostAtual) })),
         pixels: cfg.pixels.map((x) => ({ ...x, padrao: x.id === cfg.pixelMeta })),
         clarities: cfg.clarities.map((x) => ({ ...x, padrao: x.id === cfg.clarity })),
+        gtms: cfg.gtms.map((x) => ({ ...x, padrao: x.id === cfg.gtm })),
+        api_de_conversoes: cfg.pixels.filter((x) => process.env[`META_CAPI_TOKEN_${x.id}`]).map((x) => x.id),
         lembrete: 'Pergunte ao usuário em qual domínio publicar antes de criar a página.',
       };
     }
@@ -145,7 +151,7 @@ async function executar(nome, a, ctx) {
       await limiteAlteracoes(usuario);
       if (!a.dominio) throw aviso(`Pergunte ao usuário em qual domínio publicar. Opções: ${(ctx.cfg.dominios.length ? ctx.cfg.dominios : [hostPadrao(ctx.cfg, hostAtual)]).join(', ')}.`);
       const dominio = limparHost(a.dominio) === hostPadrao(ctx.cfg, hostAtual) && !ctx.cfg.dominios.length ? undefined : a.dominio;
-      const { cfg, pagina, html } = await criarPagina({ url: a.url, titulo: a.titulo, html: a.html, ativa: a.ativa, dominio, pixel: a.pixel, clarity: a.clarity }, quem);
+      const { cfg, pagina, html } = await criarPagina({ url: a.url, titulo: a.titulo, html: a.html, ativa: a.ativa, dominio, pixel: a.pixel, clarity: a.clarity, gtm: a.gtm }, quem);
       return {
         ok: true, mensagem: 'Página publicada.', pagina: resumoPagina(pagina, cfg, hostAtual),
         imagens: resumoImagens(await relatorioImagens(html, { hostsApp: [hostAtual, ...cfg.dominios] })),
@@ -154,7 +160,7 @@ async function executar(nome, a, ctx) {
     case 'atualizar_pagina': {
       await limiteAlteracoes(usuario);
       const { cfg, pagina, html, mudancas } = await atualizarPagina(a.pagina, {
-        html: a.html, titulo: a.titulo, url: a.nova_url, dominio: a.dominio, ativa: a.ativa, pixel: a.pixel, clarity: a.clarity,
+        html: a.html, titulo: a.titulo, url: a.nova_url, dominio: a.dominio, ativa: a.ativa, pixel: a.pixel, clarity: a.clarity, gtm: a.gtm,
       }, quem);
       return {
         ok: true, mudancas, pagina: resumoPagina(pagina, cfg, hostAtual),
