@@ -666,7 +666,7 @@ function tagsRastreio(p) {
   const sel = (tipo, rotulo, lista, padrao, classe) => {
     if (fixos(tipo).length) return fixos(tipo).map((x) => `<span class="tag ${classe}" title="Está no código da página">${rotulo} ${h(x.id)}</span>`).join('');
     const atual = p[tipo] === 'nenhum' ? 'nenhum' : (p[tipo] || padrao || 'nenhum');
-    const opcoes = lista.map((x) => `<option value="${h(x.id)}" ${x.id === atual ? 'selected' : ''}>${rotulo} ${h(x.id)}${x.nome ? ' · ' + h(x.nome) : ''}${x.id === padrao ? ' (padrão)' : ''}</option>`).join('');
+    const opcoes = lista.map((x) => `<option value="${h(x.id)}" ${x.id === atual ? 'selected' : ''}>${rotulo} ${h(x.id)}${lista.length > 1 && x.nome ? ' · ' + h(x.nome) : ''}</option>`).join('');
     return `<select class="tag-sel ${classe} ${atual === 'nenhum' ? 'vazio' : ''}" data-sel="${tipo}" data-slug="${p.slug}" ${off} title="${rotulo} desta página">${opcoes}<option value="nenhum" ${atual === 'nenhum' ? 'selected' : ''}>Sem ${rotulo.toLowerCase()}</option><option value="__novo">+ Adicionar ${rotulo.toLowerCase()}…</option></select>`;
   };
   const host = E.hosts?.[p.slug] || E.hostPadrao || location.host;

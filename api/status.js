@@ -29,5 +29,5 @@ export const GET = protegido(async (request) => {
       return { slug: p.slug, url: alvo, http: 0, ms: Date.now() - inicio, estado: 'fora', erro: e.name === 'TimeoutError' ? 'sem resposta em 10s' : e.message };
     }
   }));
-  return json({ base, verificadoEm: new Date().toISOString(), resultados });
+  return json({ verificadoEm: new Date().toISOString(), resultados });
 });
