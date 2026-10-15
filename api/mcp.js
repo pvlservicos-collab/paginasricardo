@@ -55,6 +55,7 @@ function ferramentas(cfg, hostAtual) {
         pixel: { type: 'string', enum: pix, description: 'Pixel da Meta (padrão = o do painel; nenhum = sem pixel).' },
         clarity: { type: 'string', enum: cla, description: 'Clarity (padrão = o do painel; nenhum = sem Clarity).' },
         gtm: { type: 'string', enum: gtm, description: 'Google Tag Manager (padrão = o do painel; nenhum = sem GTM).' },
+        grupo: { type: 'string', description: 'Título do grupo onde a página entra no painel (opcional; cria se não existir).' },
       }, required: ['url', 'dominio', 'html'], additionalProperties: false },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false } },
     { name: 'atualizar_pagina', title: 'Editar página',
@@ -69,6 +70,7 @@ function ferramentas(cfg, hostAtual) {
         pixel: { type: 'string', enum: pix },
         clarity: { type: 'string', enum: cla },
         gtm: { type: 'string', enum: gtm },
+        grupo: { type: 'string', description: 'Título do grupo ("nenhum" tira do grupo).' },
       }, required: ['pagina'], additionalProperties: false },
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false } },
     { name: 'excluir_pagina', title: 'Excluir página',
@@ -99,7 +101,7 @@ function ferramentas(cfg, hostAtual) {
 }
 
 const resumoPagina = (p, cfg, hostAtual, rastreio) => ({
-  url: p.url, titulo: p.titulo, dominio: hostDaPagina(p, cfg, hostAtual), link: linkDaPagina(p, cfg, hostAtual), ativa: p.ativa,
+  url: p.url, titulo: p.titulo, grupo: cfg.grupos.find((g) => g.id === p.grupo)?.titulo || null, dominio: hostDaPagina(p, cfg, hostAtual), link: linkDaPagina(p, cfg, hostAtual), ativa: p.ativa,
   pixel: rastreio?.pixel?.map((x) => x.id).join(', ') || rastreioDaPagina(p, cfg).pixelMeta || 'nenhum',
   clarity: rastreio?.clarity?.map((x) => x.id).join(', ') || rastreioDaPagina(p, cfg).clarity || 'nenhum',
   gtm: rastreio?.gtm?.map((x) => x.id).join(', ') || rastreioDaPagina(p, cfg).gtm || 'nenhum',
@@ -129,6 +131,7 @@ async function executar(nome, a, ctx) {
         pixels: cfg.pixels.map((x) => ({ ...x, padrao: x.id === cfg.pixelMeta })),
         clarities: cfg.clarities.map((x) => ({ ...x, padrao: x.id === cfg.clarity })),
         gtms: cfg.gtms.map((x) => ({ ...x, padrao: x.id === cfg.gtm })),
+        grupos: cfg.grupos.map((g) => g.titulo),
         api_de_conversoes: cfg.pixels.filter((x) => process.env[`META_CAPI_TOKEN_${x.id}`]).map((x) => x.id),
         lembrete: 'Pergunte ao usuário em qual domínio publicar antes de criar a página.',
       };
@@ -151,7 +154,7 @@ async function executar(nome, a, ctx) {
       await limiteAlteracoes(usuario);
       if (!a.dominio) throw aviso(`Pergunte ao usuário em qual domínio publicar. Opções: ${(ctx.cfg.dominios.length ? ctx.cfg.dominios : [hostPadrao(ctx.cfg, hostAtual)]).join(', ')}.`);
       const dominio = limparHost(a.dominio) === hostPadrao(ctx.cfg, hostAtual) && !ctx.cfg.dominios.length ? undefined : a.dominio;
-      const { cfg, pagina, html } = await criarPagina({ url: a.url, titulo: a.titulo, html: a.html, ativa: a.ativa, dominio, pixel: a.pixel, clarity: a.clarity, gtm: a.gtm }, quem);
+      const { cfg, pagina, html } = await criarPagina({ url: a.url, titulo: a.titulo, html: a.html, ativa: a.ativa, dominio, pixel: a.pixel, clarity: a.clarity, gtm: a.gtm, grupo: a.grupo }, quem);
       return {
         ok: true, mensagem: 'Página publicada.', pagina: resumoPagina(pagina, cfg, hostAtual),
         imagens: resumoImagens(await relatorioImagens(html, { hostsApp: [hostAtual, ...cfg.dominios] })),
@@ -159,8 +162,9 @@ async function executar(nome, a, ctx) {
     }
     case 'atualizar_pagina': {
       await limiteAlteracoes(usuario);
+      acharPagina(ctx.cfg, a.pagina); // só páginas reais (nunca o laboratório)
       const { cfg, pagina, html, mudancas } = await atualizarPagina(a.pagina, {
-        html: a.html, titulo: a.titulo, url: a.nova_url, dominio: a.dominio, ativa: a.ativa, pixel: a.pixel, clarity: a.clarity, gtm: a.gtm,
+        html: a.html, titulo: a.titulo, url: a.nova_url, dominio: a.dominio, ativa: a.ativa, pixel: a.pixel, clarity: a.clarity, gtm: a.gtm, grupo: a.grupo,
       }, quem);
       return {
         ok: true, mudancas, pagina: resumoPagina(pagina, cfg, hostAtual),
@@ -168,6 +172,7 @@ async function executar(nome, a, ctx) {
       };
     }
     case 'excluir_pagina': {
+      acharPagina(ctx.cfg, a.pagina); // só páginas reais (nunca o laboratório)
       if (a.confirmar !== true) throw aviso('Confirme com o usuário e envie confirmar=true para excluir.');
       await limiteAlteracoes(usuario);
       const { pagina } = await excluirPagina(a.pagina, quem);
@@ -280,7 +285,8 @@ export async function POST(request) {
     usuario,
     ip: ipDe(request),
     hostAtual: (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').replace(/:[0-9]+$/, ''),
-    config: () => (cfgPromessa ||= carregarConfig()),
+    // o Claude do usuário só enxerga as páginas reais (o laboratório oculto fica de fora)
+    config: () => (cfgPromessa ||= carregarConfig().then((c) => { c.paginas = c.paginas.filter((p) => !p.lab); return c; })),
   };
   const lote = Array.isArray(corpo);
   const msgs = (lote ? corpo : [corpo]).slice(0, 20);

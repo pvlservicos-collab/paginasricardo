@@ -326,3 +326,17 @@ td .tags{margin-top:6px}
 #mcp-url{font-family:var(--fm);font-size:13px}
 
 .tag-sel.tag-gtm{background-color:#1e8e3e;color:#fff;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23fff' stroke-width='1.6'/%3E%3C/svg%3E")}
+
+/* ---------- grupos ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px}
+.chip{border:1px solid var(--line2);background:var(--s1);color:var(--mut);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600}
+.chip b{color:var(--tx);font-weight:700;margin-left:2px}
+.chip:hover{color:var(--tx)}
+.chip.on{background:var(--gold-soft);border-color:rgba(233,177,102,.45);color:var(--gold-lt)}
+.grupo-tit{display:flex;align-items:center;gap:12px;margin:22px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.grupo-tit h2{margin:0;font-family:var(--fd);font-size:19px}
+.grupo-tit .bt{margin-left:auto}
+.vazio-grupo{padding:14px 16px;border:1px dashed var(--line2);border-radius:12px;font-size:13.5px;margin-bottom:8px}
+.tag-sel.tag-grupo{background-color:var(--gold-soft);color:var(--gold-lt);border:1px solid rgba(233,177,102,.4);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23e9b166' stroke-width='1.6'/%3E%3C/svg%3E")}
+.grupo-paginas{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto;padding:10px;border:1px solid var(--line);border-radius:12px;margin-top:10px}
+.grupo-paginas .chave{font-size:13.5px;color:var(--tx)}

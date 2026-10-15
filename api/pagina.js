@@ -34,7 +34,7 @@ export const PATCH = protegido(async (request, url, usuario) => {
   const { pagina } = await atualizarPagina(d.slug, {
     titulo: d.titulo, url: d.url, manterRedirecionamento: d.manterRedirecionamento, ativa: d.ativa,
     redirecionarInativaPara: d.redirecionarInativaPara, notas: d.notas, criativo: d.criativo,
-    dominio: d.dominio, pixel: d.pixel, clarity: d.clarity, gtm: d.gtm,
+    dominio: d.dominio, pixel: d.pixel, clarity: d.clarity, gtm: d.gtm, grupo: d.grupo,
   }, quem(usuario, request));
   return json({ ok: true, sha: null, pagina });
 });

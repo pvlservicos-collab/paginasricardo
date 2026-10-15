@@ -33,7 +33,7 @@ const I = {
 const E = {
   cfg: null, usuario: null, rastreio: {}, podeGravar: false, usandoGitHub: false, temRedis: false, temHubspot: false,
   deploy: {}, publicando: false, versao: Date.now().toString(36),
-  imagens: null, otimizar: true,
+  imagens: null, otimizar: true, filtroGrupo: (() => { try { return localStorage.getItem('r1-filtro-grupo') || 'todos'; } catch { return 'todos'; } })(),
   status: {}, verificando: false, metricas: null, dias: 7, copias: null, psi: {},
   vista: 'grade', previa: 'celular', funilPrevia: true,
 };
@@ -278,20 +278,37 @@ function topo(titulo, sub, acoes = '') {
 
 const botoesPadrao = () => `
   <button class="bt" data-acao="status" ${E.verificando ? 'disabled' : ''}>${I.pulso}${E.verificando ? 'Verificando…' : 'Verificar status'}</button>
+  <button class="bt" data-acao="grupos">${I.grade}Grupos</button>
   <button class="bt" data-acao="massa" ${E.podeGravar ? '' : 'disabled'}>${I.mais}Adicionar em massa</button>
   <button class="bt bt-ouro" data-acao="nova" ${E.podeGravar ? '' : 'disabled'}>${I.mais}Nova página</button>`;
 
+/* ================= grupos (só organização do painel) ================= */
+const grupoDe = (p) => (E.cfg.grupos || []).find((g) => g.id === p.grupo);
+// Divide as páginas em seções por grupo, respeitando o filtro escolhido no topo.
+function secoesPorGrupo(ps) {
+  const grupos = E.cfg.grupos || [];
+  if (!grupos.length) return [{ id: null, titulo: null, paginas: ps }];
+  const f = E.filtroGrupo || 'todos';
+  const secs = grupos.map((g) => ({ id: g.id, titulo: g.titulo, paginas: ps.filter((p) => p.grupo === g.id) }));
+  secs.push({ id: 'sem', titulo: 'Sem grupo', paginas: ps.filter((p) => !grupoDe(p)) });
+  const escolhidas = f === 'todos' ? secs.filter((x) => x.paginas.length || x.id !== 'sem') : secs.filter((x) => x.id === f);
+  return escolhidas.length ? escolhidas : secs;
+}
+function filtrosGrupo() {
+  const grupos = E.cfg.grupos || [];
+  if (!grupos.length) return '';
+  const f = E.filtroGrupo || 'todos';
+  const n = (id) => E.cfg.paginas.filter((p) => (id === 'sem' ? !grupoDe(p) : p.grupo === id)).length;
+  const chip = (id, t, qtd) => `<button class="chip ${f === id ? 'on' : ''}" data-acao="filtro-grupo" data-v="${h(id)}">${h(t)} <b>${qtd}</b></button>`;
+  return `<div class="chips">${chip('todos', 'Todos', E.cfg.paginas.length)}${grupos.map((g) => chip(g.id, g.titulo, n(g.id))).join('')}${chip('sem', 'Sem grupo', n('sem'))}</div>`;
+}
+const tituloSecao = (x) => (x.titulo == null ? '' : `<div class="grupo-tit"><h2>${h(x.titulo)}</h2><span class="mut">${x.paginas.length} página(s)</span>${x.id !== 'sem' && E.podeGravar ? `<button class="bt bt-sm" data-acao="grupo-editar" data-v="${h(x.id)}">Editar grupo</button>` : ''}</div>`);
+const vazioSecao = '<div class="vazio-grupo mut">Nenhuma página neste grupo ainda. Use “Editar grupo” ou a lista suspensa de grupo em cada página.</div>';
+
 /* ================= vista: grade ================= */
-function vistaGrade() {
-  const ps = E.cfg.paginas;
-  const no = ps.filter((p) => E.status[p.slug]?.estado === 'online').length;
-  const sub = `${ps.length} página(s) · ${no} no ar · ${ps.filter((p) => !p.ativa).length} desativada(s)`;
-  const seg = `<div class="seg"><button data-acao="previa" data-v="celular" class="${E.previa === 'celular' ? 'on' : ''}">Celular</button><button data-acao="previa" data-v="computador" class="${E.previa === 'computador' ? 'on' : ''}">Computador</button></div>`;
-  if (!ps.length) return topo('Páginas', '', botoesPadrao()) + '<div class="vazio-geral">Nenhuma página ainda. Suba arquivos .html na pasta <b>paginas/</b> ou clique em “Nova página”.</div>';
-  const [lw, lh] = E.previa === 'celular' ? [390, 844] : [1280, 800];
-  return topo('Páginas', sub, seg + botoesPadrao()) + `<div class="grade">${ps.map((p) => {
-    const m = metricaDe(p.slug);
-    return `<article class="card ${p.ativa ? '' : 'desligada'}">
+function cardPagina(p, lw, lh) {
+  const m = metricaDe(p.slug);
+  return `<article class="card ${p.ativa ? '' : 'desligada'}">
       <div class="tela" data-w="${lw}" data-h="${lh}" style="${E.previa === 'celular' ? 'height:340px' : 'aspect-ratio:16/10'}">
         <iframe src="${srcPrevia(p)}" width="${lw}" height="${lh}" loading="lazy" tabindex="-1" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Prévia de ${h(p.titulo)}"></iframe>
         <span class="rotulo">${pill(p)}</span>
@@ -300,29 +317,34 @@ function vistaGrade() {
       <div class="card-corpo">
         <div class="card-tit"><div><h3>${h(p.titulo)}</h3><a href="${urlPublica(p)}" target="_blank" rel="noopener">/${h(p.url)}</a></div></div>
         ${tagsRastreio(p)}
-        ${ehAdmin() ? '' : '<!--'}<div class="mini">
+        ${ehAdmin() ? `<div class="mini">
           <div><span>Visitas ${E.dias}d</span><b class="num">${fmt(m?.visitas)}</b></div>
           <div><span>Leads</span><b class="num">${fmt(m?.leads)}</b></div>
           <div><span>Conversão</span><b class="num">${pct(m?.conversao)}</b></div>
-        </div>${ehAdmin() ? '' : '-->'}
+        </div>` : ''}
         <div class="card-acoes">${acoesPagina(p)}</div>
       </div>
     </article>`;
-  }).join('')}</div>`;
+}
+
+function vistaGrade() {
+  const ps = E.cfg.paginas;
+  const no = ps.filter((p) => E.status[p.slug]?.estado === 'online').length;
+  const sub = `${ps.length} página(s) · ${no} no ar · ${ps.filter((p) => !p.ativa).length} desativada(s)`;
+  const seg = `<div class="seg"><button data-acao="previa" data-v="celular" class="${E.previa === 'celular' ? 'on' : ''}">Celular</button><button data-acao="previa" data-v="computador" class="${E.previa === 'computador' ? 'on' : ''}">Computador</button></div>`;
+  if (!ps.length) return topo('Páginas', '', botoesPadrao()) + '<div class="vazio-geral">Nenhuma página ainda. Clique em “Nova página” ou “Adicionar em massa”.</div>';
+  const [lw, lh] = E.previa === 'celular' ? [390, 844] : [1280, 800];
+  return topo('Páginas', sub, seg + botoesPadrao()) + filtrosGrupo() +
+    secoesPorGrupo(ps).map((x) => tituloSecao(x) + (x.paginas.length ? `<div class="grade">${x.paginas.map((p) => cardPagina(p, lw, lh)).join('')}</div>` : vazioSecao)).join('');
 }
 
 /* ================= vista: lista ================= */
-function vistaLista() {
-  const ps = E.cfg.paginas;
-  return topo('Lista', 'Todas as páginas com status, números e nota do Google.', botoesPadrao()) + `
-  <div class="tabela-wrap"><table>
-    <thead><tr><th>Página</th><th>Status</th><th class="dir">Resposta</th><th class="dir">Visitas ${E.dias}d</th><th class="dir">Leads</th><th class="dir">Conv.</th><th class="dir">Google celular</th><th class="dir">Google PC</th><th></th></tr></thead>
-    <tbody>${ps.map((p) => {
-      const m = metricaDe(p.slug), s = E.status[p.slug];
-      return `<tr>
+function linhaPagina(p) {
+  const m = metricaDe(p.slug), st = E.status[p.slug];
+  return `<tr>
         <td><b>${h(p.titulo)}</b><br><a class="mono mut" href="${urlPublica(p)}" target="_blank" rel="noopener">/${h(p.url)}</a>${tagsRastreio(p)}</td>
         <td>${pill(p)}</td>
-        <td class="dir mono">${s?.ms ? s.ms + ' ms' : '—'}</td>
+        <td class="dir mono">${st?.ms ? st.ms + ' ms' : '—'}</td>
         <td class="dir num">${fmt(m?.visitas)}</td>
         <td class="dir num">${fmt(m?.leads)}</td>
         <td class="dir num">${pct(m?.conversao)}</td>
@@ -330,8 +352,69 @@ function vistaLista() {
         <td class="dir">${notaPsi(p.slug, 'desktop')}</td>
         <td><div class="card-acoes">${acoesPagina(p, { compacto: true })}</div></td>
       </tr>`;
-    }).join('')}</tbody>
-  </table></div>`;
+}
+
+function vistaLista() {
+  const ps = E.cfg.paginas;
+  const cab = `<thead><tr><th>Página</th><th>Status</th><th class="dir">Resposta</th><th class="dir">Visitas ${E.dias}d</th><th class="dir">Leads</th><th class="dir">Conv.</th><th class="dir">Google celular</th><th class="dir">Google PC</th><th></th></tr></thead>`;
+  return topo('Lista', 'Todas as páginas com status, números e nota do Google.', botoesPadrao()) + filtrosGrupo() +
+    secoesPorGrupo(ps).map((x) => tituloSecao(x) + (x.paginas.length ? `<div class="tabela-wrap"><table>${cab}<tbody>${x.paginas.map(linhaPagina).join('')}</tbody></table></div>` : vazioSecao)).join('');
+}
+
+/* ================= janela de grupos ================= */
+function abrirGrupos() {
+  const grupos = E.cfg.grupos || [];
+  const n = (id) => E.cfg.paginas.filter((p) => p.grupo === id).length;
+  const md = modal({
+    titulo: 'Grupos de páginas',
+    corpo: `<p class="mut" style="margin-top:0">Junte várias páginas sob um título para ver tudo organizado. Não muda nada nas páginas no ar.</p>
+      ${grupos.length ? `<ul class="cad-lista">${grupos.map((g) => `<li><b>${h(g.titulo)}</b><span class="mut">${n(g.id)} página(s)</span><button class="bt bt-sm" data-grupo-editar="${h(g.id)}">Editar</button>${E.podeGravar ? `<button class="bt bt-sm bt-icone bt-perigo" data-grupo-excluir="${h(g.id)}" title="Excluir grupo" aria-label="Excluir grupo">${I.fechar}</button>` : ''}</li>`).join('')}</ul>` : '<p class="mut">Nenhum grupo ainda.</p>'}`,
+    pe: `<button class="bt" data-fechar>Fechar</button><button class="bt bt-ouro" id="grupo-novo" ${E.podeGravar ? '' : 'disabled'}>${I.mais}Novo grupo</button>`,
+  });
+  $('#grupo-novo', md.el).onclick = () => abrirGrupo(null);
+  md.el.addEventListener('click', async (e) => {
+    const ed = e.target.closest('[data-grupo-editar]'), ex = e.target.closest('[data-grupo-excluir]');
+    if (ed) abrirGrupo(ed.dataset.grupoEditar);
+    if (ex) {
+      const g = grupos.find((x) => x.id === ex.dataset.grupoExcluir);
+      if (!(await confirmar('Excluir grupo', `Excluir o grupo <b>${h(g.titulo)}</b>? As páginas continuam existindo, só saem do grupo.`, 'Excluir', true))) { abrirGrupos(); return; }
+      try { await api('paginas', { method: 'POST', body: { acao: 'grupo', tipo: 'excluir', id: g.id } }); await carregarPaginas(); render(); toast('Grupo excluído.'); abrirGrupos(); }
+      catch (err) { toast(err.message, 'bad'); }
+    }
+  });
+}
+
+// Criar (id = null) ou editar um grupo: título + quais páginas entram nele.
+function abrirGrupo(id, jaMarcadas = []) {
+  const g = id ? (E.cfg.grupos || []).find((x) => x.id === id) : null;
+  return new Promise((ok) => {
+    const md = modal({
+      titulo: g ? 'Editar grupo' : 'Novo grupo',
+      corpo: `<label class="campo"><span>Título do grupo</span><input id="grupo-titulo" maxlength="80" value="${h(g?.titulo || '')}" placeholder="Ex.: Black Friday · Outubro"></label>
+        <div class="grupo-paginas"><span class="mut">Páginas do grupo</span>${E.cfg.paginas.map((p) => {
+          const marcada = g ? p.grupo === g.id : jaMarcadas.includes(p.slug);
+          const outro = !marcada && grupoDe(p) ? ` <em class="mut">(hoje em ${h(grupoDe(p).titulo)})</em>` : '';
+          return `<label class="chave"><input type="checkbox" value="${h(p.slug)}" ${marcada ? 'checked' : ''}><i></i>${h(p.titulo)} <span class="mono mut">/${h(p.url)}</span>${outro}</label>`;
+        }).join('')}</div>`,
+      pe: `<button class="bt" data-fechar>Cancelar</button><button class="bt bt-ouro" id="grupo-salvar" ${E.podeGravar ? '' : 'disabled'}>Salvar grupo</button>`,
+      aoFechar: () => ok(null),
+    });
+    $('#grupo-titulo', md.el).focus();
+    $('#grupo-salvar', md.el).onclick = async (e) => {
+      const titulo = $('#grupo-titulo', md.el).value.trim();
+      if (!titulo) { toast('Dê um título ao grupo.'); return; }
+      const paginas = $$('.grupo-paginas input:checked', md.el).map((c) => c.value);
+      e.target.disabled = true;
+      try {
+        const r = await api('paginas', { method: 'POST', body: { acao: 'grupo', tipo: g ? 'renomear' : 'criar', id: g?.id, titulo, paginas } });
+        md.fechar();
+        await carregarPaginas();
+        render();
+        toast(g ? 'Grupo atualizado.' : `Grupo “${titulo}” criado.`, 'ok');
+        ok(r.id);
+      } catch (err) { toast(err.message, 'bad'); e.target.disabled = false; }
+    };
+  });
 }
 
 /* ================= vista: funil ================= */
@@ -673,7 +756,9 @@ function tagsRastreio(p) {
   const host = E.hosts?.[p.slug] || E.hostPadrao || location.host;
   const doms = E.cfg.dominios?.length ? E.cfg.dominios : [host];
   const dom = `<select class="tag-sel tag-dom" data-sel="dominio" data-slug="${p.slug}" ${off} title="Domínio onde a página fica no ar">${doms.map((d) => `<option value="${h(d)}" ${d === host ? 'selected' : ''}>${h(d)}</option>`).join('')}${ehAdmin() ? '<option value="__novo">+ Adicionar domínio…</option>' : ''}</select>`;
-  return `<div class="tags">${dom}${sel('pixel', 'Pixel', E.cfg.pixels || [], E.cfg.pixelMeta, 'tag-px')}${sel('clarity', 'Clarity', E.cfg.clarities || [], E.cfg.clarity, 'tag-cl')}${sel('gtm', 'GTM', E.cfg.gtms || [], E.cfg.gtm, 'tag-gtm')}</div>`;
+  const grupos = E.cfg.grupos || [];
+  const grp = `<select class="tag-sel tag-grupo ${p.grupo ? '' : 'vazio'}" data-sel="grupo" data-slug="${p.slug}" ${off} title="Grupo da página no painel"><option value="">Sem grupo</option>${grupos.map((g) => `<option value="${h(g.id)}" ${g.id === p.grupo ? 'selected' : ''}>Grupo: ${h(g.titulo)}</option>`).join('')}<option value="__novo">+ Novo grupo…</option></select>`;
+  return `<div class="tags">${grp}${dom}${sel('pixel', 'Pixel', E.cfg.pixels || [], E.cfg.pixelMeta, 'tag-px')}${sel('clarity', 'Clarity', E.cfg.clarities || [], E.cfg.clarity, 'tag-cl')}${sel('gtm', 'GTM', E.cfg.gtms || [], E.cfg.gtm, 'tag-gtm')}</div>`;
 }
 
 // Cadastrar pixel, Clarity ou domínio (da opção "+ Adicionar…"). Devolve o ID cadastrado ou null.
@@ -711,6 +796,7 @@ async function trocarSeletor(t) {
   const { sel: tipo, slug } = t.dataset;
   const p = E.cfg.paginas.find((x) => x.slug === slug);
   let valor = t.value;
+  if (tipo === 'grupo' && valor === '__novo') { await abrirGrupo(null, [slug]); renderVista(false); return; }
   if (valor === '__novo') {
     valor = await abrirCadastro(tipo);
     if (!valor) { renderVista(false); return; }
@@ -719,7 +805,7 @@ async function trocarSeletor(t) {
     await api('pagina', { method: 'PATCH', body: { slug, [tipo]: valor } });
     await carregarPaginas(E.vista === 'funil');
     renderVista(false);
-    toast(tipo === 'dominio' ? `/${p.url} agora fica em ${valor}.` : `${{ pixel: 'Pixel', clarity: 'Clarity', gtm: 'GTM' }[tipo]} de /${p.url} atualizado. Já está no ar.`, 'ok');
+    toast(tipo === 'grupo' ? `/${p.url} ${valor ? 'mudou de grupo' : 'saiu do grupo'}.` : tipo === 'dominio' ? `/${p.url} agora fica em ${valor}.` : `${{ pixel: 'Pixel', clarity: 'Clarity', gtm: 'GTM' }[tipo]} de /${p.url} atualizado. Já está no ar.`, 'ok');
   } catch (e) { toast(e.message, 'bad'); renderVista(false); }
 }
 
@@ -910,6 +996,9 @@ document.addEventListener('click', async (ev) => {
     case 'status': verificarStatus(); break;
     case 'nova': abrirNova(); break;
     case 'massa': abrirMassa(); break;
+    case 'grupos': abrirGrupos(); break;
+    case 'grupo-editar': abrirGrupo(v); break;
+    case 'filtro-grupo': E.filtroGrupo = v; try { localStorage.setItem('r1-filtro-grupo', v); } catch {} renderVista(false); break;
     case 'claude': abrirClaude(); break;
     case 'img-escolher': $('#img-arq').click(); break;
     case 'img-copiar': await navigator.clipboard.writeText(v); toast('Link copiado: ' + v); break;

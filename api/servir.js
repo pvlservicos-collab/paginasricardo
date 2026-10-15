@@ -45,7 +45,7 @@ export async function GET(request) {
       const hostAtual = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').toLowerCase().replace(/:\d+$/, '');
       const hostCerto = hostDaPagina(p, cfg, hostAtual);
       const local = /^(localhost|127\.)/.test(hostAtual);
-      if (hostCerto && hostAtual && hostCerto !== hostAtual && !local && !url.searchParams.has('r1previa') && await dominioNoAr(hostCerto)) {
+      if (!p.lab && hostCerto && hostAtual && hostCerto !== hostAtual && !local && !url.searchParams.has('r1previa') && await dominioNoAr(hostCerto)) {
         const destino = new URL(`https://${hostCerto}/${caminho}`);
         url.searchParams.forEach((v, k) => { if (k !== 'caminho') destino.searchParams.append(k, v); });
         return new Response(null, { status: 308, headers: { Location: destino.href, 'Cache-Control': 'public, max-age=0', 'Vercel-CDN-Cache-Control': 'max-age=60' } });
@@ -53,6 +53,8 @@ export async function GET(request) {
       if (!p.ativa) return resposta(p.redirecionarInativaPara ? documentoRedirecionamento(p.redirecionarInativaPara, p.titulo) : documentoInativo(p.titulo));
       const h = await html(p.arquivo);
       if (h == null) return resposta(documentoInativo(p.titulo), 404);
+      // laboratório oculto: sem pixel/CAPI/Clarity/GTM e fora do Google
+      if (p.lab) { const r = resposta(montarDocumento(h, p.titulo, {})); r.headers.set('X-Robots-Tag', 'noindex, nofollow'); return r; }
       const rastreio = rastreioDaPagina(p, cfg);
       rastreio.capi = Boolean(rastreio.pixelMeta && process.env[`META_CAPI_TOKEN_${rastreio.pixelMeta}`]);
       return resposta(montarDocumento(h, p.titulo, rastreio));

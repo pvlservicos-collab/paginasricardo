@@ -2,11 +2,13 @@ import { protegido, json, erro, carregarConfig, salvarConfig, temRedis, lerJson,
 import { lerArquivo, lerArquivos, podeGravar, usandoGitHub, usandoBanco, shaAtual } from '../lib/store.mjs';
 import { PASTA_PAGINAS, extrairCopy, limparPixelMeta, limparClarity, detectarRastreio, rastreioDaPagina, hostDaPagina, hostPadrao } from '../lib/core.mjs';
 import { ipDe } from '../lib/auth.mjs';
-import { criarPagina, cadastrar, descadastrar } from '../lib/operacoes.mjs';
+import { criarPagina, cadastrar, descadastrar, gerenciarGrupo } from '../lib/operacoes.mjs';
 
 // Lista as páginas + quem está logado + pixel/Clarity de cada página.
 export const GET = protegido(async (request, url, usuario) => {
   const cfg = await carregarConfig();
+  // o laboratório oculto (testes do Claude) não aparece no painel
+  cfg.paginas = cfg.paginas.filter((p) => !p.lab);
   const htmls = await lerArquivos(cfg.paginas.map((p) => `${PASTA_PAGINAS}/${p.arquivo}`));
   const rastreio = {};
   const hostAtual = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').replace(/:[0-9]+$/, '');
@@ -56,7 +58,7 @@ export const POST = protegido(async (request, url, usuario) => {
   const quem = { login: usuario.login, papel: usuario.papel, ip: ipDe(request), origem: 'painel', hostAtual: (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').replace(/:[0-9]+$/, '') };
 
   if (d.acao === 'criar') {
-    const { pagina } = await criarPagina({ url: d.url, titulo: d.titulo, html: d.html, ativa: d.ativa, dominio: d.dominio, pixel: d.pixel, clarity: d.clarity, gtm: d.gtm }, quem);
+    const { pagina } = await criarPagina({ url: d.url, titulo: d.titulo, html: d.html, ativa: d.ativa, dominio: d.dominio, pixel: d.pixel, clarity: d.clarity, gtm: d.gtm, grupo: d.grupo || undefined }, quem);
     return json({ ok: true, sha: null, url: pagina.url, slug: pagina.slug });
   }
 
@@ -64,6 +66,10 @@ export const POST = protegido(async (request, url, usuario) => {
   if (d.acao === 'cadastrar') {
     const c = await cadastrar(String(d.tipo || ''), { id: d.id, nome: d.nome, padrao: d.padrao }, quem);
     return json({ ok: true, pixels: c.pixels, clarities: c.clarities, gtms: c.gtms, dominios: c.dominios });
+  }
+  if (d.acao === 'grupo') {
+    const r = await gerenciarGrupo(String(d.tipo || ''), { id: d.id, titulo: d.titulo, paginas: d.paginas }, quem);
+    return json({ ok: true, ...r });
   }
   if (d.acao === 'descadastrar') {
     await descadastrar(String(d.tipo || ''), String(d.id || ''), quem);

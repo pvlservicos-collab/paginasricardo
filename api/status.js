@@ -5,7 +5,7 @@ import { linkDaPagina } from '../lib/core.mjs';
 export const GET = protegido(async (request) => {
   const cfg = await carregarConfig();
   const hostAtual = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').replace(/:[0-9]+$/, '');
-  const resultados = await Promise.all(cfg.paginas.map(async (p) => {
+  const resultados = await Promise.all(cfg.paginas.filter((p) => !p.lab).map(async (p) => {
     const alvo = /^(localhost|127[.])/.test(hostAtual) ? `http://${request.headers.get('host')}/${p.url}` : linkDaPagina(p, cfg, hostAtual);
     const inicio = Date.now();
     try {
