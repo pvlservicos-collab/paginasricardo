@@ -21,7 +21,7 @@ export default function middleware(request) {
   if (ROBO.test(ua)) return;
   if (h.get('sec-fetch-dest') === 'iframe') return; // pré-visualizações do painel
   if (h.get('purpose') === 'prefetch' || h.get('sec-purpose')) return;
-  if ((h.get('cookie') || '').includes('r1_painel=')) return; // você mesmo navegando logado
+  if (/(^|; *)(__Host-)?r1s=/.test(h.get('cookie') || '')) return; // você mesmo navegando logado
   if (!(h.get('accept') || '').includes('text/html')) return;
 
   const url = new URL(request.url);

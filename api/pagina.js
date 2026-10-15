@@ -1,8 +1,9 @@
-import { protegido, json, erro, carregarConfig, salvarConfig } from '../lib/servidor.mjs';
+import { protegido, json, erro, carregarConfig, salvarConfig, lerJson, auditar, texto, htmlValido, linkValido } from '../lib/servidor.mjs';
 import { lerArquivo } from '../lib/store.mjs';
-import { normalizarUrl, PASTA_PAGINAS, PASTA_CRIATIVOS, extrairCopy } from '../lib/core.mjs';
+import { normalizarUrl, PASTA_PAGINAS, PASTA_CRIATIVOS, extrairCopy, limparCodigo } from '../lib/core.mjs';
 
 async function achar(slug) {
+  if (typeof slug !== 'string' || !slug || slug.length > 200) throw Object.assign(new Error('Página não encontrada.'), { status: 404 });
   const cfg = await carregarConfig();
   const pagina = cfg.paginas.find((p) => p.slug === slug);
   if (!pagina) throw Object.assign(new Error('Página não encontrada.'), { status: 404 });
@@ -17,20 +18,24 @@ export const GET = protegido(async (request, url) => {
 });
 
 // Troca o HTML (copiar e colar no painel).
-export const PUT = protegido(async (request) => {
-  const d = await request.json();
+export const PUT = protegido(async (request, url, usuario) => {
+  const d = await lerJson(request);
   const { cfg, pagina } = await achar(d.slug);
-  if (!d.html || d.html.trim().length < 20) return erro('O HTML está vazio.');
+  const html = limparCodigo(htmlValido(d.html));
+  if (html.length < 20) return erro('O HTML está vazio.');
   const r = await salvarConfig(cfg, `Conteúdo atualizado: /${pagina.url}`, [
-    { caminho: `${PASTA_PAGINAS}/${pagina.arquivo}`, conteudo: d.html },
+    { caminho: `${PASTA_PAGINAS}/${pagina.arquivo}`, conteudo: html },
   ]);
+  await auditar(usuario, 'html_alterado', { url: pagina.url, bytes: html.length }, request);
   return json({ ok: true, sha: r.sha });
 });
 
 // Configurações: título, URL, ativa/desativada, redirecionamento, notas, copy do criativo.
-export const PATCH = protegido(async (request) => {
-  const d = await request.json();
+export const PATCH = protegido(async (request, url, usuario) => {
+  const d = await lerJson(request);
   const { cfg, pagina } = await achar(d.slug);
+  if (d.criativo && usuario.papel !== 'admin') return erro('Esta função está em construção.', 403);
+  texto(d.titulo, 120, 'Título'); texto(d.url, 120, 'URL'); texto(d.notas, 2000, 'Notas'); texto(d.redirecionarInativaPara, 120, 'Redirecionamento');
   const mudancas = [];
   if (d.titulo !== undefined && d.titulo !== pagina.titulo) { pagina.titulo = String(d.titulo).trim() || pagina.titulo; mudancas.push('título'); }
   if (d.url !== undefined) {
@@ -51,17 +56,18 @@ export const PATCH = protegido(async (request) => {
   if (d.notas !== undefined) pagina.notas = String(d.notas);
   if (d.criativo) {
     pagina.criativo = { ...pagina.criativo };
-    if (d.criativo.texto !== undefined) pagina.criativo.texto = String(d.criativo.texto);
-    if (d.criativo.link !== undefined) pagina.criativo.link = String(d.criativo.link).trim();
+    if (d.criativo.texto !== undefined) pagina.criativo.texto = texto(d.criativo.texto, 5000, 'Copy do anúncio');
+    if (d.criativo.link !== undefined) pagina.criativo.link = linkValido(d.criativo.link);
     mudancas.push('criativo');
   }
   const r = await salvarConfig(cfg, `/${pagina.url}: ${mudancas.join(', ') || 'ajustes'}`);
+  await auditar(usuario, 'pagina_ajustada', { url: pagina.url, mudancas }, request);
   return json({ ok: true, sha: r.sha, pagina });
 });
 
 // Duplicar.
-export const POST = protegido(async (request) => {
-  const d = await request.json();
+export const POST = protegido(async (request, url, usuario) => {
+  const d = await lerJson(request);
   const { cfg, pagina } = await achar(d.slug);
   const html = await lerArquivo(`${PASTA_PAGINAS}/${pagina.arquivo}`);
   const base = `${pagina.slug}-copia`;
@@ -75,11 +81,12 @@ export const POST = protegido(async (request) => {
     criativo: { ...pagina.criativo },
   });
   const r = await salvarConfig(cfg, `Cópia de /${pagina.url}`, [{ caminho: `${PASTA_PAGINAS}/${arquivo}`, conteudo: html || '' }]);
+  await auditar(usuario, 'pagina_duplicada', { de: pagina.url, para: slug }, request);
   return json({ ok: true, sha: r.sha, slug });
 });
 
-// Excluir de vez (o histórico continua no GitHub).
-export const DELETE = protegido(async (request, u) => {
+// Excluir de vez.
+export const DELETE = protegido(async (request, u, usuario) => {
   const { cfg, pagina } = await achar(u.searchParams.get('slug'));
   cfg.paginas = cfg.paginas.filter((p) => p.slug !== pagina.slug);
   const url = normalizarUrl(pagina.url);
@@ -88,5 +95,6 @@ export const DELETE = protegido(async (request, u) => {
   const extras = [{ caminho: `${PASTA_PAGINAS}/${pagina.arquivo}`, apagar: true }];
   if (pagina.criativo?.imagem) extras.push({ caminho: `${PASTA_CRIATIVOS}/${pagina.criativo.imagem}`, apagar: true });
   const r = await salvarConfig(cfg, `Página excluída: /${pagina.url}`, extras);
+  await auditar(usuario, 'pagina_excluida', { url: pagina.url }, request);
   return json({ ok: true, sha: r.sha });
 });

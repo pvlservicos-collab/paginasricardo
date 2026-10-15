@@ -103,4 +103,4 @@ export const GET = protegido(async (request, url) => {
   });
 
   return json({ dias, paginas, avisos, temRedis, temHubspot: Boolean(process.env.HUBSPOT_TOKEN) });
-});
+}, { admin: true }); // Métricas: em construção (só admin)

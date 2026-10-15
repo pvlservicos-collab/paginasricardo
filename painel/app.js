@@ -30,11 +30,14 @@ const I = {
 };
 
 const E = {
-  cfg: null, podeGravar: false, usandoGitHub: false, temRedis: false, temHubspot: false,
+  cfg: null, usuario: null, rastreio: {}, podeGravar: false, usandoGitHub: false, temRedis: false, temHubspot: false,
   deploy: {}, publicando: false, versao: Date.now().toString(36),
   status: {}, verificando: false, metricas: null, dias: 7, copias: null, psi: {},
   vista: 'grade', previa: 'celular', funilPrevia: true,
 };
+
+const ehAdmin = () => E.usuario?.papel === 'admin';
+const EM_OBRA = ['funil', 'metricas']; // funções em construção: só o admin abre
 
 /* ================= API ================= */
 async function api(caminho, { method = 'GET', body } = {}) {
@@ -64,8 +67,8 @@ function telaLogin() {
   <div class="login"><form id="f-login" autocomplete="on">
     <div class="marca"><i>R1</i><span>Painel de Páginas</span></div>
     <h1>Entrar</h1><p>Gestão das páginas do Ricardo Nunes.</p>
-    <label class="campo"><span>Usuário</span><input name="usuario" autocomplete="username" required autofocus></label>
-    <label class="campo"><span>Senha</span><input name="senha" type="password" autocomplete="current-password" required></label>
+    <label class="campo"><span>E-mail ou usuário</span><input name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="160" required autofocus></label>
+    <label class="campo"><span>Senha</span><input name="senha" type="password" autocomplete="current-password" maxlength="200" required></label>
     <div class="erro-msg" id="login-erro"></div>
     <button class="bt bt-ouro bt-cheio" type="submit">Entrar</button>
   </form></div>`;
@@ -87,7 +90,7 @@ function telaLogin() {
 /* ================= carga ================= */
 async function carregarPaginas(copias = false) {
   const d = await api('paginas' + (copias ? '?copias=1' : ''));
-  Object.assign(E, { cfg: d.config, podeGravar: d.podeGravar, usandoGitHub: d.usandoGitHub, usandoBanco: d.usandoBanco, temRedis: d.temRedis, temHubspot: d.temHubspot, deploy: d.deploy });
+  Object.assign(E, { cfg: d.config, usuario: d.usuario, rastreio: d.rastreio || {}, podeGravar: d.podeGravar, usandoGitHub: d.usandoGitHub, usandoBanco: d.usandoBanco, temRedis: d.temRedis, temHubspot: d.temHubspot, deploy: d.deploy });
   if (d.copias) E.copias = d.copias;
   E.publicando = Boolean(d.deploy.publicado && d.deploy.atual && d.deploy.publicado !== d.deploy.atual);
   return d;
@@ -169,7 +172,7 @@ function iniciar() {
     .then(() => {
       render();
       verificarStatus();
-      carregarMetricas();
+      if (ehAdmin()) carregarMetricas();
       carregarPsi();
       if (E.publicando) vigiarDeploy();
     })
@@ -180,7 +183,7 @@ window.addEventListener('hashchange', () => {
   const v = location.hash.slice(1) || 'grade';
   if (v === E.vista || !E.cfg) return;
   E.vista = v;
-  if (v === 'funil' && !E.copias) carregarPaginas(true).then(render);
+  if (v === 'funil' && !E.copias && ehAdmin()) carregarPaginas(true).then(render);
   render();
 });
 
@@ -197,8 +200,9 @@ function render() {
   <div class="app">
     <aside class="lado">
       <div class="marca"><i>R1</i><span>Páginas</span></div>
-      <nav class="nav">${nav.map(([k, n]) => `<a href="#${k}" class="${E.vista === k ? 'on' : ''}">${I[k]}${n}</a>`).join('')}</nav>
+      <nav class="nav">${nav.map(([k, n]) => `<a href="#${k}" class="${E.vista === k ? 'on' : ''}">${I[k]}${n}${EM_OBRA.includes(k) ? '<em class="em-obra">em construção</em>' : ''}</a>`).join('')}</nav>
       <div class="fim">
+        <div class="quem"><b>${h(E.usuario?.nome || '')}</b><span>${ehAdmin() ? 'Administrador' : 'Editor'}</span></div>
         <div class="deploy">${dep}</div>
         <button class="bt bt-sm" data-acao="dominio" title="Domínio (status e PageSpeed), Pixel da Meta e Clarity">${I.globo}<span>${h(E.cfg.dominio ? E.cfg.dominio.replace(/^https?:\/\//, '') : 'Domínio')}</span></button>
         <button class="bt bt-sm" data-acao="sair">${I.sair}<span>Sair</span></button>
@@ -218,7 +222,7 @@ function renderVista(rolarTopo = true) {
   const c = $('#conteudo');
   if (!c) return;
   const scroll = window.scrollY;
-  const v = { grade: vistaGrade, lista: vistaLista, funil: vistaFunil, metricas: vistaMetricas }[E.vista] || vistaGrade;
+  const v = EM_OBRA.includes(E.vista) && !ehAdmin() ? vistaEmObra : ({ grade: vistaGrade, lista: vistaLista, funil: vistaFunil, metricas: vistaMetricas }[E.vista] || vistaGrade);
   c.innerHTML = avisosGerais() + v();
   $$('.nav a').forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + E.vista));
   ajustarTelas();
@@ -269,6 +273,7 @@ function topo(titulo, sub, acoes = '') {
 
 const botoesPadrao = () => `
   <button class="bt" data-acao="status" ${E.verificando ? 'disabled' : ''}>${I.pulso}${E.verificando ? 'Verificando…' : 'Verificar status'}</button>
+  <button class="bt" data-acao="massa" ${E.podeGravar ? '' : 'disabled'}>${I.mais}Adicionar em massa</button>
   <button class="bt bt-ouro" data-acao="nova" ${E.podeGravar ? '' : 'disabled'}>${I.mais}Nova página</button>`;
 
 /* ================= vista: grade ================= */
@@ -283,17 +288,18 @@ function vistaGrade() {
     const m = metricaDe(p.slug);
     return `<article class="card ${p.ativa ? '' : 'desligada'}">
       <div class="tela" data-w="${lw}" data-h="${lh}" style="${E.previa === 'celular' ? 'height:340px' : 'aspect-ratio:16/10'}">
-        <iframe src="${srcPrevia(p)}" width="${lw}" height="${lh}" loading="lazy" tabindex="-1" title="Prévia de ${h(p.titulo)}"></iframe>
+        <iframe src="${srcPrevia(p)}" width="${lw}" height="${lh}" loading="lazy" tabindex="-1" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Prévia de ${h(p.titulo)}"></iframe>
         <span class="rotulo">${pill(p)}</span>
         <div class="cobre"><a class="bt bt-sm" href="${urlPublica(p)}" target="_blank" rel="noopener">${I.abrir}Abrir</a><span class="mono mut">${E.status[p.slug]?.ms ? E.status[p.slug].ms + ' ms' : ''}</span></div>
       </div>
       <div class="card-corpo">
         <div class="card-tit"><div><h3>${h(p.titulo)}</h3><a href="${urlPublica(p)}" target="_blank" rel="noopener">/${h(p.url)}</a></div></div>
-        <div class="mini">
+        ${tagsRastreio(p)}
+        ${ehAdmin() ? '' : '<!--'}<div class="mini">
           <div><span>Visitas ${E.dias}d</span><b class="num">${fmt(m?.visitas)}</b></div>
           <div><span>Leads</span><b class="num">${fmt(m?.leads)}</b></div>
           <div><span>Conversão</span><b class="num">${pct(m?.conversao)}</b></div>
-        </div>
+        </div>${ehAdmin() ? '' : '-->'}
         <div class="card-acoes">${acoesPagina(p)}</div>
       </div>
     </article>`;
@@ -309,7 +315,7 @@ function vistaLista() {
     <tbody>${ps.map((p) => {
       const m = metricaDe(p.slug), s = E.status[p.slug];
       return `<tr>
-        <td><b>${h(p.titulo)}</b><br><a class="mono mut" href="${urlPublica(p)}" target="_blank" rel="noopener">/${h(p.url)}</a></td>
+        <td><b>${h(p.titulo)}</b><br><a class="mono mut" href="${urlPublica(p)}" target="_blank" rel="noopener">/${h(p.url)}</a>${tagsRastreio(p)}</td>
         <td>${pill(p)}</td>
         <td class="dir mono">${s?.ms ? s.ms + ' ms' : '—'}</td>
         <td class="dir num">${fmt(m?.visitas)}</td>
@@ -341,7 +347,7 @@ function vistaFunil() {
         <button class="bt bt-icone" data-acao="descer" data-slug="${p.slug}" ${i === ps.length - 1 || !E.podeGravar ? 'disabled' : ''} aria-label="Descer">${I.baixo}</button>
       </div>
       <div class="etapa-pre">
-        <div class="celular" data-w="390" data-h="760">${E.funilPrevia ? `<iframe src="${srcPrevia(p)}" width="390" height="760" loading="lazy" title="Prévia de ${h(p.titulo)}"></iframe>` : '<div class="vazio">Prévia desligada</div>'}</div>
+        <div class="celular" data-w="390" data-h="760">${E.funilPrevia ? `<iframe src="${srcPrevia(p)}" width="390" height="760" loading="lazy" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Prévia de ${h(p.titulo)}"></iframe>` : '<div class="vazio">Prévia desligada</div>'}</div>
         <div class="linha">${pill(p)}<a class="bt bt-sm" href="${urlPublica(p)}" target="_blank" rel="noopener">${I.abrir}Abrir</a></div>
       </div>
       <div>
@@ -364,7 +370,7 @@ function vistaFunil() {
         <input type="file" accept="image/*" hidden data-arquivo="${p.slug}">
         <label class="campo"><span>Copy do anúncio</span><textarea data-copy="${p.slug}" placeholder="Cole aqui o texto do anúncio para comparar com a página">${h(p.criativo?.texto || '')}</textarea></label>
         <label class="campo"><span>Link do anúncio (opcional)</span><input data-link="${p.slug}" value="${h(p.criativo?.link || '')}" placeholder="https://www.facebook.com/ads/library/?id=..."></label>
-        <div class="acoes" style="margin-top:10px">${p.criativo?.link ? `<a class="bt bt-sm" href="${h(p.criativo.link)}" target="_blank" rel="noopener">${I.abrir}Ver anúncio</a>` : ''}<button class="bt bt-sm bt-ouro" data-acao="salvar-criativo" data-slug="${p.slug}" ${E.podeGravar ? '' : 'disabled'}>Salvar copy</button></div>
+        <div class="acoes" style="margin-top:10px">${/^https?:[/][/]/i.test(p.criativo?.link || '') ? `<a class="bt bt-sm" href="${h(p.criativo.link)}" target="_blank" rel="noopener">${I.abrir}Ver anúncio</a>` : ''}<button class="bt bt-sm bt-ouro" data-acao="salvar-criativo" data-slug="${p.slug}" ${E.podeGravar ? '' : 'disabled'}>Salvar copy</button></div>
       </div>
     </section>`;
   }).join('')}</div>`;
@@ -509,12 +515,7 @@ async function abrirEditor(slug) {
   info();
   $('#ed-arq').onchange = async (e) => { const f = e.target.files[0]; if (f) { ta.value = await f.text(); info(); toast(`“${f.name}” carregado. Confira e salve.`); } };
   $('#ed-copiar').onclick = async () => { await navigator.clipboard.writeText(ta.value); toast('HTML copiado.'); };
-  $('#ed-ver').onclick = () => {
-    const base = `<base href="${location.origin}/">`;
-    let doc = ta.value;
-    doc = /<head[^>]*>/i.test(doc) ? doc.replace(/<head[^>]*>/i, (m) => m + base) : `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${base}<style>html,body{margin:0;background:#0b0b0c}</style></head><body>${doc}</body></html>`;
-    window.open(URL.createObjectURL(new Blob([doc], { type: 'text/html' })), '_blank');
-  };
+  $('#ed-ver').onclick = () => previaIsolada(ta.value);
   $('#ed-salvar').onclick = async (e) => {
     if (ta.value === original) { toast('Nada mudou no HTML.'); return; }
     e.target.disabled = true; e.target.textContent = 'Salvando…';
@@ -641,6 +642,96 @@ async function enviarCriativo(slug, arquivo) {
   } catch (e) { toast(e.message, 'bad'); renderVista(false); }
 }
 
+/* ================= pixel e Clarity de cada página ================= */
+function tagsRastreio(p) {
+  const r = E.rastreio[p.slug] || { pixel: [], clarity: [] };
+  const origem = (o) => (o === 'pagina' ? 'no código da página' : 'configurado no painel');
+  const px = r.pixel.map((x) => `<span class="tag tag-px" title="Pixel da Meta ${origem(x.origem)}">Pixel ${h(x.id)}</span>`);
+  const cl = r.clarity.map((x) => `<span class="tag tag-cl" title="Microsoft Clarity ${origem(x.origem)}">Clarity ${h(x.id)}</span>`);
+  const sem = [!px.length && '<span class="tag tag-sem">sem pixel</span>', !cl.length && '<span class="tag tag-sem">sem Clarity</span>'].filter(Boolean);
+  return `<div class="tags">${[...px, ...cl, ...sem].join('')}</div>`;
+}
+
+/* ================= em construção ================= */
+function vistaEmObra() {
+  const nome = E.vista === 'funil' ? 'Funil' : 'Métricas';
+  return topo(nome, '') + `<div class="em-obra-tela"><div class="em-obra-icone">🚧</div><h2>${nome} em construção</h2><p>Esta parte do painel ainda está sendo preparada. Por enquanto, use <a href="#grade">Páginas</a> e <a href="#lista">Lista</a>.</p></div>`;
+}
+
+/* ================= prévia isolada ================= */
+// Abre o HTML numa aba própria pelo servidor (/api/previa), que entrega a página isolada:
+// os scripts dela rodam, mas sem acesso ao painel nem à sessão.
+function previaIsolada(html) {
+  const f = document.createElement('form');
+  f.method = 'POST'; f.action = '/api/previa'; f.target = '_blank'; f.hidden = true;
+  const t = document.createElement('textarea');
+  t.name = 'html'; t.value = html;
+  f.append(t);
+  document.body.append(f);
+  f.submit();
+  f.remove();
+}
+
+/* ================= adicionar em massa ================= */
+const slugDe = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9/]+/g, '-').replace(/-{2,}/g, '-').replace(/^[-/]+|[-/]+$/g, '');
+const tituloDoCodigo = (c) => (/<title[^>]*>([^<]{1,120})<\/title>/i.exec(c || '')?.[1] || '').trim();
+
+function abrirMassa() {
+  let enviando = false;
+  const linha = (n) => `<div class="massa-linha" data-n="${n}">
+      <div class="massa-esq">
+        <span class="massa-n">${n}</span>
+        <label class="campo"><span>Slug (URL)</span><div class="prefixo"><b>/</b><input data-slug-in placeholder="black10x-v6" spellcheck="false" autocapitalize="none" maxlength="120"></div></label>
+        <div class="massa-st" data-st></div>
+      </div>
+      <textarea data-cod placeholder="Cole aqui o código da página (pode colar a resposta do Claude inteira, com o \`\`\`html)" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+    </div>`;
+  const md = modal({
+    titulo: 'Adicionar páginas em massa', largo: true,
+    corpo: `<div class="massa">
+      <p class="massa-dica">Escreva o slug à esquerda e cole o código à direita. Linhas vazias são ignoradas. O código é limpo sozinho (tira o \`\`\`html do Claude) e a página sai ocupando a tela toda, com o pixel e o Clarity do painel.</p>
+      <div class="massa-lista">${[1, 2, 3, 4, 5, 6, 7].map(linha).join('')}</div>
+      <button class="bt bt-sm" id="massa-mais">${I.mais}Mais uma linha</button>
+    </div>`,
+    pe: `<label class="chave"><input type="checkbox" id="massa-ativa" checked><i></i>Publicar já ativas</label><span class="esp"></span><button class="bt" data-fechar>Fechar</button><button class="bt bt-ouro" id="massa-salvar">Publicar todas</button>`,
+    aoFechar: () => !enviando && (![...$$('[data-cod]', md.el)].some((t) => t.value.trim() && !t.closest('.massa-linha').classList.contains('feita')) || confirm('Fechar sem publicar o que foi colado?')),
+  });
+  md.el.querySelector('.modal-caixa').classList.add('cheio');
+  const lista = $('.massa-lista', md.el);
+  $('#massa-mais', md.el).onclick = () => { lista.insertAdjacentHTML('beforeend', linha(lista.children.length + 1)); lista.lastElementChild.querySelector('input').focus(); };
+  // ao colar o código, sugere o slug pelo <title> se ainda estiver vazio
+  lista.addEventListener('input', (e) => {
+    const l = e.target.closest('.massa-linha');
+    if (e.target.matches('[data-cod]')) {
+      const s = $('[data-slug-in]', l);
+      if (!s.value && !s.dataset.mexeu) { const t = tituloDoCodigo(e.target.value); if (t) s.value = slugDe(t); }
+    }
+    if (e.target.matches('[data-slug-in]')) e.target.dataset.mexeu = 1;
+  });
+  $('#massa-salvar', md.el).onclick = async (e) => {
+    const linhas = $$('.massa-linha', md.el).filter((l) => !l.classList.contains('feita') && ($('[data-cod]', l).value.trim() || $('[data-slug-in]', l).value.trim()));
+    if (!linhas.length) { toast('Cole pelo menos um código.'); return; }
+    enviando = true; e.target.disabled = true;
+    let ok = 0, falhas = 0;
+    for (const l of linhas) {
+      const st = $('[data-st]', l), codigo = $('[data-cod]', l).value, slug = slugDe($('[data-slug-in]', l).value);
+      l.classList.remove('erro');
+      if (!slug || !codigo.trim()) { st.textContent = !slug ? 'Falta o slug.' : 'Falta o código.'; l.classList.add('erro'); falhas++; continue; }
+      st.textContent = 'Publicando…';
+      try {
+        const r = await api('paginas', { method: 'POST', body: { acao: 'criar', url: slug, titulo: tituloDoCodigo(codigo) || slug, html: codigo, ativa: $('#massa-ativa', md.el).checked } });
+        l.classList.add('feita');
+        st.innerHTML = `✔ No ar: <a href="/${h(r.url)}" target="_blank" rel="noopener">/${h(r.url)}</a>`;
+        $$('input,textarea', l).forEach((x) => (x.readOnly = true));
+        ok++;
+      } catch (err) { st.textContent = err.message; l.classList.add('erro'); falhas++; }
+    }
+    enviando = false; e.target.disabled = false;
+    toast(`${ok} página(s) publicada(s)${falhas ? ` · ${falhas} com problema (veja em vermelho)` : ''}.`, falhas ? 'bad' : 'ok');
+    if (ok) { E.versao = Date.now().toString(36); await carregarPaginas(); render(); verificarStatus(); }
+  };
+}
+
 /* ================= cliques ================= */
 document.addEventListener('click', async (ev) => {
   const alvo = ev.target.closest('[data-acao]');
@@ -654,11 +745,12 @@ document.addEventListener('click', async (ev) => {
     case 'sair': await api('login', { method: 'DELETE' }).catch(() => {}); telaLogin(); break;
     case 'status': verificarStatus(); break;
     case 'nova': abrirNova(); break;
+    case 'massa': abrirMassa(); break;
     case 'dominio': abrirDominio(); break;
     case 'editar': abrirEditor(slug); break;
     case 'config': abrirConfig(slug); break;
     case 'previa': E.previa = v; renderVista(false); break;
-    case 'dias': E.dias = Number(v); E.metricas = null; renderVista(false); carregarMetricas(); break;
+    case 'dias': if (!ehAdmin()) break; E.dias = Number(v); E.metricas = null; renderVista(false); carregarMetricas(); break;
     case 'copiar-url': {
       const base = E.cfg.dominio || location.origin;
       await navigator.clipboard.writeText(`${base}/${p.url}`);

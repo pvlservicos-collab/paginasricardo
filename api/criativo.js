@@ -1,8 +1,8 @@
-import { protegido, json, erro, carregarConfig, salvarConfig } from '../lib/servidor.mjs';
+import { protegido, json, erro, carregarConfig, salvarConfig, lerJson, auditar } from '../lib/servidor.mjs';
 import { lerArquivo } from '../lib/store.mjs';
 import { PASTA_CRIATIVOS } from '../lib/core.mjs';
 
-// Os criativos ficam em criativos/ (fora do site público): só o painel mostra.
+// Os criativos ficam no banco (fora do site público): só o painel mostra. Função do Funil (em construção: só admin).
 const TIPOS = { webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif' };
 
 export const GET = protegido(async (request, url) => {
@@ -12,14 +12,14 @@ export const GET = protegido(async (request, url) => {
   if (!bytes) return erro('Criativo não encontrado.', 404);
   const ext = nome.split('.').pop().toLowerCase();
   return new Response(bytes, {
-    headers: { 'Content-Type': TIPOS[ext] || 'application/octet-stream', 'Cache-Control': 'private, max-age=31536000, immutable' },
+    headers: { 'Content-Type': TIPOS[ext] || 'application/octet-stream', 'Cache-Control': 'private, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" },
   });
-});
+}, { admin: true });
 
 // Recebe a imagem já reduzida pelo navegador (data URL) e grava no projeto.
-export const POST = protegido(async (request) => {
-  const d = await request.json();
-  const m = /^data:image\/(webp|jpeg|png|gif);base64,(.+)$/.exec(d.dataUrl || '');
+export const POST = protegido(async (request, url, usuario) => {
+  const d = await lerJson(request, 5 * 1024 * 1024);
+  const m = typeof d.dataUrl === 'string' ? /^data:image\/(webp|jpeg|png|gif);base64,([A-Za-z0-9+/=]+)$/.exec(d.dataUrl) : null;
   if (!m) return erro('Envie uma imagem (JPG, PNG, WEBP ou GIF).');
   const bytes = Buffer.from(m[2], 'base64');
   if (bytes.length > 3.5 * 1024 * 1024) return erro('Imagem muito grande (máx. 3,5 MB).');
@@ -32,8 +32,9 @@ export const POST = protegido(async (request) => {
   if (p.criativo?.imagem) extras.push({ caminho: `${PASTA_CRIATIVOS}/${p.criativo.imagem}`, apagar: true });
   p.criativo = { ...p.criativo, imagem: nome };
   const r = await salvarConfig(cfg, `Criativo de /${p.url}`, extras);
+  await auditar(usuario, 'criativo_enviado', { url: p.url, bytes: bytes.length }, request);
   return json({ ok: true, sha: r.sha, imagem: nome });
-});
+}, { admin: true });
 
 export const DELETE = protegido(async (request, url) => {
   const cfg = await carregarConfig();
@@ -43,4 +44,4 @@ export const DELETE = protegido(async (request, url) => {
   p.criativo = { ...p.criativo, imagem: '' };
   const r = await salvarConfig(cfg, `Criativo removido de /${p.url}`, [{ caminho: `${PASTA_CRIATIVOS}/${antigo}`, apagar: true }]);
   return json({ ok: true, sha: r.sha });
-});
+}, { admin: true });

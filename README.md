@@ -2,7 +2,7 @@
 
 Painel para gerenciar as páginas do Ricardo Nunes: ver todas em grade, lista ou funil (com o criativo ao lado para comparar a copy), conferir se estão no ar, ver métricas por página, ativar/desativar, trocar a URL e trocar o HTML colando direto no painel.
 
-**Login:** usuário `ricardo` · senha `2026` (dá para trocar pelas variáveis `PAINEL_USUARIO` e `PAINEL_SENHA`).
+**Endereço:** https://paginasricardo.vercel.app/painel · os usuários ficam no banco (veja *Usuários e segurança*).
 
 ## Como funciona
 
@@ -43,24 +43,28 @@ npm run imagens
 
 Isso baixa tudo de `lp.grupor1.com` para `public/wp-content/uploads/`. Depois faça o commit. Enquanto isso não for feito, o build na Vercel baixa sozinho o que estiver faltando, então o site nunca sai com imagem quebrada. Quando trocar o HTML e ele usar imagens novas do WordPress, o build também busca essas.
 
-## Publicar (GitHub + Vercel)
+## Publicar
 
-1. Crie um repositório no GitHub e suba esta pasta:
-   ```bash
-   git remote add origin https://github.com/pvlservicos-collab/paginasricardo.git
-   git push -u origin main
-   ```
-2. Na Vercel: **Add New → Project →** escolha o repositório. Não precisa mudar nada (o `vercel.json` já define o build). Deploy.
-3. Crie um token do GitHub para o painel poder editar:
-   GitHub → Settings → Developer settings → **Fine-grained tokens** → Generate. Em *Repository access* escolha só este repositório; em *Permissions → Contents* marque **Read and write**.
-4. Na Vercel, em **Settings → Environment Variables**, adicione:
-   | Nome | Valor |
-   |---|---|
-   | `GITHUB_TOKEN` | o token do passo 3 |
-   | `GITHUB_REPO` | `pvlservicos-collab/paginasricardo` |
-   | `GITHUB_BRANCH` | `main` |
-   | `SESSION_SECRET` | um texto longo qualquer |
-5. Faça um **Redeploy**. Pronto: `https://seu-projeto.vercel.app/painel`.
+O projeto na Vercel é o **paginasricardo**, ligado a este repositório e ao banco Neon (Vercel → Storage).
+Cada `git push` na `main` publica o código do painel. As páginas em si **não** dependem de deploy: ficam no banco.
+
+## Usuários e segurança
+
+- Papéis: **admin** (tudo) e **editor** (sem as funções marcadas “em construção”: Funil e Métricas). A permissão é conferida no servidor em todas as rotas.
+- Criar usuário ou trocar a senha (gera uma senha forte e mostra uma única vez; no banco fica só o hash):
+  ```bash
+  node scripts/usuarios.mjs <login> <admin|editor> [email] [nome]
+  ```
+  Precisa do `DATABASE_URL` no arquivo `.env.local` (nunca vai para o GitHub). Trocar a senha encerra as sessões abertas do usuário.
+- Senhas com hash scrypt; mesma mensagem para usuário inexistente e senha errada.
+- 5 erros por conta ou 20 por IP em 15 min bloqueiam novas tentativas.
+- Sessão guardada no banco; cookie `__Host-r1s` HttpOnly + Secure + SameSite=Strict (nada em localStorage/sessionStorage). Expira após 12 h sem uso ou 7 dias; o código da sessão é trocado a cada 30 min; “Sair” apaga a sessão no servidor.
+- Alterações só são aceitas vindas do próprio painel (checagem de origem contra CSRF); sem CORS.
+- Entradas validadas (tamanho, formato, links só http/https, domínio sem endereços internos).
+- Cabeçalhos: CSP rígida no painel, `frame-ancestors 'none'`, HSTS, nosniff, Referrer-Policy.
+- Prévias de páginas rodam isoladas (sandbox): o código colado não acessa o painel nem a sessão.
+- Tudo que muda fica registrado na tabela `eventos` (quem, quando, IP) e no log da Vercel; erros têm um código para achar no log.
+- Backup: o Neon guarda o histórico do banco e permite restaurar para um ponto anterior (console do Neon → Restore).
 
 ### Métricas (opcional, recomendado)
 
