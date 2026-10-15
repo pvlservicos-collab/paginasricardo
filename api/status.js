@@ -1,12 +1,12 @@
-import { protegido, json, carregarConfig, dominioBase } from '../lib/servidor.mjs';
-import { normalizarUrl } from '../lib/core.mjs';
+import { protegido, json, carregarConfig } from '../lib/servidor.mjs';
+import { linkDaPagina } from '../lib/core.mjs';
 
 // Confere se cada página está no ar (abre a URL publicada e mede o tempo).
 export const GET = protegido(async (request) => {
   const cfg = await carregarConfig();
-  const base = dominioBase(cfg, request);
+  const hostAtual = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').replace(/:[0-9]+$/, '');
   const resultados = await Promise.all(cfg.paginas.map(async (p) => {
-    const alvo = `${base}/${normalizarUrl(p.url)}`;
+    const alvo = /^(localhost|127[.])/.test(hostAtual) ? `http://${request.headers.get('host')}/${p.url}` : linkDaPagina(p, cfg, hostAtual);
     const inicio = Date.now();
     try {
       const r = await fetch(alvo, {

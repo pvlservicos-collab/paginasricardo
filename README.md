@@ -38,6 +38,19 @@ vercel.json
 - Os **criativos** (Funil) também ficam no Blob; o banco guarda o link.
 - `public/wp-content/` no repositório é só uma cópia de segurança. Para subir essa pasta de novo para o Blob: `npm run imagens` (usa o `BLOB_READ_WRITE_TOKEN` do `.env.local`).
 
+## Conector do Claude (MCP)
+
+- Endereço: `https://paginasricardo.vercel.app/api/mcp` (no Claude: Configurações → Conectores → Adicionar conector personalizado). Tutorial em PDF na pasta do projeto.
+- Login por OAuth: o Claude abre `/api/oauth/autorizar`, a pessoa entra com o usuário do painel e o Claude recebe um token de 1 h (renovado sozinho por até 30 dias). O Claude nunca vê a senha; trocar a senha derruba as conexões.
+- Ferramentas: `listar_opcoes`, `listar_paginas`, `ver_pagina`, `criar_pagina` (exige o domínio escolhido pelo usuário), `atualizar_pagina` (HTML, título, URL, domínio, ativa, pixel, Clarity), `excluir_pagina` (exige `confirmar=true`), `analisar_imagens` (no app × domínios externos), `migrar_imagens` (traz as externas para o Blob e troca os links), `importar_imagem`, `listar_imagens`.
+- Mesmas regras e permissões do painel (lib/operacoes.mjs); tudo vai para a tabela `eventos` com `origem: claude`; limite de 300 alterações por hora por usuário; download de imagens bloqueia endereços internos (anti-SSRF) e só aceita JPG/PNG/WEBP/GIF/AVIF.
+
+## Domínios, pixels e Clarity
+
+- Cada página tem o seu domínio, pixel e Clarity (listas suspensas no card da página, com “+ Adicionar…”). Os cadastros e os padrões ficam em **Domínios e pixels** no painel.
+- Abrir a página por outro domínio leva ao domínio certo (308, mantendo as UTMs).
+- Um domínio só pode ser escolhido para uma página quando já estiver apontado para o app (DNS + Vercel → Domains).
+
 ## Publicar
 
 O projeto na Vercel é o **paginasricardo**, ligado a este repositório e ao banco Neon (Vercel → Storage).

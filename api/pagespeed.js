@@ -1,5 +1,5 @@
-import { protegido, json, erro, carregarConfig, dominioBase, redis, temRedis } from '../lib/servidor.mjs';
-import { normalizarUrl } from '../lib/core.mjs';
+import { protegido, json, erro, carregarConfig, redis, temRedis } from '../lib/servidor.mjs';
+import { normalizarUrl, linkDaPagina } from '../lib/core.mjs';
 
 // Nota do Google PageSpeed (Lighthouse) por página. Guarda o último resultado no Redis.
 export const GET = protegido(async (request, url) => {
@@ -15,7 +15,7 @@ export const GET = protegido(async (request, url) => {
   const p = cfg.paginas.find((x) => x.slug === url.searchParams.get('slug'));
   if (!p) return erro('Página não encontrada.', 404);
   const estrategia = url.searchParams.get('estrategia') === 'desktop' ? 'desktop' : 'mobile';
-  const alvo = `${dominioBase(cfg, request)}/${normalizarUrl(p.url)}`;
+  const alvo = linkDaPagina(p, cfg, (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').replace(/:[0-9]+$/, ''));
   const api = new URL('https://www.googleapis.com/pagespeedonline/v5/runPagespeed');
   api.searchParams.set('url', alvo);
   api.searchParams.set('strategy', estrategia);

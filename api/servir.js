@@ -4,7 +4,7 @@
 // configuração e o HTML na memória pelo mesmo tempo. Uma alteração no painel aparece em até ~10 s.
 import { carregarConfig } from '../lib/servidor.mjs';
 import { lerArquivo } from '../lib/store.mjs';
-import { PASTA_PAGINAS, normalizarUrl, montarDocumento, documentoInativo, documentoRedirecionamento } from '../lib/core.mjs';
+import { PASTA_PAGINAS, normalizarUrl, montarDocumento, documentoInativo, documentoRedirecionamento, hostDaPagina, rastreioDaPagina } from '../lib/core.mjs';
 
 const VALIDADE = 5000;
 let cfgCache = null;
@@ -39,10 +39,19 @@ export async function GET(request) {
     const cfg = await config();
     const p = cfg.paginas.find((x) => normalizarUrl(x.url) === caminho);
     if (p) {
+      // página de outro domínio: leva para o domínio certo (mantendo as UTMs). As prévias do painel passam direto.
+      const hostAtual = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').toLowerCase().replace(/:\d+$/, '');
+      const hostCerto = hostDaPagina(p, cfg, hostAtual);
+      const local = /^(localhost|127\.)/.test(hostAtual);
+      if (hostCerto && hostAtual && hostCerto !== hostAtual && !local && !url.searchParams.has('r1previa')) {
+        const destino = new URL(`https://${hostCerto}/${caminho}`);
+        url.searchParams.forEach((v, k) => { if (k !== 'caminho') destino.searchParams.append(k, v); });
+        return new Response(null, { status: 308, headers: { Location: destino.href, 'Cache-Control': 'public, max-age=0', 'Vercel-CDN-Cache-Control': 'max-age=60' } });
+      }
       if (!p.ativa) return resposta(p.redirecionarInativaPara ? documentoRedirecionamento(p.redirecionarInativaPara, p.titulo) : documentoInativo(p.titulo));
       const h = await html(p.arquivo);
       if (h == null) return resposta(documentoInativo(p.titulo), 404);
-      return resposta(montarDocumento(h, p.titulo, { pixelMeta: cfg.pixelMeta, clarity: cfg.clarity }));
+      return resposta(montarDocumento(h, p.titulo, rastreioDaPagina(p, cfg)));
     }
     // URLs antigas continuam levando para a nova (mantém UTMs dos anúncios já rodando)
     const r = cfg.redirecionamentos.find((x) => normalizarUrl(x.de) === caminho);

@@ -92,7 +92,7 @@ function telaLogin() {
 /* ================= carga ================= */
 async function carregarPaginas(copias = false) {
   const d = await api('paginas' + (copias ? '?copias=1' : ''));
-  Object.assign(E, { cfg: d.config, usuario: d.usuario, rastreio: d.rastreio || {}, podeGravar: d.podeGravar, usandoGitHub: d.usandoGitHub, usandoBanco: d.usandoBanco, temRedis: d.temRedis, temHubspot: d.temHubspot, deploy: d.deploy });
+  Object.assign(E, { cfg: d.config, usuario: d.usuario, rastreio: d.rastreio || {}, hosts: d.hosts || {}, hostPadrao: d.hostPadrao || location.host, podeGravar: d.podeGravar, usandoGitHub: d.usandoGitHub, usandoBanco: d.usandoBanco, temRedis: d.temRedis, temHubspot: d.temHubspot, deploy: d.deploy });
   if (d.copias) E.copias = d.copias;
   E.publicando = Boolean(d.deploy.publicado && d.deploy.atual && d.deploy.publicado !== d.deploy.atual);
   return d;
@@ -208,7 +208,8 @@ function render() {
       <div class="fim">
         <div class="quem"><b>${h(E.usuario?.nome || '')}</b><span>${ehAdmin() ? 'Administrador' : 'Editor'}</span></div>
         <div class="deploy">${dep}</div>
-        <button class="bt bt-sm" data-acao="dominio" title="Domínio (status e PageSpeed), Pixel da Meta e Clarity">${I.globo}<span>${h(E.cfg.dominio ? E.cfg.dominio.replace(/^https?:\/\//, '') : 'Domínio')}</span></button>
+        <button class="bt bt-sm" data-acao="claude" title="Publicar e editar páginas pelo Claude">${I.codigo}<span>Conectar ao Claude</span></button>
+        <button class="bt bt-sm" data-acao="dominio" title="Domínios, pixels e Clarity">${I.globo}<span>Domínios e pixels</span></button>
         <button class="bt bt-sm" data-acao="sair">${I.sair}<span>Sair</span></button>
       </div>
     </aside>
@@ -244,8 +245,8 @@ function pill(p) {
 }
 
 const metricaDe = (slug) => E.metricas?.paginas?.find((m) => m.slug === slug);
-const urlPublica = (p) => '/' + p.url;
-const srcPrevia = (p) => `/${p.url}?v=${E.versao}`;
+const urlPublica = (p) => `https://${E.hosts?.[p.slug] || E.hostPadrao || location.host}/${p.url}`;
+const srcPrevia = (p) => `/${p.url}?v=${E.versao}&r1previa=1`;
 
 function notaPsi(slug, estrategia = 'mobile') {
   const n = E.psi[`${slug}:${estrategia}`]?.performance;
@@ -572,6 +573,7 @@ function abrirNova() {
         <label class="campo"><span>Nome no painel</span><input name="titulo" required placeholder="Black 10X · v6"></label>
         <label class="campo"><span>URL</span><div class="prefixo"><b>/</b><input name="url" required placeholder="black10x-v6" spellcheck="false"></div></label>
       </div>
+      <label class="campo"><span>Domínio</span><select name="dominio" class="sel">${opcoesDominio()}</select></label>
       <label class="chave" style="margin-bottom:6px"><input type="checkbox" name="ativa" checked><i></i>Publicar já ativa</label>
       <textarea name="html" placeholder="Cole aqui o HTML da página (pode ser o bloco do WordPress, como as atuais)" spellcheck="false" required></textarea>
     </form>`,
@@ -590,7 +592,7 @@ function abrirNova() {
     if (!f.reportValidity()) return;
     e.target.disabled = true;
     try {
-      await api('paginas', { method: 'POST', body: { acao: 'criar', titulo: f.titulo.value, url: f.url.value, html: f.html.value, ativa: f.ativa.checked } });
+      await api('paginas', { method: 'POST', body: { acao: 'criar', titulo: f.titulo.value, url: f.url.value, html: f.html.value, ativa: f.ativa.checked, dominio: f.dominio.value } });
       md.fechar();
       depoisDeSalvar(`Página /${f.url.value} criada.`);
     } catch (err) { toast(err.message, 'bad'); e.target.disabled = false; }
@@ -598,23 +600,31 @@ function abrirNova() {
 }
 
 function abrirDominio() {
-  const md = modal({
-    titulo: 'Domínio e rastreamento',
-    corpo: `<label class="campo"><span>Endereço onde as páginas ficam no ar</span><input id="dom" value="${h(E.cfg.dominio)}" placeholder="https://lp.grupor1.com"><small>Usado para conferir se estão online e para medir a nota do Google. Em branco = este endereço (${h(location.host)}).</small></label>
-      <label class="campo"><span>Pixel da Meta (Facebook)</span><input id="pixel" value="${h(E.cfg.pixelMeta || '')}" inputmode="numeric" placeholder="554651949023828"><small>Vale para todas as páginas. Em branco = sem pixel.</small></label>
-      <label class="campo"><span>Microsoft Clarity (ID do projeto)</span><input id="clarity" value="${h(E.cfg.clarity || '')}" placeholder="yy6pgr4e6u"><small>Vale para todas as páginas. Em branco = sem Clarity. Ao salvar, já vale para todas as páginas.</small></label>`,
-    pe: `<button class="bt" data-fechar>Cancelar</button><button class="bt bt-ouro" id="dom-salvar" ${E.podeGravar ? '' : 'disabled'}>Salvar</button>`,
-  });
-  $('#dom-salvar', md.el).onclick = async () => {
-    try {
-      await api('paginas', { method: 'POST', body: { acao: 'dominio', dominio: $('#dom', md.el).value, pixelMeta: $('#pixel', md.el).value, clarity: $('#clarity', md.el).value } });
-      md.fechar();
-      await carregarPaginas(E.vista === 'funil');
-      render();
-      verificarStatus();
-      toast(E.usandoGitHub ? 'Salvo. As páginas são publicadas de novo em ≈30 s.' : 'Salvo. Já está no ar.', 'ok');
-    } catch (e) { toast(e.message, 'bad'); }
+  const md = modal({ titulo: 'Domínios, pixels e Clarity', largo: false, corpo: '<div id="cad-listas"></div>', pe: '<button class="bt" data-fechar>Fechar</button>' });
+  const pinta = () => {
+    const c = E.cfg;
+    const bloco = (tipo, titulo, itens, padrao, dica) => `<div class="cad-bloco"><div class="bloco-tit"><h4>${titulo}</h4>${tipo !== 'dominio' || ehAdmin() ? `<button class="bt bt-sm" data-cad-add="${tipo}">${I.mais}Adicionar</button>` : ''}</div>
+      ${itens.length ? `<ul class="cad-lista">${itens.map((x) => `<li><span class="mono">${h(x.id)}</span>${x.nome ? `<span class="mut">${h(x.nome)}</span>` : ''}${x.id === padrao ? '<em class="cad-padrao">padrão</em>' : ehAdmin() ? `<button class="bt bt-sm" data-cad-padrao="${tipo}" data-id="${h(x.id)}">Tornar padrão</button>` : ''}${ehAdmin() ? `<button class="bt bt-sm bt-icone bt-perigo" data-cad-del="${tipo}" data-id="${h(x.id)}" title="Remover" aria-label="Remover">${I.fechar}</button>` : ''}</li>`).join('')}</ul>` : '<p class="mut" style="margin:6px 0 0">Nenhum cadastrado.</p>'}
+      <small class="mut">${dica}</small></div>`;
+    $('#cad-listas', md.el).innerHTML =
+      bloco('dominio', 'Domínios', (c.dominios || []).map((d) => ({ id: d })), (c.dominio || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '') || c.dominios?.[0], 'O domínio também precisa estar em Vercel → Settings → Domains, com o DNS apontado. Cada página escolhe o seu na lista suspensa.') +
+      bloco('pixel', 'Pixels da Meta', c.pixels || [], c.pixelMeta, 'O padrão vai nas páginas novas. Cada página escolhe o seu na lista suspensa azul.') +
+      bloco('clarity', 'Microsoft Clarity', c.clarities || [], c.clarity, 'O padrão vai nas páginas novas. Cada página escolhe o seu na lista suspensa branca.');
   };
+  pinta();
+  const recarregar = async (msg) => { await carregarPaginas(E.vista === 'funil'); pinta(); render(); toast(msg, 'ok'); };
+  md.el.addEventListener('click', async (e) => {
+    const add = e.target.closest('[data-cad-add]'), pad = e.target.closest('[data-cad-padrao]'), del = e.target.closest('[data-cad-del]');
+    try {
+      if (add) { const id = await abrirCadastro(add.dataset.cadAdd); if (id) await recarregar('Cadastrado.'); abrirDominio(); }
+      if (pad) { await api('paginas', { method: 'POST', body: { acao: 'cadastrar', tipo: pad.dataset.cadPadrao, id: pad.dataset.id, padrao: true } }); await recarregar('Padrão alterado.'); }
+      if (del && await confirmar('Remover', `Remover <b>${h(del.dataset.id)}</b> da lista? (só dá se nenhuma página estiver usando)`, 'Remover', true)) {
+        await api('paginas', { method: 'POST', body: { acao: 'descadastrar', tipo: del.dataset.cadDel, id: del.dataset.id } });
+        await recarregar('Removido.');
+        abrirDominio();
+      }
+    } catch (err) { toast(err.message, 'bad'); }
+  });
 }
 
 /* ================= criativo ================= */
@@ -647,13 +657,88 @@ async function enviarCriativo(slug, arquivo) {
 }
 
 /* ================= pixel e Clarity de cada página ================= */
+// Listas suspensas em cada página: domínio (cinza), pixel (azul) e Clarity (branca), com "+ Adicionar…".
+// Se o código da própria página já traz um pixel/Clarity, ele aparece fixo (não dá para trocar pelo painel).
 function tagsRastreio(p) {
   const r = E.rastreio[p.slug] || { pixel: [], clarity: [] };
-  const origem = (o) => (o === 'pagina' ? 'no código da página' : 'configurado no painel');
-  const px = r.pixel.map((x) => `<span class="tag tag-px" title="Pixel da Meta ${origem(x.origem)}">Pixel ${h(x.id)}</span>`);
-  const cl = r.clarity.map((x) => `<span class="tag tag-cl" title="Microsoft Clarity ${origem(x.origem)}">Clarity ${h(x.id)}</span>`);
-  const sem = [!px.length && '<span class="tag tag-sem">sem pixel</span>', !cl.length && '<span class="tag tag-sem">sem Clarity</span>'].filter(Boolean);
-  return `<div class="tags">${[...px, ...cl, ...sem].join('')}</div>`;
+  const off = E.podeGravar ? '' : 'disabled';
+  const fixos = (tipo) => r[tipo].filter((x) => x.origem === 'pagina');
+  const sel = (tipo, rotulo, lista, padrao, classe) => {
+    if (fixos(tipo).length) return fixos(tipo).map((x) => `<span class="tag ${classe}" title="Está no código da página">${rotulo} ${h(x.id)}</span>`).join('');
+    const atual = p[tipo] === 'nenhum' ? 'nenhum' : (p[tipo] || padrao || 'nenhum');
+    const opcoes = lista.map((x) => `<option value="${h(x.id)}" ${x.id === atual ? 'selected' : ''}>${rotulo} ${h(x.id)}${x.nome ? ' · ' + h(x.nome) : ''}${x.id === padrao ? ' (padrão)' : ''}</option>`).join('');
+    return `<select class="tag-sel ${classe} ${atual === 'nenhum' ? 'vazio' : ''}" data-sel="${tipo}" data-slug="${p.slug}" ${off} title="${rotulo} desta página">${opcoes}<option value="nenhum" ${atual === 'nenhum' ? 'selected' : ''}>Sem ${rotulo.toLowerCase()}</option><option value="__novo">+ Adicionar ${rotulo.toLowerCase()}…</option></select>`;
+  };
+  const host = E.hosts?.[p.slug] || E.hostPadrao || location.host;
+  const doms = E.cfg.dominios?.length ? E.cfg.dominios : [host];
+  const dom = `<select class="tag-sel tag-dom" data-sel="dominio" data-slug="${p.slug}" ${off} title="Domínio onde a página fica no ar">${doms.map((d) => `<option value="${h(d)}" ${d === host ? 'selected' : ''}>${h(d)}</option>`).join('')}${ehAdmin() ? '<option value="__novo">+ Adicionar domínio…</option>' : ''}</select>`;
+  return `<div class="tags">${dom}${sel('pixel', 'Pixel', E.cfg.pixels || [], E.cfg.pixelMeta, 'tag-px')}${sel('clarity', 'Clarity', E.cfg.clarities || [], E.cfg.clarity, 'tag-cl')}</div>`;
+}
+
+// Cadastrar pixel, Clarity ou domínio (da opção "+ Adicionar…"). Devolve o ID cadastrado ou null.
+function abrirCadastro(tipo) {
+  const info = {
+    pixel: ['Adicionar pixel da Meta', 'ID do pixel', '554651949023828', 'Gerenciador de Eventos → Fontes de dados → o número do pixel.'],
+    clarity: ['Adicionar Clarity', 'ID do projeto Clarity', 'yy6pgr4e6u', 'clarity.microsoft.com → Configurações → ID do projeto (ou cole o código de instalação).'],
+    dominio: ['Adicionar domínio', 'Domínio', 'lp.seudominio.com.br', 'Ele também precisa estar em Vercel → Settings → Domains (com o DNS apontado). Peça ao administrador se não souber.'],
+  }[tipo];
+  return new Promise((ok) => {
+    const md = modal({
+      titulo: info[0],
+      corpo: `<label class="campo"><span>${info[1]}</span><input id="cad-id" placeholder="${info[2]}" spellcheck="false" autocapitalize="none" maxlength="${tipo === 'clarity' ? 200 : 253}"></label>
+        ${tipo !== 'dominio' ? '<label class="campo"><span>Nome (opcional)</span><input id="cad-nome" placeholder="Ex.: Pixel campanha Black" maxlength="60"></label>' : ''}
+        <label class="chave"><input type="checkbox" id="cad-padrao"><i></i>Usar como padrão das páginas novas</label>
+        <small class="mut" style="display:block;margin-top:10px">${info[3]}</small>`,
+      pe: '<button class="bt" data-fechar>Cancelar</button><button class="bt bt-ouro" id="cad-ok">Adicionar</button>',
+      aoFechar: () => ok(null),
+    });
+    $('#cad-id', md.el).focus();
+    $('#cad-ok', md.el).onclick = async (e) => {
+      e.target.disabled = true;
+      try {
+        const r = await api('paginas', { method: 'POST', body: { acao: 'cadastrar', tipo, id: $('#cad-id', md.el).value, nome: $('#cad-nome', md.el)?.value || '', padrao: $('#cad-padrao', md.el).checked } });
+        const lista = tipo === 'pixel' ? r.pixels : tipo === 'clarity' ? r.clarities : r.dominios.map((d) => ({ id: d }));
+        md.fechar();
+        ok(lista[lista.length - 1]?.id || null);
+      } catch (err) { toast(err.message, 'bad'); e.target.disabled = false; }
+    };
+  });
+}
+
+async function trocarSeletor(t) {
+  const { sel: tipo, slug } = t.dataset;
+  const p = E.cfg.paginas.find((x) => x.slug === slug);
+  let valor = t.value;
+  if (valor === '__novo') {
+    valor = await abrirCadastro(tipo);
+    if (!valor) { renderVista(false); return; }
+  }
+  try {
+    await api('pagina', { method: 'PATCH', body: { slug, [tipo]: valor } });
+    await carregarPaginas(E.vista === 'funil');
+    renderVista(false);
+    toast(tipo === 'dominio' ? `/${p.url} agora fica em ${valor}.` : `${tipo === 'pixel' ? 'Pixel' : 'Clarity'} de /${p.url} atualizado. Já está no ar.`, 'ok');
+  } catch (e) { toast(e.message, 'bad'); renderVista(false); }
+}
+
+const opcoesDominio = (sel) => {
+  const doms = E.cfg.dominios?.length ? E.cfg.dominios : [E.hostPadrao || location.host];
+  return doms.map((d) => `<option value="${h(d)}" ${d === (sel || E.hostPadrao) ? 'selected' : ''}>${h(d)}</option>`).join('');
+};
+
+/* ================= conectar ao Claude ================= */
+function abrirClaude() {
+  const url = `${location.origin}/api/mcp`;
+  const md = modal({
+    titulo: 'Conectar ao Claude',
+    corpo: `<p style="margin-top:0">Com o conector, o Claude publica, edita e exclui páginas por você, e cuida das imagens.</p>
+      <label class="campo"><span>Endereço do conector</span><div class="prefixo"><input id="mcp-url" value="${h(url)}" readonly></div></label>
+      <button class="bt bt-sm" id="mcp-copiar" style="margin:6px 0 14px">Copiar endereço</button>
+      <ol class="passos"><li>No Claude: <b>Configurações → Conectores → Adicionar conector personalizado</b>.</li><li>Nome: <b>Páginas R1</b> · URL: o endereço acima → <b>Adicionar</b>.</li><li>Clique em <b>Conectar</b> e entre com o seu usuário deste painel.</li><li>Na conversa, ative o conector no botão de ferramentas e peça, por exemplo: “publique esta página em …”.</li></ol>
+      <small class="mut">O tutorial completo está no PDF da pasta do projeto. O Claude age com as mesmas permissões do seu usuário; para desligar, remova o conector no Claude ou troque a sua senha.</small>`,
+    pe: '<button class="bt" data-fechar>Fechar</button>',
+  });
+  $('#mcp-copiar', md.el).onclick = async () => { await navigator.clipboard.writeText(url); toast('Endereço copiado.'); };
 }
 
 /* ================= imagens do site (Vercel Blob) ================= */
@@ -765,6 +850,7 @@ function abrirMassa() {
   const md = modal({
     titulo: 'Adicionar páginas em massa', largo: true,
     corpo: `<div class="massa">
+      <label class="campo massa-dom"><span>Publicar no domínio</span><select id="massa-dom" class="sel">${opcoesDominio()}</select></label>
       <p class="massa-dica">Escreva o slug à esquerda e cole o código à direita. Linhas vazias são ignoradas. O código é limpo sozinho (tira o \`\`\`html do Claude) e a página sai ocupando a tela toda, com o pixel e o Clarity do painel.</p>
       <div class="massa-lista">${[1, 2, 3, 4, 5, 6, 7].map(linha).join('')}</div>
       <button class="bt bt-sm" id="massa-mais">${I.mais}Mais uma linha</button>
@@ -795,9 +881,9 @@ function abrirMassa() {
       if (!slug || !codigo.trim()) { st.textContent = !slug ? 'Falta o slug.' : 'Falta o código.'; l.classList.add('erro'); falhas++; continue; }
       st.textContent = 'Publicando…';
       try {
-        const r = await api('paginas', { method: 'POST', body: { acao: 'criar', url: slug, titulo: tituloDoCodigo(codigo) || slug, html: codigo, ativa: $('#massa-ativa', md.el).checked } });
+        const r = await api('paginas', { method: 'POST', body: { acao: 'criar', url: slug, titulo: tituloDoCodigo(codigo) || slug, html: codigo, ativa: $('#massa-ativa', md.el).checked, dominio: $('#massa-dom', md.el).value } });
         l.classList.add('feita');
-        st.innerHTML = `✔ No ar: <a href="/${h(r.url)}" target="_blank" rel="noopener">/${h(r.url)}</a>`;
+        st.innerHTML = `✔ No ar: <a href="https://${h($('#massa-dom', md.el).value)}/${h(r.url)}" target="_blank" rel="noopener">${h($('#massa-dom', md.el).value)}/${h(r.url)}</a>`;
         $$('input,textarea', l).forEach((x) => (x.readOnly = true));
         ok++;
       } catch (err) { st.textContent = err.message; l.classList.add('erro'); falhas++; }
@@ -822,6 +908,7 @@ document.addEventListener('click', async (ev) => {
     case 'status': verificarStatus(); break;
     case 'nova': abrirNova(); break;
     case 'massa': abrirMassa(); break;
+    case 'claude': abrirClaude(); break;
     case 'img-escolher': $('#img-arq').click(); break;
     case 'img-copiar': await navigator.clipboard.writeText(v); toast('Link copiado: ' + v); break;
     case 'img-apagar':
@@ -836,8 +923,7 @@ document.addEventListener('click', async (ev) => {
     case 'previa': E.previa = v; renderVista(false); break;
     case 'dias': if (!ehAdmin()) break; E.dias = Number(v); E.metricas = null; renderVista(false); carregarMetricas(); break;
     case 'copiar-url': {
-      const base = E.cfg.dominio || location.origin;
-      await navigator.clipboard.writeText(`${base}/${p.url}`);
+      await navigator.clipboard.writeText(urlPublica(p));
       toast('Link copiado.');
       break;
     }
@@ -903,6 +989,7 @@ document.addEventListener('change', async (ev) => {
   if (t.matches('input[data-arquivo]')) enviarCriativo(t.dataset.arquivo, t.files[0]);
   if (t.matches('#img-arq')) { subirImagens([...t.files]); t.value = ''; }
   if (t.matches('#img-otimizar')) E.otimizar = t.checked;
+  if (t.matches('select[data-sel]')) trocarSeletor(t);
 });
 
 document.addEventListener('keydown', (ev) => {

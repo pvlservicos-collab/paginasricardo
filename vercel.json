@@ -151,11 +151,31 @@
   ],
   "rewrites": [
     {
+      "source": "/.well-known/oauth-protected-resource",
+      "destination": "/api/oauth/metadados?tipo=recurso"
+    },
+    {
+      "source": "/.well-known/oauth-protected-resource/:path*",
+      "destination": "/api/oauth/metadados?tipo=recurso"
+    },
+    {
+      "source": "/.well-known/oauth-authorization-server",
+      "destination": "/api/oauth/metadados?tipo=servidor"
+    },
+    {
+      "source": "/.well-known/oauth-authorization-server/:path*",
+      "destination": "/api/oauth/metadados?tipo=servidor"
+    },
+    {
+      "source": "/.well-known/openid-configuration",
+      "destination": "/api/oauth/metadados?tipo=servidor"
+    },
+    {
       "source": "/wp-content/:path*",
       "destination": "https://mgdpqhggmvokpsko.public.blob.vercel-storage.com/wp-content/:path*"
     },
     {
-      "source": "/:caminho((?!api/|api$|painel|wp-content|_vercel).+)",
+      "source": "/:caminho((?!api/|api$|painel|wp-content|_vercel|\\.well-known).+)",
       "destination": "/api/servir?caminho=:caminho"
     }
   ]

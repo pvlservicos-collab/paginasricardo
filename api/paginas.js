@@ -1,16 +1,22 @@
 import { protegido, json, erro, carregarConfig, salvarConfig, temRedis, lerJson, auditar, texto, htmlValido } from '../lib/servidor.mjs';
 import { lerArquivo, lerArquivos, podeGravar, usandoGitHub, usandoBanco, shaAtual } from '../lib/store.mjs';
-import { normalizarUrl, PASTA_PAGINAS, extrairCopy, limparPixelMeta, limparClarity, limparCodigo, detectarRastreio } from '../lib/core.mjs';
+import { PASTA_PAGINAS, extrairCopy, limparPixelMeta, limparClarity, detectarRastreio, rastreioDaPagina, hostDaPagina, hostPadrao } from '../lib/core.mjs';
+import { ipDe } from '../lib/auth.mjs';
+import { criarPagina, cadastrar, descadastrar } from '../lib/operacoes.mjs';
 
 // Lista as páginas + quem está logado + pixel/Clarity de cada página.
 export const GET = protegido(async (request, url, usuario) => {
   const cfg = await carregarConfig();
   const htmls = await lerArquivos(cfg.paginas.map((p) => `${PASTA_PAGINAS}/${p.arquivo}`));
   const rastreio = {};
-  cfg.paginas.forEach((p, i) => { rastreio[p.slug] = detectarRastreio(htmls[i], cfg); });
+  const hostAtual = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').replace(/:[0-9]+$/, '');
+  const hosts = {};
+  cfg.paginas.forEach((p, i) => { rastreio[p.slug] = detectarRastreio(htmls[i], rastreioDaPagina(p, cfg)); hosts[p.slug] = hostDaPagina(p, cfg, hostAtual); });
   const resposta = {
     config: cfg,
     rastreio,
+    hosts,
+    hostPadrao: hostPadrao(cfg, hostAtual),
     usuario: { nome: usuario.nome, login: usuario.login, papel: usuario.papel },
     podeGravar,
     usandoGitHub,
@@ -47,24 +53,21 @@ export const POST = protegido(async (request, url, usuario) => {
   const d = await lerJson(request);
   const cfg = await carregarConfig();
 
+  const quem = { login: usuario.login, papel: usuario.papel, ip: ipDe(request), origem: 'painel', hostAtual: (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').replace(/:[0-9]+$/, '') };
+
   if (d.acao === 'criar') {
-    const urlNova = normalizarUrl(texto(d.url, 120, 'URL') || texto(d.titulo, 120, 'Título'));
-    if (!urlNova) return erro('Informe a URL (slug) da nova página.');
-    const html = limparCodigo(htmlValido(d.html));
-    if (html.length < 20 || !html.includes('<')) return erro('O código colado não parece HTML.');
-    const titulo = (texto(d.titulo, 120, 'Título').trim() || urlNova);
-    const base = urlNova.replace(/\//g, '-');
-    let arquivo = `${base}.html`, n = 2;
-    const existentes = new Set(cfg.paginas.map((p) => p.arquivo));
-    while (existentes.has(arquivo)) arquivo = `${base}-${n++}.html`;
-    cfg.paginas.push({
-      slug: arquivo.replace(/\.html$/, ''), arquivo, titulo, url: urlNova, ativa: d.ativa !== false,
-      ordem: Math.max(0, ...cfg.paginas.map((p) => p.ordem || 0)) + 1,
-      redirecionarInativaPara: '', criativo: { imagem: '', texto: '', link: '' }, notas: '',
-    });
-    const r = await salvarConfig(cfg, `Nova página /${urlNova}`, [{ caminho: `${PASTA_PAGINAS}/${arquivo}`, conteudo: html }]);
-    await auditar(usuario, 'pagina_criada', { url: urlNova, bytes: html.length }, request);
-    return json({ ok: true, sha: r.sha, url: urlNova, slug: arquivo.replace(/\.html$/, '') });
+    const { pagina } = await criarPagina({ url: d.url, titulo: d.titulo, html: d.html, ativa: d.ativa, dominio: d.dominio, pixel: d.pixel, clarity: d.clarity }, quem);
+    return json({ ok: true, sha: null, url: pagina.url, slug: pagina.slug });
+  }
+
+  // listas suspensas: cadastrar/remover pixel, Clarity ou domínio
+  if (d.acao === 'cadastrar') {
+    const c = await cadastrar(String(d.tipo || ''), { id: d.id, nome: d.nome, padrao: d.padrao }, quem);
+    return json({ ok: true, pixels: c.pixels, clarities: c.clarities, dominios: c.dominios });
+  }
+  if (d.acao === 'descadastrar') {
+    await descadastrar(String(d.tipo || ''), String(d.id || ''), quem);
+    return json({ ok: true });
   }
 
   if (d.acao === 'ordem') {
