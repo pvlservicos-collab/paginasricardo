@@ -2,10 +2,17 @@ import { protegido, json, erro, carregarConfig, salvarConfig, temRedis, lerJson,
 import { lerArquivo, lerArquivos, podeGravar, usandoGitHub, usandoBanco, shaAtual } from '../lib/store.mjs';
 import { PASTA_PAGINAS, extrairCopy, limparPixelMeta, limparClarity, detectarRastreio, rastreioDaPagina, hostDaPagina, hostPadrao } from '../lib/core.mjs';
 import { ipDe } from '../lib/auth.mjs';
-import { criarPagina, cadastrar, descadastrar, gerenciarGrupo } from '../lib/operacoes.mjs';
+import { criarPagina, cadastrar, descadastrar, gerenciarGrupo, rastreioDoDominio, dominioNoAr } from '../lib/operacoes.mjs';
 
 // Lista as páginas + quem está logado + pixel/Clarity de cada página.
 export const GET = protegido(async (request, url, usuario) => {
+  // situação de cada domínio (já aponta para o app?) — consultada à parte para não atrasar o painel
+  if (url.searchParams.get('dominios')) {
+    const cfg = await carregarConfig();
+    const hostAtual = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').replace(/:[0-9]+$/, '');
+    const lista = await Promise.all(cfg.dominios.map(async (h) => ({ dominio: h, noAr: h === hostAtual || (await dominioNoAr(h)) })));
+    return json({ dominios: lista });
+  }
   const cfg = await carregarConfig();
   // o laboratório oculto (testes do Claude) não aparece no painel
   cfg.paginas = cfg.paginas.filter((p) => !p.lab);
@@ -66,6 +73,10 @@ export const POST = protegido(async (request, url, usuario) => {
   if (d.acao === 'cadastrar') {
     const c = await cadastrar(String(d.tipo || ''), { id: d.id, nome: d.nome, padrao: d.padrao }, quem);
     return json({ ok: true, pixels: c.pixels, clarities: c.clarities, gtms: c.gtms, dominios: c.dominios });
+  }
+  if (d.acao === 'rastreio-dominio') {
+    const r = await rastreioDoDominio(String(d.dominio || ''), { pixel: d.pixel, clarity: d.clarity, gtm: d.gtm }, quem);
+    return json({ ok: true, ...r });
   }
   if (d.acao === 'grupo') {
     const r = await gerenciarGrupo(String(d.tipo || ''), { id: d.id, titulo: d.titulo, paginas: d.paginas }, quem);

@@ -33,7 +33,7 @@ const I = {
 const E = {
   cfg: null, usuario: null, rastreio: {}, podeGravar: false, usandoGitHub: false, temRedis: false, temHubspot: false,
   deploy: {}, publicando: false, versao: Date.now().toString(36),
-  imagens: null, otimizar: true, filtroGrupo: (() => { try { return localStorage.getItem('r1-filtro-grupo') || 'todos'; } catch { return 'todos'; } })(),
+  dominiosStatus: {}, imagens: null, otimizar: true, filtroGrupo: (() => { try { return localStorage.getItem('r1-filtro-grupo') || 'todos'; } catch { return 'todos'; } })(),
   status: {}, verificando: false, metricas: null, dias: 7, copias: null, psi: {},
   vista: 'grade', previa: 'celular', funilPrevia: true,
 };
@@ -175,6 +175,7 @@ function iniciar() {
       render();
       verificarStatus();
       if (ehAdmin()) carregarMetricas();
+      carregarDominios();
       if (E.vista === 'imagens') carregarImagens();
       carregarPsi();
       if (E.publicando) vigiarDeploy();
@@ -278,6 +279,7 @@ function topo(titulo, sub, acoes = '') {
 
 const botoesPadrao = () => `
   <button class="bt" data-acao="status" ${E.verificando ? 'disabled' : ''}>${I.pulso}${E.verificando ? 'Verificando…' : 'Verificar status'}</button>
+  ${ehAdmin() ? `<button class="bt" data-acao="rastreio-dominio">${I.globo}Rastreamento por domínio</button>` : ''}
   <button class="bt" data-acao="grupos">${I.grade}Grupos</button>
   <button class="bt" data-acao="massa" ${E.podeGravar ? '' : 'disabled'}>${I.mais}Adicionar em massa</button>
   <button class="bt bt-ouro" data-acao="nova" ${E.podeGravar ? '' : 'disabled'}>${I.mais}Nova página</button>`;
@@ -747,6 +749,7 @@ function tagsRastreio(p) {
   const r = { pixel: [], clarity: [], gtm: [], ...(E.rastreio[p.slug] || {}) };
   const off = E.podeGravar ? '' : 'disabled';
   const fixos = (tipo) => r[tipo].filter((x) => x.origem === 'pagina');
+  const pd = padraoDaPagina(p);
   const sel = (tipo, rotulo, lista, padrao, classe) => {
     if (fixos(tipo).length) return fixos(tipo).map((x) => `<span class="tag ${classe}" title="Está no código da página">${rotulo} ${h(x.id)}</span>`).join('');
     const atual = p[tipo] === 'nenhum' ? 'nenhum' : (p[tipo] || padrao || 'nenhum');
@@ -755,10 +758,10 @@ function tagsRastreio(p) {
   };
   const host = E.hosts?.[p.slug] || E.hostPadrao || location.host;
   const doms = E.cfg.dominios?.length ? E.cfg.dominios : [host];
-  const dom = `<select class="tag-sel tag-dom" data-sel="dominio" data-slug="${p.slug}" ${off} title="Domínio onde a página fica no ar">${doms.map((d) => `<option value="${h(d)}" ${d === host ? 'selected' : ''}>${h(d)}</option>`).join('')}${ehAdmin() ? '<option value="__novo">+ Adicionar domínio…</option>' : ''}</select>`;
+  const dom = `<select class="tag-sel tag-dom" data-sel="dominio" data-slug="${p.slug}" ${off} title="Domínio onde a página fica no ar">${doms.map((d) => opcaoDominio(d, d === host)).join('')}${ehAdmin() ? '<option value="__novo">+ Adicionar domínio…</option>' : ''}</select>`;
   const grupos = E.cfg.grupos || [];
   const grp = `<select class="tag-sel tag-grupo ${p.grupo ? '' : 'vazio'}" data-sel="grupo" data-slug="${p.slug}" ${off} title="Grupo da página no painel"><option value="">Sem grupo</option>${grupos.map((g) => `<option value="${h(g.id)}" ${g.id === p.grupo ? 'selected' : ''}>Grupo: ${h(g.titulo)}</option>`).join('')}<option value="__novo">+ Novo grupo…</option></select>`;
-  return `<div class="tags">${grp}${dom}${sel('pixel', 'Pixel', E.cfg.pixels || [], E.cfg.pixelMeta, 'tag-px')}${sel('clarity', 'Clarity', E.cfg.clarities || [], E.cfg.clarity, 'tag-cl')}${sel('gtm', 'GTM', E.cfg.gtms || [], E.cfg.gtm, 'tag-gtm')}</div>`;
+  return `<div class="tags">${grp}${dom}${sel('pixel', 'Pixel', E.cfg.pixels || [], pd.pixel, 'tag-px')}${sel('clarity', 'Clarity', E.cfg.clarities || [], pd.clarity, 'tag-cl')}${sel('gtm', 'GTM', E.cfg.gtms || [], pd.gtm, 'tag-gtm')}</div>`;
 }
 
 // Cadastrar pixel, Clarity ou domínio (da opção "+ Adicionar…"). Devolve o ID cadastrado ou null.
@@ -809,10 +812,77 @@ async function trocarSeletor(t) {
   } catch (e) { toast(e.message, 'bad'); renderVista(false); }
 }
 
+// Opção de domínio com a situação: no ar (pode escolher) ou DNS pendente (bloqueado até apontar).
+function opcaoDominio(d, selecionado) {
+  const st = E.dominiosStatus[d];
+  const pendente = st === false;
+  return `<option value="${h(d)}" ${selecionado ? 'selected' : ''} ${pendente && !selecionado ? 'disabled' : ''}>${st === true ? '● ' : pendente ? '○ ' : ''}${h(d)}${pendente ? ' · DNS pendente' : ''}${d === E.hostPadrao ? ' (padrão)' : ''}</option>`;
+}
 const opcoesDominio = (sel) => {
   const doms = E.cfg.dominios?.length ? E.cfg.dominios : [E.hostPadrao || location.host];
-  return doms.map((d) => `<option value="${h(d)}" ${d === (sel || E.hostPadrao) ? 'selected' : ''}>${h(d)}</option>`).join('');
+  const escolhido = sel || (E.dominiosStatus[E.hostPadrao] === false ? doms.find((d) => E.dominiosStatus[d]) : E.hostPadrao) || E.hostPadrao;
+  return doms.map((d) => opcaoDominio(d, d === escolhido)).join('');
 };
+async function carregarDominios() {
+  try {
+    const r = await api('paginas?dominios=1');
+    E.dominiosStatus = Object.fromEntries(r.dominios.map((x) => [x.dominio, x.noAr]));
+    renderVista(false);
+  } catch {}
+}
+
+// Pixel/Clarity/GTM que a página recebe se não escolher outro: o do domínio dela ou o padrão do painel.
+function padraoDaPagina(p) {
+  const host = E.hosts?.[p.slug] || E.hostPadrao;
+  const d = (E.cfg.porDominio || {})[host] || {};
+  return { pixel: d.pixel || E.cfg.pixelMeta, clarity: d.clarity || E.cfg.clarity, gtm: d.gtm || E.cfg.gtm };
+}
+
+/* ================= rastreamento por domínio ================= */
+function abrirRastreioDominios() {
+  const c = E.cfg;
+  const doms = c.dominios || [];
+  const dl = (id, lista) => `<datalist id="${id}">${lista.map((x) => `<option value="${h(x.id)}">${h(x.nome || '')}</option>`).join('')}<option value="nenhum">desligar neste domínio</option></datalist>`;
+  const linha = (d) => {
+    const v = (c.porDominio || {})[d] || {};
+    const n = c.paginas.filter((p) => (E.hosts?.[p.slug] || E.hostPadrao) === d).length;
+    const st = E.dominiosStatus[d];
+    const campo = (k, rotulo, lista, global, ex) => `<label class="campo"><span>${rotulo}</span><input data-c="${k}" list="dl-${k}" value="${h(v[k] || '')}" placeholder="padrão: ${h(global || 'nenhum')}" spellcheck="false" autocapitalize="none" maxlength="200" ${E.podeGravar ? '' : 'disabled'}><small class="mut">${ex}</small></label>`;
+    return `<div class="rd-linha" data-dominio="${h(d)}">
+      <div class="rd-dom"><b>${h(d)}</b><span class="rd-st ${st === true ? 'ok' : st === false ? 'pend' : ''}">${st === true ? 'no ar' : st === false ? 'DNS pendente' : 'verificando…'}</span><small class="mut">${n} página(s)${d === E.hostPadrao ? ' · domínio padrão' : ''}</small></div>
+      <div class="rd-campos">
+        ${campo('pixel', 'Pixel da Meta', c.pixels, c.pixelMeta, 'ID do pixel')}
+        ${campo('gtm', 'Google Tag Manager', c.gtms, c.gtm, 'GTM-XXXXXXX')}
+        ${campo('clarity', 'Microsoft Clarity', c.clarities, c.clarity, 'ID do projeto')}
+      </div>
+      <button class="bt bt-sm bt-ouro" data-rd-salvar ${E.podeGravar ? '' : 'disabled'}>Salvar</button>
+    </div>`;
+  };
+  const md = modal({
+    titulo: 'Rastreamento por domínio', largo: true,
+    corpo: `<p class="mut" style="margin-top:0">O que você colocar aqui vale para <b>todas as páginas do domínio</b>. Deixe em branco para seguir o padrão do painel, ou escreva <b>nenhum</b> para desligar. Se uma página escolher outro pixel/GTM/Clarity na própria lista dela, a escolha da página vale. IDs novos entram sozinhos nas listas.</p>
+      ${dl('dl-pixel', c.pixels || [])}${dl('dl-gtm', c.gtms || [])}${dl('dl-clarity', c.clarities || [])}
+      <div class="rd-lista">${doms.map(linha).join('')}</div>`,
+    pe: '<button class="bt" data-fechar>Fechar</button>',
+  });
+  md.el.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-rd-salvar]');
+    if (!b) return;
+    const l = b.closest('.rd-linha'), dominio = l.dataset.dominio;
+    const corpo = { acao: 'rastreio-dominio', dominio };
+    $$('input[data-c]', l).forEach((i) => (corpo[i.dataset.c] = i.value.trim()));
+    b.disabled = true; b.textContent = 'Salvando…';
+    try {
+      await api('paginas', { method: 'POST', body: corpo });
+      await carregarPaginas(E.vista === 'funil');
+      render();
+      const n = E.cfg.paginas.filter((p) => (E.hosts?.[p.slug] || E.hostPadrao) === dominio).length;
+      toast(`Rastreamento de ${dominio} salvo: vale para ${n} página(s). Já está no ar.`, 'ok');
+      b.textContent = 'Salvo ✓';
+      setTimeout(() => { b.disabled = false; b.textContent = 'Salvar'; }, 1500);
+    } catch (err) { toast(err.message, 'bad'); b.disabled = false; b.textContent = 'Salvar'; }
+  });
+}
 
 /* ================= conectar ao Claude ================= */
 function abrirClaude() {
@@ -997,6 +1067,7 @@ document.addEventListener('click', async (ev) => {
     case 'nova': abrirNova(); break;
     case 'massa': abrirMassa(); break;
     case 'grupos': abrirGrupos(); break;
+    case 'rastreio-dominio': abrirRastreioDominios(); break;
     case 'grupo-editar': abrirGrupo(v); break;
     case 'filtro-grupo': E.filtroGrupo = v; try { localStorage.setItem('r1-filtro-grupo', v); } catch {} renderVista(false); break;
     case 'claude': abrirClaude(); break;

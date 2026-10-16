@@ -340,3 +340,17 @@ td .tags{margin-top:6px}
 .tag-sel.tag-grupo{background-color:var(--gold-soft);color:var(--gold-lt);border:1px solid rgba(233,177,102,.4);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23e9b166' stroke-width='1.6'/%3E%3C/svg%3E")}
 .grupo-paginas{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto;padding:10px;border:1px solid var(--line);border-radius:12px;margin-top:10px}
 .grupo-paginas .chave{font-size:13.5px;color:var(--tx)}
+
+/* ---------- rastreamento por domínio ---------- */
+.rd-lista{display:flex;flex-direction:column;gap:12px}
+.rd-linha{display:grid;grid-template-columns:minmax(200px,260px) 1fr auto;gap:14px;align-items:start;padding:14px;background:var(--s2);border:1px solid var(--line);border-radius:12px}
+.rd-dom{display:flex;flex-direction:column;gap:4px;min-width:0}
+.rd-dom b{font-family:var(--fm);font-size:13px;word-break:break-all}
+.rd-st{align-self:flex-start;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--off-soft);color:var(--mut)}
+.rd-st.ok{background:var(--ok-soft);color:var(--ok)}
+.rd-st.pend{background:var(--warn-soft);color:var(--warn)}
+.rd-campos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.rd-campos .campo{margin:0}
+.rd-campos input{font-family:var(--fm);font-size:13px}
+.rd-linha > .bt{margin-top:22px}
+@media (max-width:900px){.rd-linha{grid-template-columns:1fr}.rd-campos{grid-template-columns:1fr}.rd-linha > .bt{margin-top:0}}

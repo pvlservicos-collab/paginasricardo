@@ -6,8 +6,8 @@ import { usuarioDoToken, origemDe } from '../lib/oauth.mjs';
 import { registrar, ipDe } from '../lib/auth.mjs';
 import { carregarConfig } from '../lib/servidor.mjs';
 import { sql, usandoBanco } from '../lib/store.mjs';
-import { linkDaPagina, hostDaPagina, hostPadrao, rastreioDaPagina, detectarRastreio, limparHost } from '../lib/core.mjs';
-import { criarPagina, atualizarPagina, excluirPagina, acharPagina, htmlDaPagina } from '../lib/operacoes.mjs';
+import { linkDaPagina, hostDaPagina, hostPadrao, rastreioDaPagina, detectarRastreio, limparHost, padraoDoDominio } from '../lib/core.mjs';
+import { criarPagina, atualizarPagina, excluirPagina, acharPagina, htmlDaPagina, dominioNoAr } from '../lib/operacoes.mjs';
 import { relatorioImagens, migrarImagens, salvarImagem, listarImagens, baixarImagem } from '../lib/imagens.mjs';
 
 const VERSOES = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
@@ -127,7 +127,8 @@ async function executar(nome, a, ctx) {
       const cfg = ctx.cfg;
       const doms = cfg.dominios.length ? cfg.dominios : [hostPadrao(cfg, hostAtual)];
       return {
-        dominios: doms.map((d) => ({ dominio: d, padrao: d === hostPadrao(cfg, hostAtual) })),
+        dominios: await Promise.all(doms.map(async (d) => ({ dominio: d, padrao: d === hostPadrao(cfg, hostAtual), no_ar: d === hostAtual || (await dominioNoAr(d)), rastreio_do_dominio: padraoDoDominio(d, cfg) }))),
+        observacao: 'Domínio com no_ar=false ainda não aponta para o app (DNS pendente): não dá para publicar nele. O pixel/GTM/Clarity do domínio vale para todas as páginas dele.',
         pixels: cfg.pixels.map((x) => ({ ...x, padrao: x.id === cfg.pixelMeta })),
         clarities: cfg.clarities.map((x) => ({ ...x, padrao: x.id === cfg.clarity })),
         gtms: cfg.gtms.map((x) => ({ ...x, padrao: x.id === cfg.gtm })),
