@@ -375,3 +375,6 @@ td .tags{margin-top:6px}
 .tk-st.ok{background:var(--ok-soft);color:var(--ok)}
 tr.tk-off td{opacity:.6}
 @media (max-width:900px){.tk-leg-linha{grid-template-columns:1fr}.tk-qtd{white-space:normal}}
+.tk-sec{font-family:var(--fd);font-size:22px;margin:6px 0 12px}
+.tk-setores{margin-bottom:26px}
+.tk-setores td{vertical-align:top;font-size:13.5px}

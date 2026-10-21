@@ -392,22 +392,10 @@ function vistaTrackeamento() {
   const ids = [...cadastrados.map((x) => x.id), ...[...usos.keys()].filter((id) => !cadastrados.some((x) => x.id === id))];
   const info = (id) => cadastrados.find((x) => x.id === id) || { id, nome: '', uso: '' };
   const dominiosDo = (id) => Object.entries(c.porDominio || {}).filter(([, v]) => v.gtm === id).map(([d]) => d).concat(c.gtm === id ? ['padrão do painel'] : []);
-  const qtd = (id) => { const l = usos.get(id) || []; return `${l.filter((x) => x.p.ativa).length} ativa(s)${l.some((x) => !x.p.ativa) ? ` · ${l.filter((x) => !x.p.ativa).length} desativada(s)` : ''}`; };
-
-  const legenda = `<div class="tk-legenda">
-    <div class="tk-leg-cab"><h2>Legenda dos GTMs</h2><button class="bt bt-sm" data-acao="gtm-novo" ${off}>${I.mais}Adicionar GTM</button></div>
-    <p class="mut">Dê um nome e diga para que serve cada contêiner. É só para organização: mudar a legenda não altera nada nas páginas.</p>
-    ${ids.map((id) => {
-      const x = info(id), cad = cadastrados.some((y) => y.id === id);
-      return `<div class="tk-leg-linha" data-gtm="${h(id)}">
-        <span class="mono tk-id">${h(id)}</span>
-        <input data-c="nome" value="${h(x.nome)}" placeholder="Nome (ex.: GTM Máquina)" maxlength="60" ${cad ? off : 'disabled'}>
-        <input data-c="uso" value="${h(x.uso || '')}" placeholder="Para que serve (ex.: Turnê e Convocação)" maxlength="200" ${cad ? off : 'disabled'}>
-        <span class="mut tk-qtd">${qtd(id)}</span>
-        ${cad ? `<button class="bt bt-sm bt-ouro" data-acao="legenda-salvar" data-v="${h(id)}" ${off}>Salvar</button>` : '<span class="mut tk-qtd">só no código da página</span>'}
-      </div>`;
-    }).join('')}
-  </div>`;
+  const usosClarity = new Map();
+  ps.forEach((p) => (E.rastreio[p.slug]?.clarity || []).forEach((x) => { if (!usosClarity.has(x.id)) usosClarity.set(x.id, []); usosClarity.get(x.id).push({ p }); }));
+  const legenda = legendaTk('gtm', 'Legenda dos GTMs', 'Dê um nome e diga para que serve cada contêiner. É só para organização: mudar a legenda não altera nada nas páginas.', cadastrados, usos, 'GTM Máquina') +
+    legendaTk('clarity', 'Legenda dos Clarity', 'Um projeto do Microsoft Clarity por setor. Mesmo esquema: a legenda é só organização.', c.clarities || [], usosClarity, 'Clarity Grupo R1');
 
   const linha = ({ p, de }) => `<tr class="${p.ativa ? '' : 'tk-off'}">
       <td><a class="mono" href="${urlPublica(p)}" target="_blank" rel="noopener">/${h(p.url)}</a><br><span class="mut">${h(p.titulo)}</span></td>
@@ -427,17 +415,63 @@ function vistaTrackeamento() {
       ${l.length ? `<div class="tabela-wrap"><table>${cab}<tbody>${l.map(linha).join('')}</tbody></table></div>` : '<div class="vazio-grupo mut">Nenhuma página usa este GTM.</div>'}
     </section>`;
   };
-  return topo('Trackeamento', 'Qual Google Tag Manager cada página usa. Para trocar: “Rastreamento por domínio” (vale para o domínio todo) ou a lista GTM em cada página.', ehAdmin() ? `<button class="bt" data-acao="rastreio-dominio">${I.globo}Rastreamento por domínio</button>` : '') +
-    legenda + ids.map(bloco).join('') +
+  return topo('Trackeamento', 'Qual GTM, Clarity e Pixel cada setor e cada página usa. Para trocar: “Rastreamento por domínio” (vale para o setor todo) ou as listas em cada página.', ehAdmin() ? `<button class="bt" data-acao="rastreio-dominio">${I.globo}Rastreamento por domínio</button>` : '') +
+    tabelaSetores() + legenda + '<h2 class="tk-sec">Páginas por GTM</h2>' + ids.map(bloco).join('') +
     (sem.length ? `<section class="tk-bloco"><div class="tk-bloco-cab"><div><h2>Sem GTM</h2></div><span class="mut">${sem.length} página(s)</span></div><div class="tabela-wrap"><table>${cab}<tbody>${sem.map((p) => linha({ p, de: '—' })).join('')}</tbody></table></div></section>` : '');
 }
 
+// Legenda editável de um tipo de cadastro (GTM ou Clarity): ID, nome, para que serve e quantas páginas usam.
+function legendaTk(tipo, titulo, ajuda, cadastrados, usos, exemplo) {
+  const off = E.podeGravar ? '' : 'disabled';
+  const ids = [...cadastrados.map((x) => x.id), ...[...usos.keys()].filter((id) => !cadastrados.some((x) => x.id === id))];
+  const qtd = (id) => { const l = usos.get(id) || []; return `${l.filter((x) => x.p.ativa).length} ativa(s)${l.some((x) => !x.p.ativa) ? ` · ${l.filter((x) => !x.p.ativa).length} desativada(s)` : ''}`; };
+  return `<div class="tk-legenda">
+    <div class="tk-leg-cab"><h2>${titulo}</h2><button class="bt bt-sm" data-acao="cad-novo" data-v="${tipo}" ${off}>${I.mais}Adicionar ${tipo === 'gtm' ? 'GTM' : 'Clarity'}</button></div>
+    <p class="mut">${ajuda}</p>
+    ${ids.map((id) => {
+      const x = cadastrados.find((y) => y.id === id) || { nome: '' }, cad = cadastrados.some((y) => y.id === id);
+      return `<div class="tk-leg-linha" data-tipo="${tipo}">
+        <span class="mono tk-id">${h(id)}</span>
+        <input data-c="nome" value="${h(x.nome)}" placeholder="Nome (ex.: ${exemplo})" maxlength="60" ${cad ? off : 'disabled'}>
+        <input data-c="uso" value="${h(x.uso || '')}" placeholder="Para que serve (ex.: setor, produto, campanha)" maxlength="200" ${cad ? off : 'disabled'}>
+        <span class="mut tk-qtd">${qtd(id)}</span>
+        ${cad ? `<button class="bt bt-sm bt-ouro" data-acao="legenda-salvar" data-v="${h(id)}" ${off}>Salvar</button>` : '<span class="mut tk-qtd">só no código da página</span>'}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// Estratégia por setor: o que cada domínio usa por padrão e quantas páginas fogem do padrão.
+function tabelaSetores() {
+  const c = E.cfg;
+  const rot = (lista, id) => {
+    if (!id || id === 'nenhum') return '<span class="mut">nenhum</span>';
+    const x = (lista || []).find((y) => y.id === id);
+    return `${x?.nome ? `${h(x.nome)}<br>` : ''}<span class="mono tk-id">${h(id)}</span>`;
+  };
+  const setores = (c.dominios || []).map((d) => ({ d, ps: c.paginas.filter((p) => (E.hosts?.[p.slug] || E.hostPadrao) === d) })).filter((x) => x.ps.length);
+  const linha = ({ d, ps }) => {
+    const pd = padraoDaPagina(ps[0]);
+    const foge = ps.filter((p) => ['gtm', 'clarity', 'pixel'].some((t) => (E.rastreio[p.slug]?.[t] || []).map((x) => x.id).join(',') !== (pd[t] === 'nenhum' ? '' : pd[t] || '')));
+    return `<tr>
+      <td class="mono">${h(d)}</td>
+      <td class="dir num">${ps.filter((p) => p.ativa).length}<span class="mut"> / ${ps.length}</span></td>
+      <td>${rot(c.gtms, pd.gtm)}</td>
+      <td>${rot(c.clarities, pd.clarity)}</td>
+      <td>${rot(c.pixels, pd.pixel)}</td>
+      <td>${foge.length ? `<span title="${h(foge.map((p) => '/' + p.url).join(' '))}">${foge.length} página(s) com outro</span>` : '<span class="mut">—</span>'}</td>
+    </tr>`;
+  };
+  return `<h2 class="tk-sec">Por setor</h2>
+    <div class="tabela-wrap tk-setores"><table><thead><tr><th>Setor (domínio)</th><th class="dir">Páginas ativas</th><th>GTM</th><th>Clarity</th><th>Pixel da Meta</th><th>Fora do padrão</th></tr></thead><tbody>${setores.map(linha).join('')}</tbody></table></div>`;
+}
+
 async function salvarLegenda(id, b) {
-  const l = b.closest('.tk-leg-linha');
+  const l = b.closest('.tk-leg-linha'), tipo = l.dataset.tipo;
   b.disabled = true; b.textContent = 'Salvando…';
   try {
-    const r = await api('paginas', { method: 'POST', body: { acao: 'legenda', tipo: 'gtm', id, nome: $('[data-c="nome"]', l).value, uso: $('[data-c="uso"]', l).value } });
-    E.cfg.gtms = r.lista;
+    const r = await api('paginas', { method: 'POST', body: { acao: 'legenda', tipo, id, nome: $('[data-c="nome"]', l).value, uso: $('[data-c="uso"]', l).value } });
+    if (tipo === 'clarity') E.cfg.clarities = r.lista; else E.cfg.gtms = r.lista;
     renderVista(false);
     toast(`Legenda de ${id} salva.`, 'ok');
   } catch (e) { toast(e.message, 'bad'); b.disabled = false; b.textContent = 'Salvar'; }
@@ -1149,7 +1183,7 @@ document.addEventListener('click', async (ev) => {
     case 'grupos': abrirGrupos(); break;
     case 'rastreio-dominio': abrirRastreioDominios(); break;
     case 'legenda-salvar': salvarLegenda(v, alvo); break;
-    case 'gtm-novo': if (await abrirCadastro('gtm')) { await carregarPaginas(E.vista === 'funil'); renderVista(false); } break;
+    case 'cad-novo': if (await abrirCadastro(v)) { await carregarPaginas(E.vista === 'funil'); renderVista(false); } break;
     case 'grupo-editar': abrirGrupo(v); break;
     case 'filtro-grupo': E.filtroGrupo = v; try { localStorage.setItem('r1-filtro-grupo', v); } catch {} renderVista(false); break;
     case 'claude': abrirClaude(); break;

@@ -64,7 +64,7 @@ export const POST = protegido(async (request, url, usuario) => {
 
   const quem = { login: usuario.login, papel: usuario.papel, ip: ipDe(request), origem: 'painel', hostAtual: (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').replace(/:[0-9]+$/, '') };
   // gestor de tráfego: na tela Trackeamento ele só edita a legenda e cadastra GTM
-  if (usuario.papel === 'trafego' && !(['legenda', 'cadastrar'].includes(d.acao) && d.tipo === 'gtm')) return erro('Seu acesso é só à tela de Trackeamento.', 403);
+  if (usuario.papel === 'trafego' && !(['legenda', 'cadastrar'].includes(d.acao) && ['gtm', 'clarity'].includes(d.tipo))) return erro('Seu acesso é só à tela de Trackeamento.', 403);
 
   if (d.acao === 'criar') {
     const { pagina } = await criarPagina({ url: d.url, titulo: d.titulo, html: d.html, ativa: d.ativa, dominio: d.dominio, pixel: d.pixel, clarity: d.clarity, gtm: d.gtm, grupo: d.grupo || undefined }, quem);
