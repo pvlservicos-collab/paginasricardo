@@ -276,7 +276,7 @@ function naoAutorizado(request, msg = 'Conecte-se pelo Claude para usar.') {
 export async function POST(request) {
   const m = /^Bearer\s+(\S+)$/i.exec(request.headers.get('authorization') || '');
   const usuario = m ? await usuarioDoToken(m[1]).catch(() => null) : null;
-  if (!usuario) return naoAutorizado(request);
+  if (!usuario || usuario.papel === 'trafego') return naoAutorizado(request);
   const texto = await request.text();
   if (texto.length > 4.4 * 1024 * 1024) return new Response(JSON.stringify(rpcErro(null, -32600, 'Pedido grande demais (máx. ~4 MB).')), { status: 413, headers: { 'Content-Type': 'application/json' } });
   let corpo;

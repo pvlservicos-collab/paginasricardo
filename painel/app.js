@@ -40,6 +40,7 @@ const E = {
 };
 
 const ehAdmin = () => E.usuario?.papel === 'admin';
+const ehTrafego = () => E.usuario?.papel === 'trafego'; // gestor de tráfego: só a tela Trackeamento (o servidor bloqueia o resto)
 const EM_OBRA = ['funil', 'metricas']; // funções em construção: só o admin abre
 
 /* ================= API ================= */
@@ -174,6 +175,7 @@ function iniciar() {
   $('#app').innerHTML = '<div class="boot">Carregando páginas…</div>';
   carregarPaginas(E.vista === 'funil')
     .then(() => {
+      if (ehTrafego()) { E.vista = 'trackeamento'; if (location.hash && location.hash !== '#trackeamento') history.replaceState(null, '', '#trackeamento'); render(); return; }
       render();
       verificarStatus();
       if (ehAdmin()) carregarMetricas();
@@ -186,7 +188,7 @@ function iniciar() {
 }
 
 window.addEventListener('hashchange', () => {
-  const v = location.hash.slice(1) || 'grade';
+  const v = ehTrafego() ? 'trackeamento' : location.hash.slice(1) || 'grade';
   if (v === E.vista || !E.cfg) return;
   E.vista = v;
   if (v === 'funil' && !E.copias && ehAdmin()) carregarPaginas(true).then(render);
@@ -195,7 +197,7 @@ window.addEventListener('hashchange', () => {
 });
 
 function render() {
-  const nav = [['grade', 'Páginas'], ['lista', 'Lista'], ['trackeamento', 'Trackeamento'], ['imagens', 'Imagens'], ['funil', 'Funil'], ['metricas', 'Métricas']];
+  const nav = [['grade', 'Páginas'], ['lista', 'Lista'], ['trackeamento', 'Trackeamento'], ['imagens', 'Imagens'], ['funil', 'Funil'], ['metricas', 'Métricas']].filter(([k]) => !ehTrafego() || k === 'trackeamento');
   const dep = E.publicando
     ? '<b><span class="ponto pulsa"></span>Publicando…</b>A Vercel está gerando a nova versão.'
     : E.usandoGitHub
@@ -209,10 +211,10 @@ function render() {
       <div class="marca"><i>R1</i><span>Páginas</span></div>
       <nav class="nav">${nav.map(([k, n]) => `<a href="#${k}" class="${E.vista === k ? 'on' : ''}">${I[k]}${n}${EM_OBRA.includes(k) ? '<em class="em-obra">em construção</em>' : ''}</a>`).join('')}</nav>
       <div class="fim">
-        <div class="quem"><b>${h(E.usuario?.nome || '')}</b><span>${ehAdmin() ? 'Administrador' : 'Editor'}</span></div>
-        <div class="deploy">${dep}</div>
+        <div class="quem"><b>${h(E.usuario?.nome || '')}</b><span>${ehAdmin() ? 'Administrador' : ehTrafego() ? 'Gestor de tráfego' : 'Editor'}</span></div>
+        ${ehTrafego() ? '' : `<div class="deploy">${dep}</div>
         <button class="bt bt-sm" data-acao="claude" title="Publicar e editar páginas pelo Claude">${I.codigo}<span>Conectar ao Claude</span></button>
-        <button class="bt bt-sm" data-acao="dominio" title="Domínios, pixels e Clarity">${I.globo}<span>Domínios e pixels</span></button>
+        <button class="bt bt-sm" data-acao="dominio" title="Domínios, pixels e Clarity">${I.globo}<span>Domínios e pixels</span></button>`}
         <button class="bt bt-sm" data-acao="sair">${I.sair}<span>Sair</span></button>
       </div>
     </aside>
@@ -230,7 +232,7 @@ function renderVista(rolarTopo = true) {
   const c = $('#conteudo');
   if (!c) return;
   const scroll = window.scrollY;
-  const v = EM_OBRA.includes(E.vista) && !ehAdmin() ? vistaEmObra : ({ grade: vistaGrade, lista: vistaLista, trackeamento: vistaTrackeamento, imagens: vistaImagens, funil: vistaFunil, metricas: vistaMetricas }[E.vista] || vistaGrade);
+  const v = ehTrafego() ? vistaTrackeamento : EM_OBRA.includes(E.vista) && !ehAdmin() ? vistaEmObra : ({ grade: vistaGrade, lista: vistaLista, trackeamento: vistaTrackeamento, imagens: vistaImagens, funil: vistaFunil, metricas: vistaMetricas }[E.vista] || vistaGrade);
   c.innerHTML = avisosGerais() + v();
   $$('.nav a').forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + E.vista));
   ajustarTelas();

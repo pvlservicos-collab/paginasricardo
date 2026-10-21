@@ -82,6 +82,7 @@ export async function POST(request) {
     await new Promise((ok) => setTimeout(ok, 400 + Math.random() * 400));
     return formulario(p, cliente, v.erro);
   }
+  if (v.usuario.papel === 'trafego') return formulario(p, cliente, 'Este usuário tem acesso só à tela de Trackeamento e não pode conectar o Claude.');
   const codigo = await criarCodigo({ cliente, usuario: v.usuario, redirect_uri: p.redirect_uri, code_challenge: p.code_challenge, resource: p.resource });
   await registrar('claude_conectado', { usuario: v.usuario.login, ip: ipDe(request), detalhe: { client_id: cliente.client_id, nome: cliente.nome } });
   return voltar(p, { code: codigo }, request);
