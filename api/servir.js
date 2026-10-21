@@ -1,9 +1,8 @@
 // Entrega as páginas publicadas (/black10x-g etc.) direto do banco.
 // O HTML entregue é o mesmo de antes (estático puro + pixel/Clarity): nenhum código do painel entra nele.
-// Para ser rápido e barato: a CDN da Vercel guarda a resposta por 60 s (e entrega a cópia anterior
+// Para ser rápido e barato: a CDN da Vercel guarda a resposta por 60 s (entregando a cópia anterior
 // enquanto busca a nova) e esta função guarda a configuração e o HTML na memória por 5 s.
-// Uma alteração no painel aparece em até ~1 min. O middleware tira fbclid/utm do pedido à CDN,
-// então os cliques de anúncio usam a mesma cópia (veja middleware.js).
+// Uma alteração no painel aparece no site em até ~1 min.
 import { carregarConfig } from '../lib/servidor.mjs';
 import { lerArquivo } from '../lib/store.mjs';
 import { dominioNoAr } from '../lib/operacoes.mjs';
@@ -42,18 +41,15 @@ export async function GET(request) {
     const cfg = await config();
     const p = cfg.paginas.find((x) => normalizarUrl(x.url) === caminho);
     if (p) {
-      // página de outro domínio: leva para o domínio certo, mas só quando ele já está no ar (DNS apontado).
-      // Enquanto não estiver, a página continua abrindo aqui. As prévias do painel passam direto.
-      // O redirecionamento é feito no navegador, que ainda tem o endereço completo: assim as UTMs e o fbclid
-      // vão junto mesmo com o middleware tirando os parâmetros do pedido.
+      // página de outro domínio: leva para o domínio certo (mantendo as UTMs), mas só quando ele já está no ar
+      // (DNS apontado). Enquanto não estiver, a página continua abrindo aqui. As prévias do painel passam direto.
       const hostAtual = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').toLowerCase().replace(/:\d+$/, '');
       const hostCerto = hostDaPagina(p, cfg, hostAtual);
       const local = /^(localhost|127\.)/.test(hostAtual);
       if (!p.lab && hostCerto && hostAtual && hostCerto !== hostAtual && !local && !url.searchParams.has('r1previa') && await dominioNoAr(hostCerto)) {
-        const destino = `https://${hostCerto}/${caminho}`;
-        const doc = `<!doctype html><html lang="pt-BR" data-redirecionamento><head><meta charset="utf-8"><meta name="robots" content="noindex"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Redirecionando</title><meta http-equiv="refresh" content="0;url=${destino}"><script>location.replace(${JSON.stringify(destino)}+location.search+location.hash)</script><style>body{margin:0;background:#0b0b0c}</style></head><body></body></html>
-`;
-        return new Response(doc, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=0', 'Vercel-CDN-Cache-Control': 'max-age=60' } });
+        const destino = new URL(`https://${hostCerto}/${caminho}`);
+        url.searchParams.forEach((v, k) => { if (k !== 'caminho') destino.searchParams.append(k, v); });
+        return new Response(null, { status: 308, headers: { Location: destino.href, 'Cache-Control': 'public, max-age=0', 'Vercel-CDN-Cache-Control': 'max-age=60' } });
       }
       if (!p.ativa) return resposta(p.redirecionarInativaPara ? documentoRedirecionamento(p.redirecionarInativaPara, p.titulo) : documentoInativo(p.titulo));
       const h = await html(p.arquivo);

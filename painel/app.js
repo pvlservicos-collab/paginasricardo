@@ -33,12 +33,15 @@ const I = {
 
 const E = {
   cfg: null, usuario: null, rastreio: {}, podeGravar: false, usandoGitHub: false, temRedis: false, temHubspot: false,
-  deploy: {}, publicando: false, versao: Date.now().toString(36),
+  deploy: {}, publicando: false, versao: (() => { try { return localStorage.getItem('r1-versao') || novaVersao(); } catch { return Date.now().toString(36); } })(),
   dominiosStatus: {}, imagens: null, otimizar: true, filtroGrupo: (() => { try { return localStorage.getItem('r1-filtro-grupo') || 'todos'; } catch { return 'todos'; } })(),
   status: {}, verificando: false, metricas: null, dias: 7, copias: null, psi: {},
   vista: 'grade', previa: 'celular', funilPrevia: true,
 };
 
+// Versão das prévias: só muda quando algo é salvo neste navegador. Assim abrir o painel de novo reaproveita
+// as prévias guardadas na CDN em vez de gerar todas as páginas outra vez.
+function novaVersao() { const v = Date.now().toString(36); try { localStorage.setItem('r1-versao', v); } catch {} return v; }
 const ehAdmin = () => E.usuario?.papel === 'admin';
 const ehTrafego = () => E.usuario?.papel === 'trafego'; // gestor de tráfego: só a tela Trackeamento (o servidor bloqueia o resto)
 const EM_OBRA = ['funil', 'metricas']; // funções em construção: só o admin abre
@@ -134,7 +137,7 @@ async function carregarPsi() {
 let vigia = null;
 function depoisDeSalvar(msg) {
   if (!E.usandoGitHub) {
-    E.versao = Date.now().toString(36);
+    E.versao = novaVersao();
     toast(msg + ' Já está no ar.', 'ok');
     return carregarPaginas(E.vista === 'funil').then(() => { render(); verificarStatus(); });
   }
@@ -158,7 +161,7 @@ function vigiarDeploy() {
       if (!d.deploy.publicado || d.deploy.publicado === d.deploy.atual || voltas > 40) {
         clearInterval(vigia);
         E.publicando = false;
-        E.versao = Date.now().toString(36);
+        E.versao = novaVersao();
         toast(voltas > 40 ? 'O deploy está demorando. Confira na Vercel.' : 'Publicado! As páginas já estão atualizadas.', voltas > 40 ? 'bad' : 'ok');
         render();
         verificarStatus();
@@ -1162,7 +1165,7 @@ function abrirMassa() {
     }
     enviando = false; e.target.disabled = false;
     toast(`${ok} página(s) publicada(s)${falhas ? ` · ${falhas} com problema (veja em vermelho)` : ''}.`, falhas ? 'bad' : 'ok');
-    if (ok) { E.versao = Date.now().toString(36); await carregarPaginas(); render(); verificarStatus(); }
+    if (ok) { E.versao = novaVersao(); await carregarPaginas(); render(); verificarStatus(); }
   };
 }
 

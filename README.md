@@ -9,11 +9,11 @@ Painel para gerenciar as páginas do Ricardo Nunes: ver todas em grade, lista ou
 - **Banco de dados (Neon Postgres) + Vercel Blob**, conectados ao projeto em Vercel → Storage. A Vercel cria sozinha as variáveis (`DATABASE_URL` e `BLOB_READ_WRITE_TOKEN`); não precisa configurar nada à mão.
 - Tudo o que o painel muda (HTML, URL, ativar/desativar, pixel, Clarity, criativo) é gravado no banco e **entra no ar em segundos, sem deploy**. As imagens dos criativos ficam no Blob.
 - Na primeira vez que o site roda com o banco, ele copia para o banco o que está em `paginas/` e `criativos/`. Depois disso, **quem manda é o banco**: mudar arquivos em `paginas/` no GitHub não altera mais as páginas no ar (use o painel).
-- As páginas são entregues pela função `api/servir.js` (região São Paulo, `gru1`), com cache de alguns segundos na CDN e na memória. O visitante recebe o HTML pronto, sem nenhum código do painel.
+- As páginas são entregues pela função `api/servir.js` (região São Paulo, `gru1`), com cache de 60 s na CDN (alterações aparecem no site em até ~1 min) e de 5 s na memória. O visitante recebe o HTML pronto, sem nenhum código do painel.
 - O build só envolve o HTML colado num documento completo (`<!doctype>`, `<head>`), levando para o `<head>` as tags `<meta>`/`<link>` do topo, e acrescenta o Pixel da Meta (no `<head>`) e o Clarity (no fim do `<body>`), se configurados. O conteúdo da página não é alterado.
 - O Clarity só baixa no primeiro toque, rolagem ou tecla do visitante, ou 3 segundos depois de a página terminar de abrir (o que vier primeiro).
 - **Atenção:** o pixel tem *permissões de tráfego* na Meta (Gerenciador de Eventos → Configurações → Permissões de tráfego). Ele só dispara nos domínios liberados lá — libere `ricardonunes.grupor1.com` lá.
-- As visitas são contadas **no servidor** (`middleware.js`). Nenhum script de métrica é colocado na página.
+- As visitas podem ser contadas **no servidor** (`middleware.desligado.js`, desligado enquanto não houver Redis — ele gastava uma execução por visita sem gravar nada). Nenhum script de métrica é colocado na página.
 
 ## Estrutura
 
@@ -25,7 +25,7 @@ painel/             ← o painel (HTML, CSS e JS)
 api/                ← funções do painel na Vercel
 lib/                ← regras compartilhadas
 scripts/            ← build, servidor local e download de imagens
-middleware.js       ← contador de visitas no servidor
+middleware.desligado.js ← contador de visitas no servidor (renomeie para middleware.js ao ligar o Redis)
 vercel.json
 ```
 
@@ -81,7 +81,7 @@ Cada `git push` na `main` publica o código do painel. As páginas em si **não*
 
 ### Métricas (opcional, recomendado)
 
-- **Visitas por página:** Vercel → seu projeto → **Storage → Create → Upstash (Redis)** → ligue ao projeto e faça redeploy. As variáveis são criadas sozinhas. A contagem começa a partir daí. Não conta robôs, o teste do Google, as prévias do painel, nem você navegando logado no painel.
+- **Visitas por página:** Vercel → seu projeto → **Storage → Create → Upstash (Redis)** → ligue ao projeto, renomeie `middleware.desligado.js` para `middleware.js` e faça redeploy. As variáveis são criadas sozinhas. A contagem começa a partir daí. Não conta robôs, o teste do Google, as prévias do painel, nem você navegando logado no painel.
 - **Leads por página:** HubSpot → Settings → Integrations → **Private Apps** → crie um app com o escopo `forms` e coloque o token em `HUBSPOT_TOKEN`. O painel lê os envios do formulário que está em cada página e separa pela URL onde a pessoa se inscreveu.
 - **Nota do Google (PageSpeed):** o botão **Medir** funciona sem chave, mas o Google limita o uso. Para não ter limite, crie uma chave da *PageSpeed Insights API* no Google Cloud e coloque em `PAGESPEED_API_KEY`.
 

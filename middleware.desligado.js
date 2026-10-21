@@ -1,12 +1,12 @@
-// Roda antes da CDN em toda visita de página (Vercel Routing Middleware). Faz duas coisas:
-// 1) Cache: cada clique de anúncio chega com um fbclid/utm diferente, e a CDN guardava uma cópia
-//    por endereço completo — quase toda visita gerava a página de novo (custo de função e de
-//    "Fast Origin Transfer"). Aqui a página é pedida à CDN sem os parâmetros; o navegador continua
-//    com o endereço completo, então Pixel, CAPI, GTM e UTMs leem tudo normalmente.
-//    As prévias do painel (r1previa) passam com os parâmetros.
-// 2) Contador de visitas no servidor: assim as páginas não carregam nenhum JavaScript extra.
-//    A gravação acontece depois da resposta (waitUntil). Só liga quando o Redis (Upstash) estiver configurado.
-import { waitUntil, rewrite } from '@vercel/functions';
+// DESLIGADO (21/10/2026): sem o Redis configurado, este contador só gastava uma execução por visita.
+// Para ligar: conecte o Upstash (Redis) em Vercel → Storage e renomeie este arquivo para middleware.js.
+
+// Contador de visitas feito no servidor (Vercel Routing Middleware).
+// Por que aqui e não um script na página: assim as páginas não carregam nenhum
+// JavaScript extra e a nota de performance não muda. A gravação acontece depois
+// da resposta (waitUntil), então o visitante não espera por ela.
+// Só liga quando o Redis (Upstash, pela Vercel) estiver configurado.
+import { waitUntil } from '@vercel/functions';
 
 export const config = {
   // tudo menos API, painel, arquivos estáticos e arquivos com extensão
@@ -18,13 +18,6 @@ const TOKEN_REDIS = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_R
 const ROBO = /bot|crawl|spider|slurp|lighthouse|pagespeed|headless|preview|facebookexternalhit|whatsapp|monitor|curl|wget|python|node-fetch/i;
 
 export default function middleware(request) {
-  if (request.method !== 'GET' && request.method !== 'HEAD') return;
-  contarVisita(request);
-  const url = new URL(request.url);
-  if (url.search && !url.searchParams.has('r1previa')) return rewrite(new URL(url.pathname, url));
-}
-
-function contarVisita(request) {
   if (!URL_REDIS || !TOKEN_REDIS || request.method !== 'GET') return;
   const h = request.headers;
   const ua = h.get('user-agent') || '';
