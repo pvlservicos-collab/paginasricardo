@@ -7,7 +7,7 @@ import { waitUntil } from '@vercel/functions';
 
 export const config = {
   // tudo menos API, painel, arquivos estáticos e arquivos com extensão
-  matcher: ['/((?!api/|api$|painel|wp-content|_vercel|.*\\.[a-z0-9]+$).+)'],
+  matcher: ['/((?!api/|api$|painel|trackeamento$|wp-content|_vercel|.*\\.[a-z0-9]+$).+)'],
 };
 
 const URL_REDIS = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;

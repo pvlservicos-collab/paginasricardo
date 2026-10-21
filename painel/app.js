@@ -28,6 +28,7 @@ const I = {
   alerta: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
   sair: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3"/></svg>',
   globo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>',
+  trackeamento: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>',
 };
 
 const E = {
@@ -167,8 +168,9 @@ function vigiarDeploy() {
 
 /* ================= estrutura ================= */
 function iniciar() {
-  E.vista = (location.hash.slice(1) || 'grade').split('?')[0];
-  if (!['grade', 'lista', 'imagens', 'funil', 'metricas'].includes(E.vista)) E.vista = 'grade';
+  // /trackeamento abre direto na tela de trackeamento (mesmo painel, mesmo login)
+  E.vista = (location.hash.slice(1) || (location.pathname.replace(/\/+$/, '') === '/trackeamento' ? 'trackeamento' : 'grade')).split('?')[0];
+  if (!['grade', 'lista', 'trackeamento', 'imagens', 'funil', 'metricas'].includes(E.vista)) E.vista = 'grade';
   $('#app').innerHTML = '<div class="boot">Carregando páginas…</div>';
   carregarPaginas(E.vista === 'funil')
     .then(() => {
@@ -193,7 +195,7 @@ window.addEventListener('hashchange', () => {
 });
 
 function render() {
-  const nav = [['grade', 'Páginas'], ['lista', 'Lista'], ['imagens', 'Imagens'], ['funil', 'Funil'], ['metricas', 'Métricas']];
+  const nav = [['grade', 'Páginas'], ['lista', 'Lista'], ['trackeamento', 'Trackeamento'], ['imagens', 'Imagens'], ['funil', 'Funil'], ['metricas', 'Métricas']];
   const dep = E.publicando
     ? '<b><span class="ponto pulsa"></span>Publicando…</b>A Vercel está gerando a nova versão.'
     : E.usandoGitHub
@@ -228,7 +230,7 @@ function renderVista(rolarTopo = true) {
   const c = $('#conteudo');
   if (!c) return;
   const scroll = window.scrollY;
-  const v = EM_OBRA.includes(E.vista) && !ehAdmin() ? vistaEmObra : ({ grade: vistaGrade, lista: vistaLista, imagens: vistaImagens, funil: vistaFunil, metricas: vistaMetricas }[E.vista] || vistaGrade);
+  const v = EM_OBRA.includes(E.vista) && !ehAdmin() ? vistaEmObra : ({ grade: vistaGrade, lista: vistaLista, trackeamento: vistaTrackeamento, imagens: vistaImagens, funil: vistaFunil, metricas: vistaMetricas }[E.vista] || vistaGrade);
   c.innerHTML = avisosGerais() + v();
   $$('.nav a').forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + E.vista));
   ajustarTelas();
@@ -361,6 +363,82 @@ function vistaLista() {
   const cab = `<thead><tr><th>Página</th><th>Status</th><th class="dir">Resposta</th><th class="dir">Visitas ${E.dias}d</th><th class="dir">Leads</th><th class="dir">Conv.</th><th class="dir">Google celular</th><th class="dir">Google PC</th><th></th></tr></thead>`;
   return topo('Lista', 'Todas as páginas com status, números e nota do Google.', botoesPadrao()) + filtrosGrupo() +
     secoesPorGrupo(ps).map((x) => tituloSecao(x) + (x.paginas.length ? `<div class="tabela-wrap"><table>${cab}<tbody>${x.paginas.map(linhaPagina).join('')}</tbody></table></div>` : vazioSecao)).join('');
+}
+
+/* ================= vista: trackeamento ================= */
+// Legenda dos GTMs no topo (nome e para que serve, editáveis) e, embaixo, cada GTM com as páginas que o usam.
+function gtmsDaPagina(p) {
+  const host = E.hosts?.[p.slug] || E.hostPadrao;
+  return (E.rastreio[p.slug]?.gtm || []).map((r) => ({
+    id: r.id,
+    de: r.origem === 'pagina' ? 'no código da página'
+      : p.gtm && p.gtm !== 'nenhum' ? 'escolhido na página'
+        : (E.cfg.porDominio || {})[host]?.gtm ? 'padrão do domínio' : 'padrão do painel',
+  }));
+}
+
+function vistaTrackeamento() {
+  const c = E.cfg, off = E.podeGravar ? '' : 'disabled';
+  const ps = [...c.paginas].sort((a, b) => (b.ativa - a.ativa) || (E.hosts?.[a.slug] || '').localeCompare(E.hosts?.[b.slug] || '') || a.url.localeCompare(b.url));
+  const usos = new Map(), sem = [];
+  ps.forEach((p) => {
+    const g = gtmsDaPagina(p);
+    if (!g.length) sem.push(p);
+    g.forEach((x) => { if (!usos.has(x.id)) usos.set(x.id, []); usos.get(x.id).push({ p, de: x.de }); });
+  });
+  const cadastrados = c.gtms || [];
+  const ids = [...cadastrados.map((x) => x.id), ...[...usos.keys()].filter((id) => !cadastrados.some((x) => x.id === id))];
+  const info = (id) => cadastrados.find((x) => x.id === id) || { id, nome: '', uso: '' };
+  const dominiosDo = (id) => Object.entries(c.porDominio || {}).filter(([, v]) => v.gtm === id).map(([d]) => d).concat(c.gtm === id ? ['padrão do painel'] : []);
+  const qtd = (id) => { const l = usos.get(id) || []; return `${l.filter((x) => x.p.ativa).length} ativa(s)${l.some((x) => !x.p.ativa) ? ` · ${l.filter((x) => !x.p.ativa).length} desativada(s)` : ''}`; };
+
+  const legenda = `<div class="tk-legenda">
+    <div class="tk-leg-cab"><h2>Legenda dos GTMs</h2><button class="bt bt-sm" data-acao="gtm-novo" ${off}>${I.mais}Adicionar GTM</button></div>
+    <p class="mut">Dê um nome e diga para que serve cada contêiner. É só para organização: mudar a legenda não altera nada nas páginas.</p>
+    ${ids.map((id) => {
+      const x = info(id), cad = cadastrados.some((y) => y.id === id);
+      return `<div class="tk-leg-linha" data-gtm="${h(id)}">
+        <span class="mono tk-id">${h(id)}</span>
+        <input data-c="nome" value="${h(x.nome)}" placeholder="Nome (ex.: GTM Máquina)" maxlength="60" ${cad ? off : 'disabled'}>
+        <input data-c="uso" value="${h(x.uso || '')}" placeholder="Para que serve (ex.: Turnê e Convocação)" maxlength="200" ${cad ? off : 'disabled'}>
+        <span class="mut tk-qtd">${qtd(id)}</span>
+        ${cad ? `<button class="bt bt-sm bt-ouro" data-acao="legenda-salvar" data-v="${h(id)}" ${off}>Salvar</button>` : '<span class="mut tk-qtd">só no código da página</span>'}
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  const linha = ({ p, de }) => `<tr class="${p.ativa ? '' : 'tk-off'}">
+      <td><a class="mono" href="${urlPublica(p)}" target="_blank" rel="noopener">/${h(p.url)}</a><br><span class="mut">${h(p.titulo)}</span></td>
+      <td class="mono mut">${h(E.hosts?.[p.slug] || E.hostPadrao)}</td>
+      <td>${p.ativa ? '<span class="tk-st ok">ativa</span>' : '<span class="tk-st">desativada</span>'}</td>
+      <td class="mut">${h(de)}</td>
+    </tr>`;
+  const cab = '<thead><tr><th>Página</th><th>Domínio</th><th>Status</th><th>De onde vem o GTM</th></tr></thead>';
+  const bloco = (id) => {
+    const x = info(id), l = usos.get(id) || [], doms = dominiosDo(id);
+    return `<section class="tk-bloco">
+      <div class="tk-bloco-cab">
+        <div><h2>${h(x.nome || 'Sem nome')}</h2><span class="mono tk-id">${h(id)}</span></div>
+        ${x.uso ? `<p>${h(x.uso)}</p>` : ''}
+        <span class="mut">${l.length} página(s)${doms.length ? ` · padrão em: ${doms.map(h).join(', ')}` : ''}</span>
+      </div>
+      ${l.length ? `<div class="tabela-wrap"><table>${cab}<tbody>${l.map(linha).join('')}</tbody></table></div>` : '<div class="vazio-grupo mut">Nenhuma página usa este GTM.</div>'}
+    </section>`;
+  };
+  return topo('Trackeamento', 'Qual Google Tag Manager cada página usa. Para trocar: “Rastreamento por domínio” (vale para o domínio todo) ou a lista GTM em cada página.', ehAdmin() ? `<button class="bt" data-acao="rastreio-dominio">${I.globo}Rastreamento por domínio</button>` : '') +
+    legenda + ids.map(bloco).join('') +
+    (sem.length ? `<section class="tk-bloco"><div class="tk-bloco-cab"><div><h2>Sem GTM</h2></div><span class="mut">${sem.length} página(s)</span></div><div class="tabela-wrap"><table>${cab}<tbody>${sem.map((p) => linha({ p, de: '—' })).join('')}</tbody></table></div></section>` : '');
+}
+
+async function salvarLegenda(id, b) {
+  const l = b.closest('.tk-leg-linha');
+  b.disabled = true; b.textContent = 'Salvando…';
+  try {
+    const r = await api('paginas', { method: 'POST', body: { acao: 'legenda', tipo: 'gtm', id, nome: $('[data-c="nome"]', l).value, uso: $('[data-c="uso"]', l).value } });
+    E.cfg.gtms = r.lista;
+    renderVista(false);
+    toast(`Legenda de ${id} salva.`, 'ok');
+  } catch (e) { toast(e.message, 'bad'); b.disabled = false; b.textContent = 'Salvar'; }
 }
 
 /* ================= janela de grupos ================= */
@@ -1068,6 +1146,8 @@ document.addEventListener('click', async (ev) => {
     case 'massa': abrirMassa(); break;
     case 'grupos': abrirGrupos(); break;
     case 'rastreio-dominio': abrirRastreioDominios(); break;
+    case 'legenda-salvar': salvarLegenda(v, alvo); break;
+    case 'gtm-novo': if (await abrirCadastro('gtm')) { await carregarPaginas(E.vista === 'funil'); renderVista(false); } break;
     case 'grupo-editar': abrirGrupo(v); break;
     case 'filtro-grupo': E.filtroGrupo = v; try { localStorage.setItem('r1-filtro-grupo', v); } catch {} renderVista(false); break;
     case 'claude': abrirClaude(); break;

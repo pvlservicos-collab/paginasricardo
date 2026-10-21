@@ -2,7 +2,7 @@ import { protegido, json, erro, carregarConfig, salvarConfig, temRedis, lerJson,
 import { lerArquivo, lerArquivos, podeGravar, usandoGitHub, usandoBanco, shaAtual } from '../lib/store.mjs';
 import { PASTA_PAGINAS, extrairCopy, limparPixelMeta, limparClarity, detectarRastreio, rastreioDaPagina, hostDaPagina, hostPadrao } from '../lib/core.mjs';
 import { ipDe } from '../lib/auth.mjs';
-import { criarPagina, cadastrar, descadastrar, gerenciarGrupo, rastreioDoDominio, dominioNoAr } from '../lib/operacoes.mjs';
+import { criarPagina, cadastrar, descadastrar, legendaCadastro, gerenciarGrupo, rastreioDoDominio, dominioNoAr } from '../lib/operacoes.mjs';
 
 // Lista as páginas + quem está logado + pixel/Clarity de cada página.
 export const GET = protegido(async (request, url, usuario) => {
@@ -73,6 +73,10 @@ export const POST = protegido(async (request, url, usuario) => {
   if (d.acao === 'cadastrar') {
     const c = await cadastrar(String(d.tipo || ''), { id: d.id, nome: d.nome, padrao: d.padrao }, quem);
     return json({ ok: true, pixels: c.pixels, clarities: c.clarities, gtms: c.gtms, dominios: c.dominios });
+  }
+  if (d.acao === 'legenda') {
+    const lista = await legendaCadastro(String(d.tipo || ''), String(d.id || ''), { nome: d.nome, uso: d.uso }, quem);
+    return json({ ok: true, lista });
   }
   if (d.acao === 'rastreio-dominio') {
     const r = await rastreioDoDominio(String(d.dominio || ''), { pixel: d.pixel, clarity: d.clarity, gtm: d.gtm }, quem);

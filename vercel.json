@@ -21,7 +21,7 @@
   },
   "headers": [
     {
-      "source": "/((?!painel).*)",
+      "source": "/((?!painel|trackeamento).*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
@@ -55,7 +55,7 @@
       ]
     },
     {
-      "source": "/painel",
+      "source": "/(painel|trackeamento)",
       "headers": [
         {
           "key": "Content-Security-Policy",
@@ -175,7 +175,11 @@
       "destination": "https://mgdpqhggmvokpsko.public.blob.vercel-storage.com/wp-content/:path*"
     },
     {
-      "source": "/:caminho((?!api/|api$|painel|wp-content|_vercel|\\.well-known).+)",
+      "source": "/trackeamento",
+      "destination": "/painel/index.html"
+    },
+    {
+      "source": "/:caminho((?!api/|api$|painel|trackeamento$|wp-content|_vercel|\\.well-known).+)",
       "destination": "/api/servir?caminho=:caminho"
     }
   ]

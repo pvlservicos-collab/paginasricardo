@@ -54,7 +54,7 @@ http.createServer(async (req, res) => {
     if (pathname.startsWith('/api/')) return await api(req, res, pathname.slice(5).replace(/\/$/, ''));
     const wk = /^\/\.well-known\/(oauth-protected-resource|oauth-authorization-server|openid-configuration)/.exec(pathname);
     if (wk) return await api(req, res, 'oauth/metadados', `/api/oauth/metadados?tipo=${wk[1] === 'oauth-protected-resource' ? 'recurso' : 'servidor'}`);
-    const p = await arquivo(pathname);
+    const p = await arquivo(pathname === '/trackeamento' ? '/painel' : pathname);
     if (p) {
       res.writeHead(200, { 'Content-Type': TIPOS[p.split('.').pop()] || 'application/octet-stream' });
       res.end(await fs.readFile(p));
