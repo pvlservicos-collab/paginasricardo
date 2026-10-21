@@ -449,13 +449,14 @@ function tabelaSetores() {
   const c = E.cfg;
   const rot = (lista, id) => {
     if (!id || id === 'nenhum') return '<span class="mut">nenhum</span>';
+    if (id === 'gtm') return '<b>PELO GTM</b>';
     const x = (lista || []).find((y) => y.id === id);
     return `${x?.nome ? `${h(x.nome)}<br>` : ''}<span class="mono tk-id">${h(id)}</span>`;
   };
   const setores = (c.dominios || []).map((d) => ({ d, ps: c.paginas.filter((p) => (E.hosts?.[p.slug] || E.hostPadrao) === d) })).filter((x) => x.ps.length);
   const linha = ({ d, ps }) => {
     const pd = padraoDaPagina(ps[0]);
-    const foge = ps.filter((p) => ['gtm', 'clarity', 'pixel'].some((t) => (E.rastreio[p.slug]?.[t] || []).map((x) => x.id).join(',') !== (pd[t] === 'nenhum' ? '' : pd[t] || '')));
+    const foge = ps.filter((p) => ['gtm', 'clarity', 'pixel'].some((t) => (E.rastreio[p.slug]?.[t] || []).map((x) => x.id).join(',') !== (['nenhum', 'gtm'].includes(pd[t]) ? '' : pd[t] || '')));
     return `<tr>
       <td class="mono">${h(d)}</td>
       <td class="dir num">${ps.filter((p) => p.ativa).length}<span class="mut"> / ${ps.length}</span></td>
@@ -871,7 +872,7 @@ function tagsRastreio(p) {
     if (fixos(tipo).length) return fixos(tipo).map((x) => `<span class="tag ${classe}" title="Está no código da página">${rotulo} ${h(x.id)}</span>`).join('');
     const atual = p[tipo] === 'nenhum' ? 'nenhum' : (p[tipo] || padrao || 'nenhum');
     const opcoes = lista.map((x) => `<option value="${h(x.id)}" ${x.id === atual ? 'selected' : ''}>${rotulo} ${h(x.id)}${lista.length > 1 && x.nome ? ' · ' + h(x.nome) : ''}</option>`).join('');
-    return `<select class="tag-sel ${classe} ${atual === 'nenhum' ? 'vazio' : ''}" data-sel="${tipo}" data-slug="${p.slug}" ${off} title="${rotulo} desta página">${opcoes}<option value="nenhum" ${atual === 'nenhum' ? 'selected' : ''}>Sem ${rotulo.toLowerCase()}</option><option value="__novo">+ Adicionar ${rotulo.toLowerCase()}…</option></select>`;
+    return `<select class="tag-sel ${classe} ${atual === 'nenhum' ? 'vazio' : ''}" data-sel="${tipo}" data-slug="${p.slug}" ${off} title="${rotulo} desta página">${opcoes}${tipo === 'pixel' ? `<option value="gtm" ${atual === 'gtm' ? 'selected' : ''}>Pixel (PELO GTM)</option>` : ''}<option value="nenhum" ${atual === 'nenhum' ? 'selected' : ''}>Sem ${rotulo.toLowerCase()}</option><option value="__novo">+ Adicionar ${rotulo.toLowerCase()}…</option></select>`;
   };
   const host = E.hosts?.[p.slug] || E.hostPadrao || location.host;
   const doms = E.cfg.dominios?.length ? E.cfg.dominios : [host];
@@ -959,7 +960,7 @@ function padraoDaPagina(p) {
 function abrirRastreioDominios() {
   const c = E.cfg;
   const doms = c.dominios || [];
-  const dl = (id, lista) => `<datalist id="${id}">${lista.map((x) => `<option value="${h(x.id)}">${h(x.nome || '')}</option>`).join('')}<option value="nenhum">desligar neste domínio</option></datalist>`;
+  const dl = (id, lista) => `<datalist id="${id}">${lista.map((x) => `<option value="${h(x.id)}">${h(x.nome || '')}</option>`).join('')}${id === 'dl-pixel' ? '<option value="gtm">PELO GTM (sem pixel direto na página)</option>' : ''}<option value="nenhum">desligar neste domínio</option></datalist>`;
   const linha = (d) => {
     const v = (c.porDominio || {})[d] || {};
     const n = c.paginas.filter((p) => (E.hosts?.[p.slug] || E.hostPadrao) === d).length;
@@ -977,7 +978,7 @@ function abrirRastreioDominios() {
   };
   const md = modal({
     titulo: 'Rastreamento por domínio', largo: true,
-    corpo: `<p class="mut" style="margin-top:0">O que você colocar aqui vale para <b>todas as páginas do domínio</b>. Deixe em branco para seguir o padrão do painel, ou escreva <b>nenhum</b> para desligar. Se uma página escolher outro pixel/GTM/Clarity na própria lista dela, a escolha da página vale. IDs novos entram sozinhos nas listas.</p>
+    corpo: `<p class="mut" style="margin-top:0">O que você colocar aqui vale para <b>todas as páginas do domínio</b>. Deixe em branco para seguir o padrão do painel, ou escreva <b>nenhum</b> para desligar. Se uma página escolher outro pixel/GTM/Clarity na própria lista dela, a escolha da página vale. IDs novos entram sozinhos nas listas. No pixel, <b>gtm</b> = sem pixel direto: ele dispara pelo GTM.</p>
       ${dl('dl-pixel', c.pixels || [])}${dl('dl-gtm', c.gtms || [])}${dl('dl-clarity', c.clarities || [])}
       <div class="rd-lista">${doms.map(linha).join('')}</div>`,
     pe: '<button class="bt" data-fechar>Fechar</button>',

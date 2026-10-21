@@ -27,7 +27,7 @@ Sempre informe o link final da página ao usuário.`;
 /* ---------------- ferramentas ---------------- */
 function ferramentas(cfg, hostAtual) {
   const doms = cfg.dominios.length ? cfg.dominios : [hostPadrao(cfg, hostAtual)].filter(Boolean);
-  const pix = ['nenhum', 'padrao', ...cfg.pixels.map((x) => x.id)];
+  const pix = ['nenhum', 'padrao', 'gtm', ...cfg.pixels.map((x) => x.id)];
   const cla = ['nenhum', 'padrao', ...cfg.clarities.map((x) => x.id)];
   const gtm = ['nenhum', 'padrao', ...cfg.gtms.map((x) => x.id)];
   const pagina = { type: 'string', description: 'URL da página (ex.: "black10x-v6" ou o link completo).' };
@@ -52,7 +52,7 @@ function ferramentas(cfg, hostAtual) {
         html: { type: 'string', description: 'HTML completo da página.' },
         titulo: { type: 'string', description: 'Nome da página no painel (opcional).' },
         ativa: { type: 'boolean', default: true, description: 'false = cria desativada.' },
-        pixel: { type: 'string', enum: pix, description: 'Pixel da Meta (padrão = o do painel; nenhum = sem pixel).' },
+        pixel: { type: 'string', enum: pix, description: 'Pixel da Meta (padrão = o do painel; nenhum = sem pixel; gtm = sem pixel direto, ele dispara pelo GTM).' },
         clarity: { type: 'string', enum: cla, description: 'Clarity (padrão = o do painel; nenhum = sem Clarity).' },
         gtm: { type: 'string', enum: gtm, description: 'Google Tag Manager (padrão = o do painel; nenhum = sem GTM).' },
         grupo: { type: 'string', description: 'Título do grupo onde a página entra no painel (opcional; cria se não existir).' },
