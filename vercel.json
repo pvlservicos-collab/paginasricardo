@@ -176,7 +176,7 @@
     },
     {
       "source": "/trackeamento",
-      "destination": "/painel/index.html"
+      "destination": "/painel"
     },
     {
       "source": "/:caminho((?!api/|api$|painel|trackeamento$|wp-content|_vercel|\\.well-known).+)",
