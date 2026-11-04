@@ -34,7 +34,7 @@ const I = {
 const E = {
   cfg: null, usuario: null, rastreio: {}, podeGravar: false, usandoGitHub: false, temRedis: false, temHubspot: false,
   deploy: {}, publicando: false, versao: (() => { try { return localStorage.getItem('r1-versao') || novaVersao(); } catch { return Date.now().toString(36); } })(),
-  dominiosStatus: {}, imagens: null, otimizar: true, filtroGrupo: (() => { try { return localStorage.getItem('r1-filtro-grupo') || 'todos'; } catch { return 'todos'; } })(),
+  dominiosStatus: {}, imagens: null, otimizar: true, filtroPsi: (() => { try { return localStorage.getItem('r1-filtro-psi') || 'todas'; } catch { return 'todas'; } })(), filtroGrupo: (() => { try { return localStorage.getItem('r1-filtro-grupo') || 'todos'; } catch { return 'todos'; } })(),
   status: {}, verificando: false, metricas: null, dias: 7, copias: null, psi: {},
   vista: 'grade', previa: 'celular', funilPrevia: true,
 };
@@ -135,7 +135,8 @@ async function carregarPsi() {
 
 /* ================= publicação ================= */
 let vigia = null;
-function depoisDeSalvar(msg) {
+function depoisDeSalvar(msg, slug) {
+  if (slug) setTimeout(() => carregarPsi().then(() => { renderVista(false); vigiarPsi([slug]); }), 3000);
   if (!E.usandoGitHub) {
     E.versao = novaVersao();
     toast(msg + ' Já está no ar.', 'ok');
@@ -275,6 +276,7 @@ function acoesPagina(p, { compacto = false } = {}) {
         <a href="${urlPublica(p)}" target="_blank" rel="noopener">${I.abrir}Abrir página</a>
         <button data-acao="duplicar" data-slug="${p.slug}" ${off}>Duplicar</button>
         <button data-acao="copiar-url" data-slug="${p.slug}">Copiar link</button>
+        <button data-acao="psi-desfazer" data-slug="${p.slug}" ${off}>Desfazer última otimização</button>
         <button class="perigo" data-acao="excluir" data-slug="${p.slug}" ${off}>Excluir</button>
       </div>
     </div>`;
@@ -309,7 +311,24 @@ function filtrosGrupo() {
   const f = E.filtroGrupo || 'todos';
   const n = (id) => E.cfg.paginas.filter((p) => (id === 'sem' ? !grupoDe(p) : p.grupo === id)).length;
   const chip = (id, t, qtd) => `<button class="chip ${f === id ? 'on' : ''}" data-acao="filtro-grupo" data-v="${h(id)}">${h(t)} <b>${qtd}</b></button>`;
-  return `<div class="chips">${chip('todos', 'Todos', E.cfg.paginas.length)}${grupos.map((g) => chip(g.id, g.titulo, n(g.id))).join('')}${chip('sem', 'Sem grupo', n('sem'))}</div>`;
+  const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const busca = (g) => norm([g.titulo, ...E.cfg.paginas.filter((p) => p.grupo === g.id).flatMap((p) => [p.titulo, p.url])].join(' '));
+  const chipG = (g) => chip(g.id, g.titulo, n(g.id)).replace('<button ', `<button data-busca="${h(busca(g))}" ${f === g.id ? 'data-sel-atual ' : ''}`);
+  const aberto = !!E.chipsAberto;
+  return `<div class="chips">
+    <label class="chip-busca"><span aria-hidden="true">🔍</span><input type="search" id="busca-grupo" placeholder="Buscar grupo ou página" autocomplete="off"></label>
+    ${chip('todos', 'Todos', E.cfg.paginas.length)}${chip('sem', 'Sem grupo', n('sem'))}
+    <button class="chip chip-conv ${aberto ? 'aberto' : ''}" data-acao="chips-conv" aria-expanded="${aberto}">Convocação Nacional <b>${grupos.length}</b> <span class="seta">▾</span></button>
+    <div class="chips-conv" ${aberto ? '' : 'hidden'}>${grupos.map(chipG).join('')}</div>
+  </div>`;
+}
+// Filtra os grupos sem redesenhar a tela (não perde o foco do campo). Buscando, mostra os que batem mesmo recolhido.
+function buscarGrupos(q) {
+  const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  const t = norm(q), box = $('.chips-conv');
+  if (!box) return;
+  $$('.chip', box).forEach((c) => { c.hidden = !!t && !c.dataset.busca.includes(t); });
+  box.hidden = t ? false : !E.chipsAberto;
 }
 const tituloSecao = (x) => (x.titulo == null ? '' : `<div class="grupo-tit"><h2>${h(x.titulo)}</h2><span class="mut">${x.paginas.length} página(s)</span>${x.id !== 'sem' && E.podeGravar ? `<button class="bt bt-sm" data-acao="grupo-editar" data-v="${h(x.id)}">Editar grupo</button>` : ''}</div>`);
 const vazioSecao = '<div class="vazio-grupo mut">Nenhuma página neste grupo ainda. Use “Editar grupo” ou a lista suspensa de grupo em cada página.</div>';
@@ -326,6 +345,7 @@ function cardPagina(p, lw, lh) {
       <div class="card-corpo">
         <div class="card-tit"><div><h3>${h(p.titulo)}</h3><a href="${urlPublica(p)}" target="_blank" rel="noopener">/${h(p.url)}</a></div></div>
         ${tagsRastreio(p)}
+        ${tagPsi(p)}
         ${ehAdmin() ? `<div class="mini">
           <div><span>Visitas ${E.dias}d</span><b class="num">${fmt(m?.visitas)}</b></div>
           <div><span>Leads</span><b class="num">${fmt(m?.leads)}</b></div>
@@ -336,6 +356,79 @@ function cardPagina(p, lw, lh) {
     </article>`;
 }
 
+/* ================= nota do PageSpeed (tag, filtro, otimizar, relatório) ================= */
+const NOTA_MIN = 90;
+const psiDe = (slug) => E.psi[`${slug}:mobile`];
+const notaDe = (slug) => psiDe(slug)?.performance ?? null;
+const medindo = (slug) => Boolean(psiDe(slug)?.medindo);
+// 'ruins' = abaixo de 90 · 'sem' = ainda sem nota · 'boas' = 90 ou mais
+function filtrarPsi(ps) {
+  const f = E.filtroPsi || 'todas';
+  if (f === 'ruins') return ps.filter((p) => notaDe(p.slug) != null && notaDe(p.slug) < NOTA_MIN);
+  if (f === 'boas') return ps.filter((p) => notaDe(p.slug) != null && notaDe(p.slug) >= NOTA_MIN);
+  if (f === 'sem') return ps.filter((p) => notaDe(p.slug) == null);
+  return ps;
+}
+function filtroPsi() {
+  const ps = E.cfg.paginas, f = E.filtroPsi || 'todas';
+  const n = { todas: ps.length, ruins: 0, boas: 0, sem: 0 };
+  ps.forEach((p) => { const x = notaDe(p.slug); if (x == null) n.sem++; else if (x < NOTA_MIN) n.ruins++; else n.boas++; });
+  const chip = (id, t, cls = '') => `<button class="chip ${cls} ${f === id ? 'on' : ''}" data-acao="psi-filtro" data-v="${id}">${t} <b>${n[id]}</b></button>`;
+  return `<div class="chips chips-psi"><span class="chips-rot">PageSpeed (celular)</span>${chip('todas', 'Todas')}${chip('ruins', `Abaixo de ${NOTA_MIN}`, 'chip-ruim')}${chip('boas', `${NOTA_MIN} ou mais`, 'chip-boa')}${chip('sem', 'Sem nota')}</div>`;
+}
+// Tag da nota em cada página: verde (≥90) ou vermelha (<90) com Otimizar e Copiar relatório.
+function tagPsi(p, { compacto = false } = {}) {
+  const r = psiDe(p.slug), n = notaDe(p.slug), off = E.podeGravar ? '' : 'disabled';
+  const quando = r?.em ? new Date(r.em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+  if (medindo(p.slug)) return `<div class="psi"><span class="psi-nota medindo" title="O Google está testando a página (≈1 min)">PageSpeed: medindo…</span></div>`;
+  const medir = `<button class="bt bt-sm" data-acao="psi" data-slug="${p.slug}" data-v="mobile" title="Medir de novo no PageSpeed (celular)">Medir</button>`;
+  if (n == null) return `<div class="psi"><span class="psi-nota sem" title="${h(r?.erro ? 'Erro na última medição: ' + r.erro : 'Ainda não medida')}">PageSpeed: ${r?.erro ? 'erro' : 'sem nota'}</span>${p.ativa ? medir : ''}</div>`;
+  const ruim = n < NOTA_MIN;
+  const titulo = `Celular · ${quando}${r.rodadas?.length > 1 ? ` · mediana de ${r.rodadas.length} rodadas (${r.rodadas.join(", ")})` : ""}${r.lcp ? ` · LCP ${r.lcp}` : ''}${r.tbt ? ` · TBT ${r.tbt}` : ''}${r.erro ? ' · última tentativa deu erro: ' + r.erro : ''}`;
+  return `<div class="psi ${ruim ? 'psi-ruim' : 'psi-boa'}">
+      <span class="psi-nota ${ruim ? 'ruim' : 'boa'}" title="${h(titulo)}">PageSpeed <b>${n}</b></span>
+      ${ruim ? `<button class="bt bt-sm bt-ouro" data-acao="psi-otimizar" data-slug="${p.slug}" ${off} title="Aplica as técnicas automáticas nesta página e mede de novo">Otimizar</button>
+      <button class="bt bt-sm" data-acao="psi-relatorio" data-slug="${p.slug}" title="Copia o diagnóstico para colar no Claude">${compacto ? 'Relatório' : 'Copiar relatório'}</button>` : ''}
+      ${compacto && ruim ? '' : medir}
+    </div>`;
+}
+// Texto para colar no Claude e otimizar a página à mão.
+function relatorioPsi(p) {
+  const r = psiDe(p.slug) || {};
+  const L = [];
+  L.push(`Otimiza esta página (nota abaixo de ${NOTA_MIN} no PageSpeed). Siga TECNICAS-OTIMIZACAO-PAGESPEED.md, publique no lugar da página e meça de novo.`);
+  L.push('', `Página: ${p.titulo} — slug "${p.slug}"`, `URL: ${urlPublica(p)}`, `Medido em: ${r.em ? new Date(r.em).toLocaleString('pt-BR') : '—'} (celular, API do PageSpeed)`);
+  L.push(`Notas: performance ${r.performance ?? '—'} · acessibilidade ${r.acessibilidade ?? '—'} · práticas ${r.praticas ?? '—'} · SEO ${r.seo ?? '—'}`);
+  L.push(`Métricas: FCP ${r.fcp || '—'} · LCP ${r.lcp || '—'} · TBT ${r.tbt || '—'} · CLS ${r.cls || '—'} · Speed Index ${r.si || '—'} · peso ${r.peso ?? '—'} KB · ${r.requisicoes ?? '—'} requisições`);
+  if (r.lcpElemento) L.push('', 'Elemento do LCP:', '  ' + r.lcpElemento);
+  if (r.lcpFases?.length) L.push('Fases do LCP: ' + r.lcpFases.map((x) => `${x.fase} ${x.ms} ms`).join(' · '));
+  if (r.terceiros?.length) { L.push('', 'Terceiros (thread principal / download):'); r.terceiros.forEach((x) => L.push(`  ${x.nome}: ${x.cpu ?? 0} ms · ${x.kb ?? 0} KB`)); }
+  if (r.tarefas?.length) { L.push('', 'Tarefas longas:'); r.tarefas.forEach((x) => L.push(`  ${x.ms} ms (aos ${x.inicio} ms) ${x.url}`)); }
+  if (r.pesados?.length) { L.push('', 'Arquivos mais pesados:'); r.pesados.forEach((x) => L.push(`  ${x.kb} KB  ${x.url}`)); }
+  if (r.corrigir?.length) {
+    L.push('', 'O que o PageSpeed manda corrigir (maior ganho primeiro):');
+    r.corrigir.forEach((x) => { L.push(`  • ${x.titulo}${x.valor ? ' — ' + x.valor : ''}${x.ganhoMs ? ` [~${x.ganhoMs} ms]` : ''}${x.ganhoKb ? ` [~${x.ganhoKb} KB]` : ''}`); (x.itens || []).forEach((i) => L.push(`      ${i}`)); });
+  }
+  if (r.campo) L.push('', 'Usuários reais (CrUX, 28 dias): ' + Object.entries(r.campo).map(([k, v]) => `${k.replace(/_/g, ' ').toLowerCase()} ${v.p75} (${v.cat})`).join(' · '));
+  return L.join('\n');
+}
+// Depois de salvar/otimizar, a nota é refeita em segundo plano: confere de 15 em 15 s até chegar.
+let vigiaPsi = null;
+function vigiarPsi(slugs) {
+  clearInterval(vigiaPsi);
+  let voltas = 0;
+  vigiaPsi = setInterval(async () => {
+    voltas++;
+    await carregarPsi();
+    const falta = (slugs || []).filter((s) => medindo(s));
+    renderVista(false);
+    if (!falta.length || voltas > 12) {
+      clearInterval(vigiaPsi);
+      (slugs || []).forEach((s) => { const n = notaDe(s), p = E.cfg.paginas.find((x) => x.slug === s); if (p && n != null && !medindo(s)) toast(`PageSpeed de /${p.url}: ${n}`, n >= NOTA_MIN ? 'ok' : 'bad'); });
+    }
+  }, 15000);
+}
+
 function vistaGrade() {
   const ps = E.cfg.paginas;
   const no = ps.filter((p) => E.status[p.slug]?.estado === 'online').length;
@@ -343,8 +436,8 @@ function vistaGrade() {
   const seg = `<div class="seg"><button data-acao="previa" data-v="celular" class="${E.previa === 'celular' ? 'on' : ''}">Celular</button><button data-acao="previa" data-v="computador" class="${E.previa === 'computador' ? 'on' : ''}">Computador</button></div>`;
   if (!ps.length) return topo('Páginas', '', botoesPadrao()) + '<div class="vazio-geral">Nenhuma página ainda. Clique em “Nova página” ou “Adicionar em massa”.</div>';
   const [lw, lh] = E.previa === 'celular' ? [390, 844] : [1280, 800];
-  return topo('Páginas', sub, seg + botoesPadrao()) + filtrosGrupo() +
-    secoesPorGrupo(ps).map((x) => tituloSecao(x) + (x.paginas.length ? `<div class="grade">${x.paginas.map((p) => cardPagina(p, lw, lh)).join('')}</div>` : vazioSecao)).join('');
+  return topo('Páginas', sub, seg + botoesPadrao()) + filtrosGrupo() + filtroPsi() +
+    secoesPorGrupo(filtrarPsi(ps)).map((x) => tituloSecao(x) + (x.paginas.length ? `<div class="grade">${x.paginas.map((p) => cardPagina(p, lw, lh)).join('')}</div>` : vazioSecao)).join('');
 }
 
 /* ================= vista: lista ================= */
@@ -357,7 +450,7 @@ function linhaPagina(p) {
         <td class="dir num">${fmt(m?.visitas)}</td>
         <td class="dir num">${fmt(m?.leads)}</td>
         <td class="dir num">${pct(m?.conversao)}</td>
-        <td class="dir">${notaPsi(p.slug, 'mobile')}</td>
+        <td class="dir">${tagPsi(p, { compacto: true })}</td>
         <td class="dir">${notaPsi(p.slug, 'desktop')}</td>
         <td><div class="card-acoes">${acoesPagina(p, { compacto: true })}</div></td>
       </tr>`;
@@ -366,8 +459,8 @@ function linhaPagina(p) {
 function vistaLista() {
   const ps = E.cfg.paginas;
   const cab = `<thead><tr><th>Página</th><th>Status</th><th class="dir">Resposta</th><th class="dir">Visitas ${E.dias}d</th><th class="dir">Leads</th><th class="dir">Conv.</th><th class="dir">Google celular</th><th class="dir">Google PC</th><th></th></tr></thead>`;
-  return topo('Lista', 'Todas as páginas com status, números e nota do Google.', botoesPadrao()) + filtrosGrupo() +
-    secoesPorGrupo(ps).map((x) => tituloSecao(x) + (x.paginas.length ? `<div class="tabela-wrap"><table>${cab}<tbody>${x.paginas.map(linhaPagina).join('')}</tbody></table></div>` : vazioSecao)).join('');
+  return topo('Lista', 'Todas as páginas com status, números e nota do Google.', botoesPadrao()) + filtrosGrupo() + filtroPsi() +
+    secoesPorGrupo(filtrarPsi(ps)).map((x) => tituloSecao(x) + (x.paginas.length ? `<div class="tabela-wrap"><table>${cab}<tbody>${x.paginas.map(linhaPagina).join('')}</tbody></table></div>` : vazioSecao)).join('');
 }
 
 /* ================= vista: trackeamento ================= */
@@ -731,7 +824,7 @@ async function abrirEditor(slug) {
       await api('pagina', { method: 'PUT', body: { slug, html: ta.value } });
       original = ta.value;
       md.fechar();
-      depoisDeSalvar(`HTML de /${p.url} salvo.`);
+      depoisDeSalvar(`HTML de /${p.url} salvo. A nota do PageSpeed é refeita em ≈1 min.`, slug);
     } catch (err) {
       toast(err.message, 'bad');
       e.target.disabled = false; e.target.textContent = 'Salvar e publicar';
@@ -795,9 +888,9 @@ function abrirNova() {
     if (!f.reportValidity()) return;
     e.target.disabled = true;
     try {
-      await api('paginas', { method: 'POST', body: { acao: 'criar', titulo: f.titulo.value, url: f.url.value, html: f.html.value, ativa: f.ativa.checked, dominio: f.dominio.value } });
+      const criada = await api('paginas', { method: 'POST', body: { acao: 'criar', titulo: f.titulo.value, url: f.url.value, html: f.html.value, ativa: f.ativa.checked, dominio: f.dominio.value } });
       md.fechar();
-      depoisDeSalvar(`Página /${f.url.value} criada.`);
+      depoisDeSalvar(`Página /${f.url.value} criada. A nota do PageSpeed sai em ≈1 min.`, criada.slug);
     } catch (err) { toast(err.message, 'bad'); e.target.disabled = false; }
   };
 }
@@ -1170,6 +1263,8 @@ function abrirMassa() {
   };
 }
 
+document.addEventListener('input', (ev) => { if (ev.target.id === 'busca-grupo') buscarGrupos(ev.target.value); });
+
 /* ================= cliques ================= */
 document.addEventListener('click', async (ev) => {
   const alvo = ev.target.closest('[data-acao]');
@@ -1189,6 +1284,7 @@ document.addEventListener('click', async (ev) => {
     case 'legenda-salvar': salvarLegenda(v, alvo); break;
     case 'cad-novo': if (await abrirCadastro(v)) { await carregarPaginas(E.vista === 'funil'); renderVista(false); } break;
     case 'grupo-editar': abrirGrupo(v); break;
+    case 'chips-conv': E.chipsAberto = !E.chipsAberto; renderVista(false); break;
     case 'filtro-grupo': E.filtroGrupo = v; try { localStorage.setItem('r1-filtro-grupo', v); } catch {} renderVista(false); break;
     case 'claude': abrirClaude(); break;
     case 'img-escolher': $('#img-arq').click(); break;
@@ -1242,6 +1338,29 @@ document.addEventListener('click', async (ev) => {
         renderVista(false);
       } catch (e) { toast(e.message, 'bad'); }
       break;
+    case 'psi-filtro': E.filtroPsi = v; try { localStorage.setItem('r1-filtro-psi', v); } catch {} renderVista(false); break;
+    case 'psi-relatorio': {
+      try { await navigator.clipboard.writeText(relatorioPsi(p)); toast('Relatório copiado. Cole aqui no Claude para otimizar a página.', 'ok'); }
+      catch { toast('Não consegui copiar (o navegador bloqueou a área de transferência).', 'bad'); }
+      break;
+    }
+    case 'psi-otimizar': {
+      if (!(await confirmar('Otimizar página', `Aplicar as otimizações automáticas em <b>${h(p.titulo)}</b>?<br><br>• fontes do Google no nosso domínio<br>• imagens dos sites antigos e embutidas no HTML viram arquivos no nosso domínio<br>• estilos juntos no começo (sem salto de layout)<br>• foto do topo com prioridade; vídeo do topo só no 1º toque<br>• vídeos em iframe só perto da tela<br><br>O visual não muda e o HTML atual fica guardado (menu ⋯ → “Desfazer última otimização”). Depois a página é medida de novo.`, 'Otimizar'))) break;
+      alvo.disabled = true; alvo.textContent = 'Otimizando…';
+      try {
+        const d = await api('pagespeed', { method: 'POST', body: { acao: 'otimizar', slug } });
+        if (!d.mudou) { toast('Nada automático para mudar nesta página. Use “Copiar relatório” e cole aqui no Claude.', 'bad'); renderVista(false); break; }
+        toast('Otimizada: ' + d.mudancas.join(' · ') + '. Medindo de novo (≈1 min)…', 'ok');
+        await carregarPsi(); renderVista(false); vigiarPsi([slug]);
+      } catch (e) { toast(e.message, 'bad'); renderVista(false); }
+      break;
+    }
+    case 'psi-desfazer': {
+      if (!(await confirmar('Desfazer otimização', `Voltar <b>${h(p.titulo)}</b> para o HTML de antes da última otimização?`, 'Desfazer'))) break;
+      try { await api('pagespeed', { method: 'POST', body: { acao: 'desfazer', slug } }); toast('Voltou para o HTML de antes da otimização. Medindo de novo…', 'ok'); await carregarPsi(); renderVista(false); vigiarPsi([slug]); }
+      catch (e) { toast(e.message, 'bad'); }
+      break;
+    }
     case 'psi': {
       alvo.disabled = true; alvo.textContent = 'Medindo…';
       try {
@@ -1264,7 +1383,7 @@ document.addEventListener('change', async (ev) => {
       t.checked = true;
       return;
     }
-    try { await api('pagina', { method: 'PATCH', body: { slug: p.slug, ativa } }); depoisDeSalvar(ativa ? `/${p.url} ativada.` : `/${p.url} desativada.`); }
+    try { await api('pagina', { method: 'PATCH', body: { slug: p.slug, ativa } }); depoisDeSalvar(ativa ? `/${p.url} ativada.` : `/${p.url} desativada.`, ativa ? p.slug : undefined); }
     catch (e) { t.checked = !ativa; toast(e.message, 'bad'); }
   }
   if (t.matches('[data-acao="funil-previa"]')) { E.funilPrevia = t.checked; renderVista(false); }

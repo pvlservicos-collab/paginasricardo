@@ -38,6 +38,8 @@ export async function build({ silencioso = false } = {}) {
 
   await fs.writeFile(path.join(DIST, '404.html'), documentoInativo('Página não encontrada').replace('Esta página não está disponível no momento.', 'Página não encontrada.'));
   await copiarPasta(path.join(RAIZ, 'painel'), path.join(DIST, 'painel'));
+  // Impostômetro do Raio-X Tributário (login próprio; API em api/raiox/)
+  await copiarPasta(path.join(RAIZ, 'raiox'), path.join(DIST, 'raioxtributariodash'));
   log(`Build pronto: painel + ${cfg.paginas.length} página(s) iniciais (imagens no Blob).`);
   return cfg;
 }

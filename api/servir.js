@@ -34,35 +34,53 @@ const resposta = (corpo, status = 200) => new Response(corpo, {
   },
 });
 
+// Entrega a página p. apelido = veio de um endereço antigo (redirecionamento) que aponta para ela.
+async function entregar(p, cfg, request, url, caminho, apelido = false) {
+  // página de outro domínio: leva para o domínio certo (mantendo as UTMs), mas só quando ele já está no ar
+  // (DNS apontado). Enquanto não estiver, a página continua abrindo aqui. As prévias do painel passam direto.
+  const hostAtual = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').toLowerCase().replace(/:\d+$/, '');
+  const hostCerto = hostDaPagina(p, cfg, hostAtual);
+  const local = /^(localhost|127\.)/.test(hostAtual);
+  if (!p.lab && hostCerto && hostAtual && hostCerto !== hostAtual && !local && !url.searchParams.has('r1previa') && await dominioNoAr(hostCerto)) {
+    const destino = new URL(`https://${hostCerto}/${caminho}`);
+    url.searchParams.forEach((v, k) => { if (k !== 'caminho') destino.searchParams.append(k, v); });
+    return new Response(null, { status: 308, headers: { Location: destino.href, 'Cache-Control': 'public, max-age=0', 'Vercel-CDN-Cache-Control': 'max-age=60' } });
+  }
+  if (!p.ativa) return resposta(p.redirecionarInativaPara ? documentoRedirecionamento(p.redirecionarInativaPara, p.titulo) : documentoInativo(p.titulo));
+  const h = await html(p.arquivo);
+  if (h == null) return resposta(documentoInativo(p.titulo), 404);
+  // laboratório oculto: sem pixel/CAPI/Clarity/GTM e fora do Google
+  if (p.lab) { const r = resposta(montarDocumento(h, p.titulo, {})); r.headers.set('X-Robots-Tag', 'noindex, nofollow'); return r; }
+  const rastreio = rastreioDaPagina(p, cfg);
+  rastreio.capi = Boolean(rastreio.pixelMeta && process.env[`META_CAPI_TOKEN_${rastreio.pixelMeta}`]);
+  let doc = montarDocumento(h, p.titulo, rastreio);
+  if (apelido) {
+    const troca = `<script>try{history.replaceState(history.state,'',${JSON.stringify('/' + caminho)}+location.search+location.hash)}catch(e){}</script><link rel="canonical" href="/${caminho}">`;
+    doc = /<head[^>]*>/i.test(doc) ? doc.replace(/<head[^>]*>/i, (m) => m + troca) : troca + doc;
+  }
+  return resposta(doc);
+}
+
 export async function GET(request) {
   const url = new URL(request.url);
   const caminho = normalizarUrl(url.searchParams.get('caminho') || '');
   try {
     const cfg = await config();
     const p = cfg.paginas.find((x) => normalizarUrl(x.url) === caminho);
-    if (p) {
-      // página de outro domínio: leva para o domínio certo (mantendo as UTMs), mas só quando ele já está no ar
-      // (DNS apontado). Enquanto não estiver, a página continua abrindo aqui. As prévias do painel passam direto.
-      const hostAtual = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').toLowerCase().replace(/:\d+$/, '');
-      const hostCerto = hostDaPagina(p, cfg, hostAtual);
-      const local = /^(localhost|127\.)/.test(hostAtual);
-      if (!p.lab && hostCerto && hostAtual && hostCerto !== hostAtual && !local && !url.searchParams.has('r1previa') && await dominioNoAr(hostCerto)) {
-        const destino = new URL(`https://${hostCerto}/${caminho}`);
-        url.searchParams.forEach((v, k) => { if (k !== 'caminho') destino.searchParams.append(k, v); });
-        return new Response(null, { status: 308, headers: { Location: destino.href, 'Cache-Control': 'public, max-age=0', 'Vercel-CDN-Cache-Control': 'max-age=60' } });
-      }
-      if (!p.ativa) return resposta(p.redirecionarInativaPara ? documentoRedirecionamento(p.redirecionarInativaPara, p.titulo) : documentoInativo(p.titulo));
-      const h = await html(p.arquivo);
-      if (h == null) return resposta(documentoInativo(p.titulo), 404);
-      // laboratório oculto: sem pixel/CAPI/Clarity/GTM e fora do Google
-      if (p.lab) { const r = resposta(montarDocumento(h, p.titulo, {})); r.headers.set('X-Robots-Tag', 'noindex, nofollow'); return r; }
-      const rastreio = rastreioDaPagina(p, cfg);
-      rastreio.capi = Boolean(rastreio.pixelMeta && process.env[`META_CAPI_TOKEN_${rastreio.pixelMeta}`]);
-      return resposta(montarDocumento(h, p.titulo, rastreio));
-    }
-    // URLs antigas continuam levando para a nova (mantém UTMs dos anúncios já rodando)
+    if (p) return await entregar(p, cfg, request, url, caminho);
+    // URLs antigas continuam levando para a nova (mantém UTMs dos anúncios já rodando).
+    // Se o destino é uma página nossa, ela é entregue direto neste endereço e a barra passa a mostrar a URL nova
+    // (history.replaceState antes de qualquer script de rastreio): GA4/Pixel veem a mesma URL de antes, sem o
+    // salto de redirecionamento, que custava ~800 ms no PageSpeed mesmo como 308.
     const r = cfg.redirecionamentos.find((x) => normalizarUrl(x.de) === caminho);
-    if (r) return resposta(documentoRedirecionamento(r.para, 'Redirecionando'));
+    if (r) {
+      const alvo = normalizarUrl(r.para);
+      const destino = cfg.paginas.find((x) => normalizarUrl(x.url) === alvo);
+      if (destino && destino.ativa && !destino.lab) return await entregar(destino, cfg, request, url, alvo, true);
+      const u = new URL(`/${alvo}`, url.origin);
+      url.searchParams.forEach((v, k) => { if (k !== 'caminho') u.searchParams.append(k, v); });
+      return new Response(null, { status: 308, headers: { Location: u.pathname + u.search, 'Cache-Control': 'public, max-age=0', 'Vercel-CDN-Cache-Control': 'max-age=60' } });
+    }
   } catch (e) {
     console.error(e);
     return new Response('Erro ao carregar a página. Tente de novo em instantes.', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
