@@ -114,8 +114,9 @@
 
   // ---------- estado ----------
   let TODOS = [], periodo = 'tudo', aberto = null, semTeste = true;
+  const ativos = () => TODOS.filter(e => !e.excluido); // lixeira (só admin recebe) fica fora de todas as contas
   const filtrados = () => {
-    let l = semTeste ? TODOS.filter(e => !ehTeste(e)) : TODOS.slice();
+    let l = semTeste ? ativos().filter(e => !ehTeste(e)) : ativos();
     if(periodo === 'hoje') l = l.filter(e => diaBR(e.ts) === hojeBR());
     else if(periodo !== 'tudo') { const lim = Date.now() - +periodo * 864e5; l = l.filter(e => +new Date(e.ts) >= lim); }
     return l;
@@ -126,7 +127,7 @@
     const total = L.reduce((s, e) => s + (e.res.total || 0), 0);
     totalReal = total; mostraTotal();
     poeOdo(odoPessoas, String(Math.min(N, 99999)).padStart(5, '0'));
-    const semT = semTeste ? TODOS.filter(e => !ehTeste(e)) : TODOS;
+    const semT = semTeste ? ativos().filter(e => !ehTeste(e)) : ativos();
     const hoje = semT.filter(e => diaBR(e.ts) === hojeBR()).length;
     $('#hojeTxt').textContent = '+' + hoje + ' hoje';
     $('#mediaTxt').textContent = curto(N ? total / N : 0);
@@ -162,7 +163,7 @@
     barras($('#bOri'), agrupa(e => { const u = e.utm || {}; return u.source ? u.source + (u.campaign ? ' · ' + u.campaign : '') : (u.fbclid ? 'Meta (sem UTM)' : 'Direto / sem UTM'); }).slice(0, 8), {neutra: true, tipFn: tipQ});
 
     $('#nLeadsAba').textContent = L.length;
-    if(papel === 'admin'){ tabela(); metricas(L); }
+    if(papel === 'admin'){ if(!editando()) tabela(); metricas(L); }
   }
 
   // ---------- métricas (admin) ----------
@@ -236,27 +237,86 @@
     catch(e) { msgU(esc(e.message), true); }
   });
 
-  // ---------- tabela de leads ----------
+  // ---------- tabela de leads (gestão: etapa, anotações, teste, lixeira, ações em massa) ----------
   const quando = ts => new Date(ts).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'});
+  const quandoAno = ts => new Date(ts).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'});
   const faixaDe = f => (FAIXAS.find(([lim]) => +f <= lim) || [])[1] || '';
-  const wa = t => { const d = (t || '').replace(/\D/g, ''); return d ? 'https://wa.me/' + (d.length <= 11 ? '55' + d : d) : ''; };
-  function tabela(){
+  const soDig = t => (t || '').replace(/\D/g, '');
+  const wa = (t, msg) => { const d = soDig(t); return d ? 'https://wa.me/' + (d.length <= 11 ? '55' + d : d) + (msg ? '?text=' + encodeURIComponent(msg) : '') : ''; };
+  const ETAPAS = {novo: 'Novo', contato: 'Em contato', reuniao: 'Reunião marcada', cliente: 'Cliente', perdido: 'Perdido'};
+  const opcoesEtapa = atual => Object.entries(ETAPAS).map(([k, n]) => `<option value="${k}"${k === atual ? ' selected' : ''}>${n}</option>`).join('');
+  $('#mEtapa').insertAdjacentHTML('beforeend', opcoesEtapa(''));
+  const msgWhats = e => `Olá, ${((e.lead.nome || '').trim().split(/\s+/)[0]) || 'tudo bem'}! Aqui é do time do Ricardo Nunes. ` +
+    `Vi que você fez o Raio-X Tributário e ele apontou ${brl(e.res.total)} em oportunidades para a sua empresa. Posso te mostrar os próximos passos?`;
+
+  let etapa = 'todos', ordem = 'recente', soQualif = false, soWhats = false, limite = 100;
+  const sel = new Set(), rascunho = {};
+  const editando = () => { const a = document.activeElement; return Boolean(a && a.closest && a.closest('#tLeads') && /^(TEXTAREA|SELECT|INPUT)$/.test(a.tagName)); };
+
+  // base = filtros de cima (período, testes, qualificados, WhatsApp, busca), antes da etapa
+  function baseLeads(lixeira){
     const q = $('#busca').value.trim().toLowerCase();
-    const L = filtrados().filter(e => !q || [e.lead.nome, e.lead.email, e.lead.telefone, SETORES[e.perfil.setor], e.perfil.estado, REGIMES[e.perfil.regime]].join(' ').toLowerCase().includes(q));
-    if(!L.length){ $('#tLeads').innerHTML = '<tr><td colspan="7"><div class="vazio">Nenhum lead por aqui ainda.</div></td></tr>'; return; }
-    $('#tLeads').innerHTML = L.map(e => {
-      const p = e.perfil, l = e.lead, link = wa(l.telefone);
-      let h = `<tr class="lin" data-id="${esc(e.id)}"><td class="num" style="text-align:left">${quando(e.ts)}</td>
-        <td><div class="nome">${esc(l.nome) || '—'}${ehTeste(e) ? '<span class="tag-t">teste</span>' : ''}</div></td>
+    let L = lixeira ? TODOS.filter(e => e.excluido) : filtrados();
+    if(soQualif) L = L.filter(ehQualif);
+    if(soWhats) L = L.filter(temWhats);
+    if(q) L = L.filter(e => [e.lead.nome, e.lead.email, e.lead.telefone, soDig(e.lead.telefone), e.perfil.nome, SETORES[e.perfil.setor], e.perfil.estado,
+      REGIMES[e.perfil.regime], ETAPAS[e.status], ...(e.notas || []).map(n => n.texto)].join(' ').toLowerCase().includes(q));
+    return L;
+  }
+  function listaLeads(){
+    let L = etapa === 'lixeira' ? baseLeads(true) : baseLeads(false).filter(e => etapa === 'todos' || e.status === etapa);
+    const f = {recente: (a, b) => +new Date(b.ts) - +new Date(a.ts), antigo: (a, b) => +new Date(a.ts) - +new Date(b.ts),
+      valor: (a, b) => (b.res.total || 0) - (a.res.total || 0), fat: (a, b) => (+b.perfil.faturamento || 0) - (+a.perfil.faturamento || 0),
+      nome: (a, b) => (a.lead.nome || '').localeCompare(b.lead.nome || '', 'pt-BR')}[ordem];
+    return L.slice().sort(f);
+  }
+  // mesmo e-mail ou WhatsApp em mais de um diagnóstico
+  function repetidos(){
+    const m = new Map(), chaves = e => [(e.lead.email || '').toLowerCase().trim(), soDig(e.lead.telefone).slice(-9)].filter(k => k.length >= 6);
+    ativos().forEach(e => chaves(e).forEach(k => m.set(k, (m.get(k) || 0) + 1)));
+    return e => Math.max(1, ...chaves(e).map(k => m.get(k) || 1));
+  }
+
+  function desenhaEtapas(){
+    const base = baseLeads(false), lixo = TODOS.filter(e => e.excluido).length;
+    const btn = (k, n, q, cls = '') => `<button class="${cls}${etapa === k ? ' on' : ''}" data-et="${k}">${n} <b>${q}</b></button>`;
+    $('#etapas').innerHTML = btn('todos', 'Todos', base.length) +
+      Object.entries(ETAPAS).map(([k, n]) => btn(k, `<span class="st st-${k}">${n}</span>`, base.filter(e => e.status === k).length)).join('') +
+      btn('lixeira', 'Lixeira', lixo, 'lixo') +
+      (etapa === 'lixeira' && lixo ? '<button class="esvaziar" data-esvaziar>Esvaziar lixeira</button>' : '');
+    $$('#etapas [data-et]').forEach(b => b.onclick = () => { etapa = b.dataset.et; sel.clear(); aberto = null; limite = 100; tabela(); });
+    const ev = $('#etapas [data-esvaziar]');
+    if(ev) ev.onclick = () => { if(confirm(`Apagar de vez os ${lixo} lead(s) da lixeira? Isso não tem volta.`)) acao({acao: 'esvaziar'}, n => `${n} lead(s) apagado(s) de vez.`); };
+  }
+
+  function tabela(){
+    desenhaEtapas();
+    const L = listaLeads(), lixeira = etapa === 'lixeira', rep = repetidos();
+    const vis = new Set(L.map(e => e.id));
+    [...sel].forEach(id => { if(!vis.has(id)) sel.delete(id); });
+    massa();
+    $('.mais').classList.toggle('esc', L.length <= limite);
+    $('#mais').textContent = `Mostrar mais (${L.length - limite} restantes)`;
+    $('#selTodos').checked = L.length > 0 && L.every(e => sel.has(e.id));
+    $('#selTodos').indeterminate = sel.size > 0 && !$('#selTodos').checked;
+    if(!L.length){ $('#tLeads').innerHTML = `<tr><td colspan="9"><div class="vazio">${lixeira ? 'A lixeira está vazia.' : 'Nenhum lead com esses filtros.'}</div></td></tr>`; return; }
+    $('#tLeads').innerHTML = L.slice(0, limite).map(e => {
+      const p = e.perfil, l = e.lead, link = wa(l.telefone), r = rep(e);
+      let h = `<tr class="lin${sel.has(e.id) ? ' sel' : ''}" data-id="${esc(e.id)}">
+        <td class="ck"><input type="checkbox" data-ck="${esc(e.id)}"${sel.has(e.id) ? ' checked' : ''} aria-label="Selecionar"></td>
+        <td class="num" style="text-align:left">${quando(e.ts)}</td>
+        <td><div class="nome">${esc(l.nome) || '—'}${ehTeste(e) ? '<span class="tag-t">teste</span>' : ''}${r > 1 ? `<span class="tag-r" title="Mesmo e-mail ou WhatsApp em ${r} diagnósticos">repetido ×${r}</span>` : ''}${(e.notas || []).length ? `<span class="tag-n" title="Anotações">✎ ${e.notas.length}</span>` : ''}</div></td>
         <td>${link ? `<a href="${link}" target="_blank" rel="noopener">${esc(l.telefone)}</a>` : '—'}</td>
         <td>${l.email ? `<a href="mailto:${esc(l.email)}">${esc(l.email)}</a>` : '—'}</td>
-        <td>${esc(SETORES[p.setor] || p.setor || '—')}<div class="sub">${esc(p.estado || '')} · ${esc(REGIMES[p.regime] || p.regime || '')}</div></td>
+        <td>${p.nome ? `<div class="nome">${esc(p.nome)}</div>` : ''}${esc(SETORES[p.setor] || p.setor || '—')}<div class="sub">${esc(p.estado || '')} · ${esc(REGIMES[p.regime] || p.regime || '')}</div></td>
         <td>${esc(faixaDe(p.faturamento))}</td>
+        <td>${lixeira ? '<span class="st st-perdido">Na lixeira</span>' : `<select class="etapa-sel" data-et-id="${esc(e.id)}" aria-label="Etapa">${opcoesEtapa(e.status)}</select>`}</td>
         <td class="num val">${brl(e.res.total)}</td></tr>`;
       if(aberto === e.id){
         const sinais = Object.entries(OPER).filter(([k]) => +p[k]).map(([, n]) => `<span>${esc(n)}</span>`).join('') || '<span>Nenhum</span>';
         const naoF = Object.entries(AUD).filter(([k]) => !+p[k]).map(([, n]) => `<span>${esc(n)}</span>`).join('') || '<span>Tudo em dia</span>';
-        h += `<tr class="det"><td colspan="7"><div class="det-g">
+        const notas = (e.notas || []).slice().reverse().map(n => `<li><small>${esc(n.por)} · ${quandoAno(n.em)}</small><p>${esc(n.texto)}</p><button data-tirar="${esc(n.id)}" title="Apagar anotação" aria-label="Apagar anotação">×</button></li>`).join('');
+        h += `<tr class="det"><td colspan="9"><div class="det-g">
           <div><h4>Oportunidades encontradas (${e.res.nOpps})</h4><ul>${(e.res.top || []).map(o => `<li><span>${esc(o.nome)}</span><span>${brl(o.val)}</span></li>`).join('') || '<li>—</li>'}</ul>
             <h4 style="margin-top:16px">Números</h4><ul>
             <li><span>Imposto estimado por ano</span><span>${brl(e.res.carga)}</span></li>
@@ -266,18 +326,109 @@
           <div><h4>Como opera</h4><div class="chips">${sinais}</div>
             <h4 style="margin-top:16px">Auditoria do dono: respondeu "não"</h4><div class="chips">${naoF}</div>
             <h4 style="margin-top:16px">Origem</h4><div class="chips">${Object.entries(e.utm || {}).map(([k, v]) => `<span>${esc(k)}: ${esc(v)}</span>`).join('') || '<span>Direto / sem UTM</span>'}</div></div>
+          <div class="gest">
+            <div><h4>Ações</h4><div class="acoes">
+              ${link ? `<a class="btn-l" href="${wa(l.telefone, msgWhats(e))}" target="_blank" rel="noopener">WhatsApp com mensagem pronta</a>` : ''}
+              <button class="btn-l" data-copiar>Copiar contato</button>
+              ${lixeira ? `<button class="btn-l" data-um="restaurar">Restaurar</button><button class="btn-l perigo" data-um="apagar">Apagar de vez</button>`
+                : `<button class="btn-l" data-um="${ehTeste(e) ? 'real' : 'teste'}">${ehTeste(e) ? 'Não é teste' : 'Marcar como teste'}</button>
+                   <button class="btn-l perigo" data-um="excluir">Excluir</button>`}
+            </div>
+            <div class="sub">Chegou em ${quandoAno(e.ts)}${e.gestao ? ` · última mudança por ${esc(e.gestao.por)} em ${quandoAno(e.gestao.em)}` : ''}${e.excluido ? ` · excluído por ${esc(e.excluido.por)} em ${quandoAno(e.excluido.em)}` : ''}${e.testeManual != null ? ' · teste marcado à mão' : ''}</div></div>
+            <div><h4>Anotações</h4>${notas ? `<ul class="notas">${notas}</ul>` : ''}
+              <form class="nova-nota" data-nota="${esc(e.id)}"><textarea maxlength="2000" placeholder="Ex.: liguei, pediu para retornar na sexta">${esc(rascunho[e.id] || '')}</textarea><button class="btn-r">Salvar anotação</button></form></div>
+          </div>
         </div></td></tr>`;
       }
       return h;
     }).join('');
-    $$('#tLeads tr.lin').forEach(tr => tr.onclick = ev => { if(ev.target.closest('a')) return; aberto = aberto === tr.dataset.id ? null : tr.dataset.id; tabela(); });
+
+    const T = $('#tLeads'), porId = id => TODOS.find(e => e.id === id);
+    $$('tr.lin', T).forEach(tr => tr.onclick = ev => {
+      if(ev.target.closest('a,select,input,button,label')) return;
+      aberto = aberto === tr.dataset.id ? null : tr.dataset.id; tabela(); });
+    $$('[data-ck]', T).forEach(c => c.onchange = () => { c.checked ? sel.add(c.dataset.ck) : sel.delete(c.dataset.ck); tabela(); });
+    $$('[data-et-id]', T).forEach(s => s.onchange = () => { const id = s.dataset.etId; s.blur();
+      acao({acao: 'status', ids: [id], status: s.value}, () => `Etapa: ${ETAPAS[s.value]}.`); });
+    const det = $('tr.det', T);
+    if(!det) return;
+    const e = porId(aberto);
+    $$('[data-um]', det).forEach(b => b.onclick = () => emMassa(b.dataset.um, [aberto]));
+    const cp = $('[data-copiar]', det);
+    if(cp) cp.onclick = () => {
+      const t = [e.lead.nome, e.lead.telefone, e.lead.email, e.perfil.nome].filter(Boolean).join(' · ');
+      (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => avisa('Contato copiado.'), () => prompt('Copie o contato:', t));
+    };
+    $$('[data-tirar]', det).forEach(b => b.onclick = () => { if(confirm('Apagar esta anotação?')) acao({acao: 'tirarNota', id: aberto, nota: b.dataset.tirar}, () => 'Anotação apagada.'); });
+    const f = $('form.nova-nota', det), ta = $('textarea', f);
+    ta.oninput = () => { rascunho[aberto] = ta.value; };
+    f.onsubmit = ev => { ev.preventDefault(); const texto = ta.value.trim(); if(!texto) return ta.focus();
+      const id = aberto; ta.blur();
+      acao({acao: 'nota', id, texto}, () => { delete rascunho[id]; return 'Anotação salva.'; }); };
   }
-  function baixaCSV(){
-    const L = filtrados(), cel = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
-    const cab = ['data','nome','email','whatsapp','setor','estado','regime','faturamento_mes','identificado','recuperacao','beneficios','economia_ano','divida','utm_source','utm_campaign','utm_content'];
-    const linhas = L.map(e => [quando(e.ts), e.lead.nome, e.lead.email, e.lead.telefone, SETORES[e.perfil.setor] || e.perfil.setor, e.perfil.estado,
+
+  // barra de ações em massa
+  function massa(){
+    const lixeira = etapa === 'lixeira';
+    $('#massa').classList.toggle('esc', !sel.size);
+    $('#nSel').textContent = sel.size;
+    $$('#massa .so-ativos').forEach(x => x.classList.toggle('esc', lixeira));
+    $$('#massa .so-lixo').forEach(x => x.classList.toggle('esc', !lixeira));
+  }
+  function emMassa(m, ids){
+    const n = ids.length, s = n === 1 ? '' : 's';
+    if(m === 'teste') return acao({acao: 'teste', ids, teste: true}, () => `${n} lead${s} marcado${s} como teste.`);
+    if(m === 'real') return acao({acao: 'teste', ids, teste: false}, () => `${n} lead${s} marcado${s} como lead de verdade.`);
+    if(m === 'restaurar') return acao({acao: 'restaurar', ids}, k => `${k} lead${s} restaurado${s}.`, () => sel.clear());
+    if(m === 'excluir') return acao({acao: 'excluir', ids}, k => `${k} lead${s} na lixeira.`, () => { sel.clear(); if(ids.includes(aberto)) aberto = null; },
+      () => acao({acao: 'restaurar', ids}, k => `${k} lead${s} de volta.`));
+    if(m === 'apagar'){
+      if(!confirm(`Apagar de vez ${n} lead${s}? Isso não tem volta.`)) return;
+      return acao({acao: 'apagar', ids}, k => `${k} lead${s} apagado${s} de vez.`, () => { sel.clear(); aberto = null; });
+    }
+  }
+  $$('#massa [data-m]').forEach(b => b.onclick = () => {
+    const m = b.dataset.m, ids = [...sel];
+    if(m === 'limpar'){ sel.clear(); return tabela(); }
+    if(m === 'csv') return baixaCSV(listaLeads().filter(e => sel.has(e.id)));
+    emMassa(m, ids);
+  });
+  $('#mEtapa').onchange = () => { const v = $('#mEtapa').value; $('#mEtapa').value = ''; if(!v) return;
+    const ids = [...sel]; acao({acao: 'status', ids, status: v}, k => `${k} lead(s) em "${ETAPAS[v]}".`); };
+  $('#selTodos').onchange = () => { const L = listaLeads(); if($('#selTodos').checked) L.forEach(e => sel.add(e.id)); else sel.clear(); tabela(); };
+  $('#mais').onclick = () => { limite += 100; tabela(); };
+
+  // chama a API, avisa e recarrega. depois() roda antes de redesenhar; desfazer() vira o botão "Desfazer" do aviso.
+  async function acao(corpo, msg, depois, desfazer){
+    try {
+      const r = await fetch(API + '/envios', {method: 'PATCH', credentials: 'same-origin', cache: 'no-store',
+        headers: {'Content-Type': 'application/json'}, body: JSON.stringify(corpo)});
+      const j = await r.json().catch(() => ({}));
+      if(r.status === 401){ entra(null); return; }
+      if(!r.ok) throw new Error(j.erro || 'Não deu certo.');
+      if(depois) depois();
+      avisa(msg ? msg(j.n) : 'Feito.', false, desfazer);
+      await carrega();
+    } catch(e) { avisa(e.message, true); }
+  }
+  let tt;
+  function avisa(texto, erro, desfazer){
+    const t = $('#toast');
+    t.innerHTML = `<span>${esc(texto)}</span>${desfazer ? '<button>Desfazer</button>' : ''}`;
+    t.classList.toggle('erro', Boolean(erro)); t.classList.add('on');
+    if(desfazer) $('button', t).onclick = () => { t.classList.remove('on'); desfazer(); };
+    clearTimeout(tt); tt = setTimeout(() => t.classList.remove('on'), desfazer ? 7000 : 3500);
+  }
+
+  function baixaCSV(lista){
+    const L = lista || listaLeads(), cel = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    const cab = ['data','nome','email','whatsapp','empresa','setor','estado','regime','faturamento_mes','identificado','recuperacao','beneficios','economia_ano','divida',
+      'etapa','teste','anotacoes','utm_source','utm_campaign','utm_content'];
+    const linhas = L.map(e => [quandoAno(e.ts), e.lead.nome, e.lead.email, e.lead.telefone, e.perfil.nome, SETORES[e.perfil.setor] || e.perfil.setor, e.perfil.estado,
       REGIMES[e.perfil.regime] || e.perfil.regime, e.perfil.faturamento, Math.round(e.res.total), Math.round(e.res.recuperacao), Math.round(e.res.beneficios),
-      Math.round(e.res.economia), +e.perfil.divida ? 'sim' : 'não', (e.utm || {}).source, (e.utm || {}).campaign, (e.utm || {}).content].map(cel).join(';'));
+      Math.round(e.res.economia), +e.perfil.divida ? 'sim' : 'não', e.excluido ? 'lixeira' : ETAPAS[e.status] || '', ehTeste(e) ? 'sim' : 'não',
+      (e.notas || []).map(n => `[${quandoAno(n.em)} ${n.por}] ${n.texto}`).join(' | '),
+      (e.utm || {}).source, (e.utm || {}).campaign, (e.utm || {}).content].map(cel).join(';'));
     const blob = new Blob(['﻿' + [cab.join(';'), ...linhas].join('\n')], {type: 'text/csv;charset=utf-8'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'raiox-tributario-leads-' + hojeBR() + '.csv'; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
@@ -331,8 +482,11 @@
   $$('.aba').forEach(b => b.onclick = () => mostraAba(b.dataset.aba));
   $$('.periodo button').forEach(b => b.onclick = () => { periodo = b.dataset.p; $$('.periodo button').forEach(x => x.classList.toggle('on', x.dataset.p === periodo)); desenha(); });
   $$('.semTeste').forEach(c => c.onchange = () => { semTeste = c.checked; $$('.semTeste').forEach(x => x.checked = semTeste); desenha(); });
-  $('#busca').oninput = tabela;
-  $('#csv').onclick = baixaCSV;
+  $('#busca').oninput = () => { limite = 100; tabela(); };
+  $('#csv').onclick = () => baixaCSV();
+  $('#ordem').onchange = () => { ordem = $('#ordem').value; tabela(); };
+  $('#soQualif').onchange = () => { soQualif = $('#soQualif').checked; limite = 100; tabela(); };
+  $('#soWhats').onchange = () => { soWhats = $('#soWhats').checked; limite = 100; tabela(); };
   let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => TODOS.length && desenha(), 150); });
 
   // abre direto se já tem sessão
