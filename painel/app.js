@@ -23,6 +23,7 @@ const I = {
   cima: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>',
   baixo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
   fechar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  emails: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>',
   imagens: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>',
   imagem: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>',
   alerta: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
@@ -200,6 +201,9 @@ window.addEventListener('hashchange', () => {
   render();
 });
 
+// Editor de e-mails (página do painel). Endereço fixo: os e-mails ficam salvos no navegador, por domínio.
+const EMAILS_URL = 'https://ricardonunes.grupor1.com/emails';
+
 function render() {
   const nav = [['grade', 'Páginas'], ['lista', 'Lista'], ['trackeamento', 'Trackeamento'], ['imagens', 'Imagens'], ['funil', 'Funil'], ['metricas', 'Métricas']].filter(([k]) => !ehTrafego() || k === 'trackeamento');
   const dep = E.publicando
@@ -213,7 +217,7 @@ function render() {
   <div class="app">
     <aside class="lado">
       <div class="marca"><i>R1</i><span>Páginas</span></div>
-      <nav class="nav">${nav.map(([k, n]) => `<a href="#${k}" class="${E.vista === k ? 'on' : ''}">${I[k]}${n}${EM_OBRA.includes(k) ? '<em class="em-obra">em construção</em>' : ''}</a>`).join('')}</nav>
+      <nav class="nav">${nav.map(([k, n]) => `<a href="#${k}" class="${E.vista === k ? 'on' : ''}">${I[k]}${n}${EM_OBRA.includes(k) ? '<em class="em-obra">em construção</em>' : ''}</a>`).join('')}${ehTrafego() ? '' : `<a href="${EMAILS_URL}" target="_blank" rel="noopener" title="Abre o editor de e-mails em outra aba">${I.emails}E-mails</a>`}</nav>
       <div class="fim">
         <div class="quem"><b>${h(E.usuario?.nome || '')}</b><span>${ehAdmin() ? 'Administrador' : ehTrafego() ? 'Gestor de tráfego' : 'Editor'}</span></div>
         ${ehTrafego() ? '' : `<div class="deploy">${dep}</div>

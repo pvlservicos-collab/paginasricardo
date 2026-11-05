@@ -1,0 +1,19 @@
+{
+  "name": "rgv-emails",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Editor de E-mails RGV (Grupo R1) — front estático + rotas /api na Vercel",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "npx vercel dev",
+    "deploy": "npx vercel --prod",
+    "env:pull": "npx vercel env pull .env.local"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.40.0",
+    "@vercel/blob": "^2.8.2"
+  }
+}

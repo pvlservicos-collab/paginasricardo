@@ -1,0 +1,2511 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Editor de E-mails</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --painel:#ffffff; --borda:#e4e7ec; --borda-forte:#cfd4dc;
+    --texto:#1f2430; --suave:#6b7280; --destaque:#2563eb; --destaque-esc:#1d4ed8;
+    --destaque-claro:#eef3fe; --perigo:#dc2626; --aviso:#b45309; --aviso-claro:#fff7ea;
+    --ok:#15803d; --zap:#16a34a; --raio:8px; --sombra:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--texto);font:14px/1.45 "Inter",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;min-width:1100px}
+  button,input,textarea,select{font:inherit;color:inherit}
+  [hidden]{display:none!important}
+  .tela{height:100%;display:flex;flex-direction:column}
+
+  .btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--borda-forte);background:#fff;border-radius:var(--raio);padding:7px 14px;cursor:pointer;font-weight:500;white-space:nowrap;transition:background .15s,border-color .15s}
+  .btn:hover{background:#f3f4f6}
+  .btn.primario{background:var(--destaque);border-color:var(--destaque);color:#fff}
+  .btn.primario:hover{background:var(--destaque-esc)}
+  .btn.fantasma{border-color:transparent;background:transparent}
+  .btn.fantasma:hover{background:#eef0f3}
+  .btn.perigo{background:var(--perigo);border-color:var(--perigo);color:#fff}
+  .btn.peq{padding:5px 9px;font-size:13px}
+  .btn:disabled{opacity:.45;cursor:default}
+  .link-btn{border:0;background:none;color:var(--suave);cursor:pointer;font-size:12px;padding:2px 4px;border-radius:4px}
+  .link-btn:hover{color:var(--perigo);background:#fdf0f0}
+
+  .topo{height:60px;flex:none;display:flex;align-items:center;gap:12px;padding:0 24px;background:var(--painel);border-bottom:1px solid var(--borda)}
+  .marca{font-weight:700;font-size:16px;display:flex;align-items:center;gap:8px}
+  .marca i{width:10px;height:10px;border-radius:3px;background:var(--destaque);display:inline-block}
+  .espaco{flex:1}
+  .usuario{display:flex;align-items:center;gap:8px;color:var(--suave);font-size:13px}
+  .selo{font-size:12px;background:var(--aviso-claro);color:var(--aviso);border-radius:20px;padding:2px 10px}
+
+  .login-fundo{position:fixed;inset:0;z-index:70;background:var(--bg);display:flex;align-items:center;justify-content:center}
+  .login-fundo.sobre{background:rgba(17,24,39,.45)}
+  .login-card{width:380px;background:#fff;border:1px solid var(--borda);border-radius:14px;box-shadow:0 20px 50px rgba(16,24,40,.12);padding:28px}
+  .login-card h1{font-size:20px;margin:18px 0 4px}
+  .login-card p.sub{color:var(--suave);margin:0 0 18px;font-size:13.5px}
+
+  .lista-layout{flex:1;display:flex;min-height:0}
+  .pastas{width:250px;flex:none;background:#fff;border-right:1px solid var(--borda);padding:16px 10px;overflow:auto}
+  .pastas h4{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--suave);margin:16px 10px 6px;display:flex;align-items:center}
+  .pastas h4 button{margin-left:auto;border:0;background:none;color:var(--destaque);cursor:pointer;font-size:12px;text-transform:none;letter-spacing:0;font-weight:600;padding:2px 4px;border-radius:4px}
+  .pastas h4 button:hover{background:var(--destaque-claro)}
+  .pasta-linha{display:flex;align-items:center;border-radius:8px;position:relative}
+  .pasta-linha:hover{background:#f3f4f6}
+  .pasta-linha.ativa{background:var(--destaque-claro)}
+  .pasta-linha.sobre{outline:2px dashed var(--destaque);outline-offset:-2px;background:var(--destaque-claro)}
+  .pasta{flex:1;min-width:0;display:flex;align-items:center;gap:9px;border:0;background:none;padding:8px 10px;cursor:pointer;text-align:left;border-radius:8px}
+  .pasta-linha.ativa .pasta{color:var(--destaque);font-weight:600}
+  .pasta .nome{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pasta .qtd{color:var(--suave);font-size:12px;font-weight:500}
+  .pasta svg{flex:none;display:block}
+  .pasta-mais{border:0;background:none;cursor:pointer;color:var(--suave);padding:4px 8px;border-radius:6px;opacity:0;font-size:15px;line-height:1}
+  .pasta-linha:hover .pasta-mais,.pasta-mais:focus{opacity:1}
+  .pasta-mais:hover{background:#e5e7eb;color:var(--texto)}
+  .pastas .dica-pastas{font-size:12px;color:var(--suave);margin:8px 10px;line-height:1.4}
+
+  .lista-conteudo{flex:1;overflow:auto;padding:28px 32px}
+  .lista-cab{display:flex;align-items:center;gap:12px;margin:0 auto 20px;max-width:1240px}
+  .lista-cab h1{font-size:20px;margin:0;flex:1;display:flex;align-items:center;gap:10px}
+  .lista-cab h1 .bolinha{width:12px;height:12px;border-radius:50%}
+  .busca{width:260px;border:1px solid var(--borda-forte);border-radius:var(--raio);padding:8px 12px;background:#fff}
+  .busca:focus,.campo input:focus,.campo textarea:focus,.campo select:focus,.nome-input:focus{outline:2px solid var(--destaque-claro);border-color:var(--destaque)}
+  .grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;max-width:1240px;margin:0 auto}
+  .card{background:var(--painel);border:1px solid var(--borda);border-top-width:4px;border-radius:10px;overflow:hidden;box-shadow:var(--sombra);display:flex;flex-direction:column}
+  .card.arrastando{opacity:.5}
+  .thumb{display:block;border:0;padding:0;cursor:pointer;background:#eef0f3;aspect-ratio:12/5;width:100%;overflow:hidden}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .thumb-vazia{display:flex;height:100%;align-items:center;justify-content:center;color:var(--suave);font-size:13px}
+  .card-info{padding:12px 14px 4px}
+  .card-info h3{margin:0;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card-info p{margin:2px 0 0;color:var(--suave);font-size:12.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .badge-grupo{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;background:#f3f4f6;border-radius:20px;padding:1px 8px;color:#374151}
+  .badge-grupo i{width:7px;height:7px;border-radius:50%;display:inline-block}
+  .card-acoes{display:flex;gap:2px;padding:10px 10px 12px;flex-wrap:wrap}
+  .card-acoes .btn.peq{padding:5px 7px}
+  .card-acoes .excluir:hover{color:var(--perigo);background:#fdf0f0}
+  .vazio{max-width:520px;margin:80px auto;text-align:center;color:var(--suave)}
+  .vazio h2{color:var(--texto);font-size:18px;margin:0 0 6px}
+  .vazio .acoes{display:flex;gap:10px;justify-content:center;margin-top:18px}
+
+  .topo-editor{gap:8px;padding:0 16px}
+  .nome-input{border:1px solid transparent;border-radius:6px;padding:6px 8px;font-weight:600;font-size:15px;width:280px;background:transparent}
+  .nome-input:hover{border-color:var(--borda)}
+  .sel-grupo{border:1px solid var(--borda);border-radius:6px;padding:5px 8px;background:#fff;font-size:13px;max-width:200px}
+  .indicador{font-size:12.5px;color:var(--ok);display:inline-flex;align-items:center;gap:5px;min-width:86px}
+  .indicador::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+  .indicador.salvando{color:var(--suave)}
+  .indicador.erro{color:var(--perigo)}
+  .menu-wrap{position:relative}
+  .menu{position:absolute;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--borda);border-radius:var(--raio);box-shadow:0 8px 24px rgba(16,24,40,.12);padding:6px;min-width:230px;z-index:30}
+  .menu.flutuante{position:fixed;right:auto;top:auto;z-index:65}
+  .menu button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:6px;cursor:pointer}
+  .menu button:hover{background:#f3f4f6}
+  .menu button.perigo{color:var(--perigo)}
+  .menu button .bolinha{width:9px;height:9px;border-radius:50%;flex:none}
+  .menu .titulo-menu{font-size:11.5px;color:var(--suave);padding:6px 10px 4px;text-transform:uppercase;letter-spacing:.05em}
+  .editor{flex:1;display:grid;grid-template-columns:35% 65%;min-height:0}
+  .painel-campos{overflow:auto;background:var(--painel);border-right:1px solid var(--borda);padding:16px}
+  .painel-previa{display:flex;flex-direction:column;min-height:0;background:#eceef2}
+  .previa-barra{flex:none;display:flex;align-items:center;gap:14px;padding:10px 16px}
+  .previa-barra .dica{color:var(--suave);font-size:12.5px}
+  .seg{display:inline-flex;background:#fff;border:1px solid var(--borda);border-radius:var(--raio);padding:3px}
+  .seg button{border:0;background:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--suave)}
+  .seg button.ativo{background:var(--destaque-claro);color:var(--destaque);font-weight:600}
+  .seg.seg-peq{margin-bottom:10px}
+  .seg.seg-peq button.ativo.zap{background:#eaf7ef;color:var(--zap)}
+  .previa-palco{flex:1;min-height:0;display:flex;justify-content:center;padding:0 16px 16px}
+  #previa{height:100%;width:600px;border:0;background:#fff;border-radius:6px;box-shadow:0 2px 12px rgba(16,24,40,.12);transition:width .2s}
+  #previa.celular{width:375px}
+
+  .aviso-box{background:var(--aviso-claro);border:1px solid #f3d9a8;color:#7a4a0c;border-radius:var(--raio);padding:10px 12px;margin-bottom:14px;font-size:13px;display:flex;gap:10px;align-items:flex-start}
+  .aviso-box p{margin:0;flex:1}
+  .aviso-box strong{display:block;margin-bottom:2px}
+  .info-textos{background:var(--destaque-claro);border:1px solid #d6e2fb;color:#1e3a8a;border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:13px}
+  .info-textos strong{display:block;font-size:14px;margin-bottom:3px}
+
+  .grupo{border:1px solid var(--borda);border-radius:10px;margin-bottom:12px;background:#fff}
+  .grupo>summary{list-style:none;cursor:pointer;padding:11px 14px;display:flex;align-items:center;gap:8px;font-weight:600;user-select:none}
+  .grupo>summary::-webkit-details-marker{display:none}
+  .grupo>summary::before{content:"";width:7px;height:7px;border-right:2px solid var(--suave);border-bottom:2px solid var(--suave);transform:rotate(-45deg);transition:transform .15s;margin-right:4px}
+  .grupo[open]>summary::before{transform:rotate(45deg)}
+  .contagem{margin-left:auto;font-size:12px;color:var(--suave);font-weight:500;background:#f3f4f6;border-radius:20px;padding:1px 8px}
+  .grupo-corpo{padding:0 14px 14px}
+  .vazio-grupo{margin:0;color:var(--suave);font-size:13px;background:#fafbfc;border:1px dashed var(--borda-forte);border-radius:var(--raio);padding:10px 12px}
+  .area{border-top:1px solid var(--borda);padding-top:12px;margin-top:12px;border-radius:6px}
+  .area:first-child{border-top:0;margin-top:0;padding-top:0}
+  .area.piscar{animation:piscar 1.6s ease}
+  @keyframes piscar{0%,60%{background:var(--destaque-claro);box-shadow:0 0 0 6px var(--destaque-claro)}100%{background:transparent;box-shadow:0 0 0 6px transparent}}
+  .area-cab{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .area-cab strong{font-size:13px}
+  .area-cab .link-btn{margin-left:auto}
+  .tag{font-size:11px;color:var(--aviso);background:var(--aviso-claro);border-radius:20px;padding:0 7px}
+  .campo{display:block;margin-bottom:10px}
+  .campo>span{display:block;font-size:12.5px;color:var(--suave);margin-bottom:4px}
+  .campo input,.campo textarea,.campo select{width:100%;border:1px solid var(--borda-forte);border-radius:6px;padding:7px 10px;background:#fff}
+  .campo textarea{resize:vertical;min-height:64px;line-height:1.45}
+  .dica-campo{font-size:12px;color:var(--aviso);margin-top:3px}
+  .dica-campo:empty{display:none}
+  .link-gerado{font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;background:#f6f7f9;border:1px solid var(--borda);border-radius:6px;padding:7px 9px;word-break:break-all;color:#374151;display:flex;gap:8px;align-items:flex-start;margin-bottom:10px}
+  .link-gerado span{flex:1}
+  .link-gerado a{font-family:"Inter",system-ui,sans-serif;font-size:12px;color:var(--zap);font-weight:600;white-space:nowrap;text-decoration:none}
+  .mini{background:#f3f4f6 repeating-conic-gradient(#eceef1 0 25%,transparent 0 50%) 0 0/16px 16px;border:1px solid var(--borda);border-radius:6px;height:110px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:10px}
+  .mini img{max-width:100%;max-height:100%;object-fit:contain}
+  .linha{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+  .linha .dica{font-size:12px;color:var(--suave)}
+  .progresso{height:6px;background:#eef0f3;border-radius:6px;overflow:hidden;margin-bottom:10px}
+  .progresso div{height:100%;width:0;background:var(--destaque);transition:width .2s}
+  .msg{font-size:12.5px;border-radius:6px;padding:7px 10px;margin-bottom:10px;background:var(--aviso-claro);color:#7a4a0c}
+  .msg.erro{background:#fdf0f0;color:#9b1c1c}
+  .msg button{margin-top:6px}
+  .cores{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .cor-linha{display:flex;gap:6px}
+  .cor-linha input[type=color]{width:38px;height:34px;padding:2px;border:1px solid var(--borda-forte);border-radius:6px;background:#fff;cursor:pointer;flex:none}
+  .cor-linha input[type=text]{font-family:ui-monospace,Menlo,monospace;text-transform:lowercase}
+
+  .barra-texto{position:fixed;z-index:45;display:flex;gap:2px;background:#1f2430;border-radius:8px;padding:4px;box-shadow:0 8px 22px rgba(16,24,40,.28)}
+  .barra-texto button{border:0;background:none;color:#fff;min-width:30px;height:28px;border-radius:5px;cursor:pointer;padding:0 7px;font-size:13px}
+  .barra-texto button:hover{background:rgba(255,255,255,.14)}
+  .barra-texto .sep{width:1px;background:rgba(255,255,255,.2);margin:4px 3px}
+
+  .pop{position:fixed;z-index:40;background:#fff;border:1px solid var(--borda);border-radius:10px;box-shadow:0 10px 30px rgba(16,24,40,.18);padding:10px;width:240px}
+  .pop h4{margin:0 0 8px;font-size:12.5px;color:var(--suave);font-weight:600}
+  .pop .op{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .pop .op button{border:1px solid var(--borda);background:#fff;border-radius:6px;padding:7px;cursor:pointer;font-weight:500}
+  .pop .op button:hover{border-color:var(--destaque);color:var(--destaque);background:var(--destaque-claro)}
+
+  .fundo-modal{position:fixed;inset:0;background:rgba(17,24,39,.4);display:flex;align-items:center;justify-content:center;z-index:50;padding:24px}
+  .modal{background:#fff;border-radius:12px;box-shadow:0 20px 50px rgba(16,24,40,.25);width:520px;max-width:100%;max-height:calc(100vh - 48px);display:flex;flex-direction:column}
+  .modal.largo{width:760px}
+  .modal-cab{padding:18px 22px 4px;display:flex;align-items:center}
+  .modal-cab h2{margin:0;font-size:17px;flex:1}
+  .modal-corpo{padding:12px 22px;overflow:auto}
+  .modal-rodape{padding:14px 22px 18px;display:flex;gap:8px;justify-content:flex-end;align-items:center}
+  .modal-rodape .esq{margin-right:auto}
+  .abas{display:flex;gap:4px;border-bottom:1px solid var(--borda);margin:6px 0 14px}
+  .abas button{border:0;background:none;padding:8px 12px;cursor:pointer;color:var(--suave);border-bottom:2px solid transparent;margin-bottom:-1px}
+  .abas button.ativo{color:var(--destaque);border-bottom-color:var(--destaque);font-weight:600}
+  .soltar{border:2px dashed var(--borda-forte);border-radius:10px;padding:30px;text-align:center;color:var(--suave);cursor:pointer;transition:all .15s}
+  .soltar.sobre,.soltar:hover{border-color:var(--destaque);background:var(--destaque-claro);color:var(--destaque)}
+  .soltar strong{display:block;color:var(--texto);margin-bottom:4px}
+  .soltar.carregado{border-style:solid;border-color:var(--ok);color:var(--ok);background:#f0faf3}
+  .codigo{width:100%;min-height:220px;font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace;border:1px solid var(--borda-forte);border-radius:6px;padding:10px;resize:vertical}
+  .lista-arquivos{list-style:none;margin:12px 0 0;padding:0;border:1px solid var(--borda);border-radius:8px;max-height:220px;overflow:auto}
+  .lista-arquivos li{display:flex;align-items:center;gap:8px;padding:7px 10px;border-top:1px solid var(--borda);font-size:13px}
+  .lista-arquivos li:first-child{border-top:0}
+  .lista-arquivos input{flex:1;border:1px solid transparent;border-radius:5px;padding:4px 6px;background:transparent}
+  .lista-arquivos input:hover,.lista-arquivos input:focus{border-color:var(--borda-forte);background:#fff;outline:none}
+  .lista-arquivos .arq{color:var(--suave);font-size:12px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lista-arquivos .st{width:18px;text-align:center}
+  .lista-arquivos .st.ok{color:var(--ok)} .lista-arquivos .st.err{color:var(--perigo)}
+  .dica-imgs{font-size:12.5px;color:var(--suave);margin:0 0 10px}
+  .bloco-img{border-top:1px solid var(--borda);padding:8px 0;border-radius:6px}
+  .bloco-img:first-of-type{border-top:0}
+  .bloco-img.piscar{animation:piscar 1.6s ease}
+  .linha-img{display:flex;align-items:center;gap:10px;cursor:pointer}
+  .img-thumb{width:46px;height:46px;flex:none;border:1px solid var(--borda);border-radius:6px;background:#f3f4f6 repeating-conic-gradient(#eceef1 0 25%,transparent 0 50%) 0 0/10px 10px;display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--perigo);font-size:18px}
+  .img-thumb img{max-width:100%;max-height:100%;object-fit:contain}
+  .img-info{flex:1;min-width:0}
+  .img-nome{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .img-meta{font-size:12px;color:var(--suave)}
+  .badge-img{display:inline-block;font-size:11px;border-radius:20px;padding:0 7px;background:#eaf7ef;color:var(--ok)}
+  .badge-img.ruim{background:#fdf0f0;color:#9b1c1c}
+  .bloco-img .progresso,.bloco-img .msg{margin:8px 0 0}
+  .contagem.alerta{background:#fdf0f0;color:#9b1c1c}
+  .pop-trocar{width:100%;margin-bottom:10px;justify-content:center}
+  .badge-quebradas{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;background:#fdf0f0;color:#9b1c1c;border-radius:20px;padding:1px 8px}
+  .erro-form{color:var(--perigo);font-size:13px;margin:8px 0 0}
+  .checagem{border-radius:var(--raio);padding:12px 14px;margin-bottom:6px}
+  .checagem.ok{background:#f0faf3;color:var(--ok);font-weight:500}
+  .checagem.atencao{background:var(--aviso-claro);color:#7a4a0c}
+  .checagem ul{margin:8px 0 0;padding-left:18px}
+  .checagem li{margin:4px 0}
+  .checagem li button{margin-left:6px;border:0;background:none;color:var(--destaque);cursor:pointer;padding:0;font-size:13px;text-decoration:underline}
+  .paleta{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .paleta .sw{width:30px;height:30px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--borda-forte);cursor:pointer}
+  .paleta .sw.sel{box-shadow:0 0 0 2px var(--texto)}
+  .paleta input[type=color]{width:34px;height:34px;border:1px solid var(--borda-forte);border-radius:50%;padding:2px;background:#fff;cursor:pointer}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#1f2430;color:#fff;padding:10px 16px;border-radius:var(--raio);font-size:13.5px;opacity:0;pointer-events:none;transition:all .2s;z-index:80;max-width:560px}
+  .toast.visivel{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.erro{background:#9b1c1c}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="tela-login" class="login-fundo" hidden>
+  <form id="form-login" class="login-card" autocomplete="on">
+    <div class="marca"><i></i>Editor de E-mails</div>
+    <h1>Entrar</h1>
+    <p class="sub" id="login-sub">Use o mesmo usuário e senha do Painel de Páginas.</p>
+    <label class="campo"><span>E-mail ou usuário</span><input name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+    <label class="campo"><span>Senha</span><input name="senha" type="password" autocomplete="current-password" required></label>
+    <p id="login-erro" class="erro-form" hidden></p>
+    <button id="btn-entrar" class="btn primario" type="submit" style="width:100%;justify-content:center;margin-top:6px">Entrar</button>
+  </form>
+</div>
+
+<!-- ============ LISTA ============ -->
+<section id="tela-lista" class="tela" hidden>
+  <header class="topo">
+    <div class="marca"><i></i>Editor de E-mails</div>
+    <div class="espaco"></div>
+    <div class="usuario" id="usuario"></div>
+  </header>
+  <div class="lista-layout">
+    <aside class="pastas" id="pastas"></aside>
+    <div class="lista-conteudo">
+      <div class="lista-cab">
+        <h1 id="titulo-lista">Todos os e-mails</h1>
+        <input id="busca" class="busca" type="search" placeholder="Buscar por nome…" aria-label="Buscar e-mails por nome">
+        <div class="menu-wrap">
+          <button id="btn-backup" class="btn fantasma" title="Backup">⋯</button>
+          <div id="menu-backup" class="menu" hidden>
+            <button data-acao="baixar">Baixar backup dos e-mails</button>
+            <button data-acao="restaurar">Restaurar backup…</button>
+          </div>
+          <input id="arquivo-backup" type="file" accept=".json,application/json" hidden>
+        </div>
+        <button id="btn-novo" class="btn primario">+ Novo e-mail</button>
+      </div>
+      <div id="grade" class="grade"></div>
+      <div id="lista-vazia" class="vazio" hidden>
+        <h2 id="vazio-titulo">Nenhum e-mail ainda</h2>
+        <p id="vazio-texto"></p>
+        <div class="acoes">
+          <button class="btn primario" data-acao="novo">+ Novo e-mail</button>
+          <button class="btn" data-acao="exemplo">Usar modelo de exemplo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ EDITOR ============ -->
+<section id="tela-editor" class="tela" hidden>
+  <header class="topo topo-editor">
+    <button id="btn-voltar" class="btn fantasma">← Voltar</button>
+    <input id="nome-email" class="nome-input" aria-label="Nome do e-mail" maxlength="120">
+    <select id="grupo-email" class="sel-grupo" aria-label="Grupo do e-mail"></select>
+    <span id="indicador" class="indicador">Salvo</span>
+    <div class="espaco"></div>
+    <button id="btn-desfazer" class="btn fantasma" title="Desfazer (Ctrl+Z)" disabled>↶ Desfazer</button>
+    <button id="btn-duplicar" class="btn">Duplicar</button>
+    <div class="menu-wrap">
+      <button id="btn-mais" class="btn fantasma" aria-label="Mais opções" title="Mais opções">⋯</button>
+      <div id="menu-mais" class="menu" hidden>
+        <button data-acao="codigo">Ver código</button>
+        <button data-acao="redetectar">Detectar áreas novamente</button>
+        <button data-acao="restaurar">Restaurar modelo original</button>
+      </div>
+    </div>
+    <button id="btn-exportar" class="btn primario">Exportar HTML</button>
+  </header>
+  <div class="editor">
+    <aside class="painel-campos">
+      <div id="aviso-deteccao" class="aviso-box" hidden>
+        <p><strong>Encontramos estas áreas editáveis. Confira na prévia.</strong>
+          <span id="aviso-deteccao-txt"></span></p>
+        <button class="link-btn" id="fechar-aviso" aria-label="Fechar aviso">✕</button>
+      </div>
+      <div class="info-textos">
+        <strong>✎ Textos: edite direto na prévia</strong>
+        Clique em qualquer texto do e-mail e digite. Selecione um trecho para aplicar negrito, itálico, sublinhado, link ou lista.
+      </div>
+      <div id="campos"></div>
+    </aside>
+    <section class="painel-previa">
+      <div class="previa-barra">
+        <div class="seg" role="tablist">
+          <button data-modo="desktop" class="ativo">Desktop (600px)</button>
+          <button data-modo="celular">Celular (375px)</button>
+        </div>
+        <span class="dica">Clique num texto para editar. Clique numa imagem ou botão para ver as opções.</span>
+      </div>
+      <div class="previa-palco"><iframe id="previa" title="Prévia do e-mail"></iframe></div>
+    </section>
+  </div>
+</section>
+
+<div id="barra-texto" class="barra-texto" hidden>
+  <button data-cmd="bold" title="Negrito (Ctrl+B)"><b>N</b></button>
+  <button data-cmd="italic" title="Itálico (Ctrl+I)"><i>I</i></button>
+  <button data-cmd="underline" title="Sublinhado (Ctrl+U)"><u>S</u></button>
+  <span class="sep"></span>
+  <button data-cmd="link" title="Inserir ou editar link">Link</button>
+  <button data-cmd="insertUnorderedList" title="Lista com marcadores">• Lista</button>
+  <button data-cmd="insertOrderedList" title="Lista numerada">1. Lista</button>
+  <span class="sep"></span>
+  <button data-cmd="removeFormat" title="Limpar formatação do trecho">Limpar</button>
+</div>
+
+<div id="pop-marcar" class="pop" hidden>
+  <button id="pop-trocar" class="btn primario peq pop-trocar" type="button" hidden>⬆ Trocar esta imagem</button>
+  <h4>Marcar este elemento como:</h4>
+  <div class="op">
+    <button data-tipo="banner">Banner</button>
+    <button data-tipo="botao">Botão</button>
+    <button data-tipo="imagem">Imagem</button>
+    <button data-tipo="link">Link</button>
+  </div>
+</div>
+
+<div id="modal-novo" class="fundo-modal" hidden>
+  <div class="modal largo" role="dialog" aria-modal="true" aria-labelledby="titulo-novo">
+    <div class="modal-cab"><h2 id="titulo-novo">Novo e-mail</h2><button class="link-btn" data-fechar aria-label="Fechar">✕</button></div>
+    <div class="modal-corpo">
+      <div style="display:grid;grid-template-columns:1fr 220px;gap:12px">
+        <label class="campo"><span>Nome do e-mail</span><input id="novo-nome" placeholder="Ex.: Newsletter de outubro"></label>
+        <label class="campo"><span>Grupo</span><select id="novo-grupo"></select></label>
+      </div>
+      <div class="abas">
+        <button class="ativo" data-aba="arquivo">Enviar arquivo</button>
+        <button data-aba="colar">Colar código</button>
+      </div>
+      <div data-painel="arquivo">
+        <div id="soltar" class="soltar" tabindex="0" role="button"></div>
+        <input id="arquivo-html" type="file" accept=".html,.htm,text/html" multiple hidden>
+        <ul id="lista-arquivos" class="lista-arquivos" hidden></ul>
+      </div>
+      <div data-painel="colar" hidden>
+        <textarea id="novo-codigo" class="codigo" placeholder="Cole aqui o código HTML do modelo de e-mail…" spellcheck="false"></textarea>
+      </div>
+      <p id="novo-erro" class="erro-form" hidden></p>
+    </div>
+    <div class="modal-rodape">
+      <button id="btn-exemplo" class="btn esq">Usar modelo de exemplo</button>
+      <button class="btn" data-fechar>Cancelar</button>
+      <button id="btn-criar" class="btn primario">Criar e editar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-exportar" class="fundo-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="titulo-exp">
+    <div class="modal-cab"><h2 id="titulo-exp">Exportar HTML</h2><button class="link-btn" data-fechar aria-label="Fechar">✕</button></div>
+    <div class="modal-corpo" id="exportar-corpo"></div>
+    <div class="modal-rodape">
+      <button id="btn-copiar" class="btn">Copiar código</button>
+      <button id="btn-baixar" class="btn primario">Baixar .html</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script type="text/plain" id="modelo-exemplo"><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="pt-BR">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<title>Modelo de exemplo</title>
+<!--[if mso]><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->
+<style type="text/css">
+  body{margin:0;padding:0;-webkit-text-size-adjust:100%;}
+  img{border:0;outline:none;text-decoration:none;}
+  @media only screen and (max-width:620px){
+    .container{width:100% !important;}
+    .px{padding-left:20px !important;padding-right:20px !important;}
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f3f6;">
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">Uma novidade especial para você chegou.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f1f3f6" style="background-color:#f1f3f6;">
+  <tr>
+    <td align="center" style="padding:24px 12px;">
+      <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+      <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:8px;">
+        <tr>
+          <td style="padding:0;">
+            <a href="https://www.exemplo.com.br" target="_blank" style="display:block;text-decoration:none;"><img data-edit="banner" src="https://placehold.co/1200x500/2563eb/ffffff/png?text=Seu+banner+aqui" width="600" alt="Banner da campanha" style="display:block;width:100%;max-width:600px;height:auto;border:0;border-radius:8px 8px 0 0;"></a>
+          </td>
+        </tr>
+        <tr>
+          <td class="px" data-edit="corpo" style="padding:32px 40px 8px 40px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#333333;">
+            <p style="margin:0 0 16px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#333333;">Olá, <strong>tudo bem?</strong></p>
+            <p style="margin:0 0 16px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#333333;">Este é o texto principal do e-mail. Clique aqui na prévia e troque pela sua mensagem: apresente a novidade, explique o benefício e convide a pessoa a clicar no botão abaixo.</p>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:16px 40px 32px 40px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td align="center" bgcolor="#16a34a" style="border-radius:6px;background-color:#16a34a;">
+                  <a data-edit="botao" href="https://wa.me/5531953470346?text=Quero%20planejar%20meu%202027" target="_blank" style="display:inline-block;padding:14px 32px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;line-height:20px;color:#ffffff;text-decoration:none;border-radius:6px;background-color:#16a34a;">Falar no WhatsApp</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td class="px" data-edit="rodape" style="padding:24px 40px;border-top:1px solid #e5e7eb;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#8a8f98;text-align:center;">
+            <p style="margin:0 0 8px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#8a8f98;">Sua Empresa · Rua Exemplo, 123 · São Paulo/SP</p>
+            <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#8a8f98;">Não quer mais receber nossos e-mails? <a href="#" style="color:#8a8f98;text-decoration:underline;">Descadastrar</a></p>
+          </td>
+        </tr>
+      </table>
+      <!--[if mso]></td></tr></table><![endif]-->
+    </td>
+  </tr>
+</table>
+</body>
+</html>
+</script>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   1. CONEXÃO COM O PAINEL (login + hospedagem de imagens)
+   Este editor roda dentro do Painel de Páginas e usa as mesmas rotas dele:
+   - GET/POST/DELETE /api/login  → sessão (usuário e senha do Painel)
+   - POST /api/imagens           → hospeda a imagem no Vercel Blob do Painel
+   Aberto fora do Painel (arquivo local), funciona em "modo local":
+   sem login e com as imagens salvas só no navegador.
+   ===================================================================== */
+const API_BASE = '';
+const ENDPOINT_UPLOAD = '';               // opcional: outro endpoint (POST multipart, campo "arquivo", resposta { url })
+const LIMITE_HOSPEDAGEM = 4 * 1024 * 1024; // limite do Painel: 4 MB por imagem
+
+async function chamarApi(caminho, { method = 'GET', body } = {}) {
+  const r = await fetch(API_BASE + '/api/' + caminho, {
+    method,
+    headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    credentials: 'same-origin'
+  });
+  let d = {};
+  try { d = await r.json(); } catch (_) {}
+  return { ok: r.ok, status: r.status, dados: d };
+}
+
+/* ---------- PONTO ÚNICO DE UPLOAD DE IMAGEM ---------- */
+function uploadImagem(arquivo, aoProgredir = () => {}) {
+  if (ENDPOINT_UPLOAD) {
+    const f = new FormData();
+    f.append('arquivo', arquivo);
+    return enviarXhr(ENDPOINT_UPLOAD, f, {}, aoProgredir);
+  }
+  if (estado.modoLocal) {
+    return new Promise((ok, erro) => {
+      const leitor = new FileReader();
+      leitor.onprogress = e => e.lengthComputable && aoProgredir(e.loaded / e.total);
+      leitor.onload = () => { aoProgredir(1); ok(leitor.result); };
+      leitor.onerror = () => erro(new Error('Não foi possível ler a imagem. Tente outro arquivo.'));
+      leitor.readAsDataURL(arquivo);
+    });
+  }
+  // Hospedagem do Painel: envia o arquivo como está (JPG/PNG/GIF), sem converter para WebP
+  const nome = 'email-' + (arquivo.name || 'imagem').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9.\-]+/g, '-');
+  return enviarXhr(API_BASE + '/api/imagens', arquivo, { 'Content-Type': arquivo.type, 'X-Nome': encodeURIComponent(nome) }, aoProgredir);
+}
+function enviarXhr(url, corpo, headers, aoProgredir) {
+  return new Promise((ok, erro) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    xhr.withCredentials = true;
+    for (const [k, v] of Object.entries(headers)) xhr.setRequestHeader(k, v);
+    xhr.upload.onprogress = e => e.lengthComputable && aoProgredir(e.loaded / e.total);
+    xhr.onload = () => {
+      let resp = null;
+      try { resp = JSON.parse(xhr.responseText); } catch (_) {}
+      if (xhr.status === 401) {
+        const e = new Error('Sua sessão expirou. Entre de novo para enviar a imagem.');
+        e.status = 401;
+        return erro(e);
+      }
+      if (xhr.status >= 200 && xhr.status < 300 && resp && resp.url) {
+        aoProgredir(1);
+        ok(new URL(resp.url, location.origin).href);
+      } else erro(new Error((resp && (resp.erro || resp.message)) || 'A hospedagem não devolveu o endereço da imagem. Tente novamente.'));
+    };
+    xhr.onerror = () => erro(new Error('Falha de conexão ao enviar a imagem. Verifique a internet e tente de novo.'));
+    xhr.send(corpo);
+  });
+}
+
+/* =====================================================================
+   2. ARMAZENAMENTO DOS E-MAILS E GRUPOS
+   ===================================================================== */
+const PREFIXO = 'editorEmails:';
+const memoria = {};
+const Armazenamento = {
+  async get(k) {
+    const p = window.ArmazenamentoPlataforma;
+    if (p) return await p.getItem(k);
+    try { return localStorage.getItem(k); } catch (_) { return k in memoria ? memoria[k] : null; }
+  },
+  async set(k, v) {
+    const p = window.ArmazenamentoPlataforma;
+    if (p) return await p.setItem(k, v);
+    try { localStorage.setItem(k, v); }
+    catch (e) { if (e && e.name === 'QuotaExceededError') throw e; memoria[k] = v; }
+  },
+  async del(k) {
+    const p = window.ArmazenamentoPlataforma;
+    if (p) return await p.removeItem(k);
+    try { localStorage.removeItem(k); } catch (_) { delete memoria[k]; }
+  }
+};
+
+/* =====================================================================
+   3. ESTADO E UTILITÁRIOS
+   ===================================================================== */
+const estado = {
+  lista: [], grupos: [], filtro: 'todos', atual: null, doc: null, areas: [], doctype: '',
+  historico: [], ultimoSnap: 0, timerSalvar: null, alvoMarcar: null,
+  gruposFechados: new Set(), tela: 'lista', usuario: '', modoLocal: false, iniciado: false
+};
+const TIPOS_VALIDOS = ['banner', 'corpo', 'botao', 'rodape', 'imagem', 'texto', 'link'];
+const NOMES = { banner: 'Banner', imagem: 'Imagem', corpo: 'Corpo', texto: 'Texto', botao: 'Botão', link: 'Link', rodape: 'Rodapé' };
+const GRUPOS_CAMPOS = [
+  { titulo: 'Banner e imagens', tipos: ['banner', 'imagem'], vazio: 'Não encontramos um banner nesse modelo. Clique na imagem na prévia para marcar.' },
+  { titulo: 'Botão', tipos: ['botao', 'link'], vazio: 'Não conseguimos encontrar um botão nesse modelo. Clique nele na prévia para marcar.' }
+];
+const CORES_GRUPO = ['#2563eb', '#7c3aed', '#db2777', '#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#0d9488', '#0891b2', '#475569'];
+const ehImagem = t => t === 'banner' || t === 'imagem';
+const ehTexto = t => t === 'corpo' || t === 'texto' || t === 'rodape';
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const normalizar = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+const novoId = (p = 'em_') => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const parse = html => new DOMParser().parseFromString(html, 'text/html');
+const fmtData = t => new Date(t).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const ICONE_PASTA = cor => '<svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path fill="' + cor + '" d="M3 6.5A2.5 2.5 0 0 1 5.5 4h3.6c.6 0 1.2.2 1.6.7L12 6h6.5A2.5 2.5 0 0 1 21 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>';
+
+function h(tag, props, ...filhos) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'html') el.innerHTML = v;
+    else if (k === 'value') el.value = v;
+    else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+    else if (v === true) { el.setAttribute(k, ''); if (k in el) el[k] = true; }
+    else el.setAttribute(k, v);
+  }
+  for (const f of filhos.flat()) {
+    if (f == null || f === false) continue;
+    el.append(f.nodeType ? f : document.createTextNode(String(f)));
+  }
+  return el;
+}
+
+let timerToast;
+function toast(msg, tipo, ms) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'toast visivel' + (tipo === 'erro' ? ' erro' : '');
+  clearTimeout(timerToast);
+  timerToast = setTimeout(() => t.classList.remove('visivel'), ms || (tipo === 'erro' ? 4500 : 2600));
+}
+
+/* ---------- estilos inline (sem CSSOM, para não perder propriedades mso-*) ---------- */
+const dividirEstilo = s => (s || '').split(/;(?![^(]*\))/).map(x => x.trim()).filter(Boolean);
+function getStyle(el, prop) {
+  for (const d of dividirEstilo(el.getAttribute('style'))) {
+    const i = d.indexOf(':');
+    if (i > 0 && d.slice(0, i).trim().toLowerCase() === prop) return d.slice(i + 1).replace(/!important/i, '').trim();
+  }
+  return '';
+}
+function setStyle(el, prop, valor) {
+  let achou = false;
+  const saida = dividirEstilo(el.getAttribute('style')).map(d => {
+    const i = d.indexOf(':');
+    if (i > 0 && d.slice(0, i).trim().toLowerCase() === prop) {
+      achou = true;
+      return prop + ':' + valor + (/!important/i.test(d) ? ' !important' : '');
+    }
+    return d;
+  });
+  if (!achou) saida.push(prop + ':' + valor);
+  el.setAttribute('style', saida.join(';') + ';');
+}
+function paraHex(c) {
+  if (!c) return null;
+  c = c.trim();
+  const m = c.match(/#[0-9a-f]{6}\b|#[0-9a-f]{3}\b|rgba?\([^)]*\)/i);
+  if (m) c = m[0];
+  if (/^#[0-9a-f]{6}$/i.test(c)) return c.toLowerCase();
+  if (/^#[0-9a-f]{3}$/i.test(c)) return ('#' + c[1] + c[1] + c[2] + c[2] + c[3] + c[3]).toLowerCase();
+  const ctx = document.createElement('canvas').getContext('2d');
+  ctx.fillStyle = '#010203'; ctx.fillStyle = c;
+  const v = ctx.fillStyle;
+  if (v === '#010203') return null;
+  return v.startsWith('#') ? v : null;
+}
+function substituirCor(texto, antiga, nova) {
+  if (!texto || !antiga) return texto;
+  const variantes = [antiga];
+  if (/^#([0-9a-f])\1([0-9a-f])\2([0-9a-f])\3$/i.test(antiga)) variantes.push('#' + antiga[1] + antiga[3] + antiga[5]);
+  for (const v of variantes) texto = texto.replace(new RegExp(v + '(?![0-9a-f])', 'gi'), nova);
+  return texto;
+}
+
+/* ---------- WhatsApp ---------- */
+function lerWhats(href) {
+  try {
+    const u = new URL(href);
+    if (/(^|\.)wa\.me$/i.test(u.hostname)) return { numero: u.pathname.replace(/\D/g, ''), texto: u.searchParams.get('text') || '' };
+    if (/whatsapp\.com$/i.test(u.hostname)) return { numero: (u.searchParams.get('phone') || '').replace(/\D/g, ''), texto: u.searchParams.get('text') || '' };
+  } catch (_) {}
+  return null;
+}
+function montarWhats(numero, texto) {
+  const n = String(numero).replace(/\D/g, '');
+  return 'https://wa.me/' + n + (texto && texto.trim() ? '?text=' + encodeURIComponent(texto.trim()) : '');
+}
+function dicaNumero(n) {
+  if (!n) return 'Digite o número com DDI e DDD. Ex.: 5531953470346';
+  if (n.length >= 10 && n.length <= 11 && !n.startsWith('55')) return 'Faltou o 55 (código do Brasil) antes do DDD?';
+  if (n.length < 12) return 'Número incompleto. Use DDI + DDD + número, ex.: 5531953470346';
+  if (n.length > 13) return 'Número longo demais. Confira se não há dígitos a mais.';
+  return '';
+}
+const ultimoWhats = () => { try { return localStorage.getItem(PREFIXO + 'ultimoWhats') || ''; } catch (_) { return ''; } };
+const guardarWhats = n => { try { localStorage.setItem(PREFIXO + 'ultimoWhats', n); } catch (_) {} };
+const hrefMarcador = v => !v || !v.trim() || v.trim().startsWith('#');
+
+/* =====================================================================
+   4. SERIALIZAÇÃO (preserva DOCTYPE, head, metas e comentários do Outlook)
+   ===================================================================== */
+function extrairDoctype(html) {
+  const m = String(html).match(/<!doctype[^>]*>/i);
+  return m ? m[0] : '';
+}
+function serializar(doc, interno, doctype = estado.doctype) {
+  const d = doc.cloneNode(true);
+  d.querySelectorAll('script').forEach(s => s.remove());
+  d.querySelectorAll('[contenteditable]').forEach(e => e.removeAttribute('contenteditable'));
+  if (!interno) {
+    d.querySelectorAll('*').forEach(el => {
+      for (const at of [...el.attributes]) {
+        if (/^on/i.test(at.name) || /^data-ee-/.test(at.name) || at.name === 'data-edit') el.removeAttribute(at.name);
+      }
+    });
+  }
+  let out = doctype ? doctype + '\n' : '';
+  for (const n of d.childNodes) {
+    if (n.nodeType === 10) continue;
+    if (n.nodeType === 8) out += '<!--' + n.data + '-->\n';
+    else if (n.nodeType === 1) out += n.outerHTML;
+  }
+  return out;
+}
+const htmlFinal = () => serializar(estado.doc, false);
+const elDe = (id, doc = estado.doc) => doc && doc.querySelector('[data-ee-id="' + id + '"]');
+
+/* =====================================================================
+   5. DETECÇÃO DAS ÁREAS EDITÁVEIS
+   ===================================================================== */
+function larguraImg(img) {
+  const w = img.getAttribute('width');
+  if (w && !/%/.test(w) && parseInt(w, 10)) return parseInt(w, 10);
+  for (const p of ['width', 'max-width']) {
+    const v = getStyle(img, p);
+    if (/px$/i.test(v) || /^\d+$/.test(v)) return parseInt(v, 10);
+  }
+  return 0;
+}
+function ehBotao(a) {
+  const txt = a.textContent.trim();
+  if (!txt || txt.length > 60 || a.querySelector('img')) return false;
+  const st = (a.getAttribute('style') || '').toLowerCase();
+  if (/background(-color)?\s*:/.test(st) && !/background(-color)?\s*:\s*(transparent|none)/.test(st)) return true;
+  const td = a.closest('td,th');
+  if (!td) return false;
+  const temFundo = td.getAttribute('bgcolor') || /background(-color)?\s*:/i.test(td.getAttribute('style') || '');
+  return !!temFundo && td.textContent.trim() === txt;
+}
+function blocosDeTexto(doc, botoes, permitirImg) {
+  const res = [];
+  const ehBloco = el => {
+    if (!/^(TD|TH|DIV|P|H[1-6])$/.test(el.tagName)) return false;
+    if (el.querySelector('table')) return false;
+    if (!permitirImg && el.querySelector('img')) return false;
+    let tam = el.textContent.trim().length;
+    for (const b of botoes) if (el.contains(b)) tam -= b.textContent.trim().length;
+    return tam >= 2;
+  };
+  const andar = el => {
+    for (const c of el.children) {
+      if (/^(SCRIPT|STYLE)$/.test(c.tagName)) continue;
+      if (/display\s*:\s*none/i.test(c.getAttribute('style') || '')) continue;
+      if (ehBloco(c)) res.push(c); else andar(c);
+    }
+  };
+  if (doc.body) andar(doc.body);
+  return res;
+}
+function ordenarAreas(areas = estado.areas, doc = estado.doc) {
+  areas.sort((x, y) => {
+    const a = elDe(x.id, doc), b = elDe(y.id, doc);
+    if (!a || !b) return 0;
+    return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+  });
+}
+function detectar(doc) {
+  doc.querySelectorAll('[data-ee-id]').forEach(e => e.removeAttribute('data-ee-id'));
+  const areas = [];
+  let n = 0;
+  const add = (el, tipo, origem) => {
+    if (!el || el.hasAttribute('data-ee-id')) return;
+    const id = 'e' + (++n);
+    el.setAttribute('data-ee-id', id);
+    const area = { id, tipo, origem };
+    if (ehImagem(tipo)) area.largura = larguraImg(el) || 600;
+    areas.push(area);
+  };
+  const marcados = $$('[data-edit]', doc).filter(el => TIPOS_VALIDOS.includes(normalizar(el.getAttribute('data-edit'))));
+  if (marcados.length) {
+    for (let el of marcados) {
+      const tipo = normalizar(el.getAttribute('data-edit'));
+      if (ehImagem(tipo) && el.tagName !== 'IMG') el = el.querySelector('img');
+      if ((tipo === 'botao' || tipo === 'link') && el && el.tagName !== 'A') el = el.querySelector('a');
+      add(el, tipo, 'marcacao');
+    }
+    ordenarAreas(areas, doc);
+    return { areas, auto: false };
+  }
+  const banner = $$('img', doc.body).find(i => larguraImg(i) >= 400);
+  add(banner, 'banner', 'auto');
+  const botoes = $$('a', doc.body).filter(ehBotao);
+  botoes.forEach(a => add(a, 'botao', 'auto'));
+  const blocos = blocosDeTexto(doc, botoes, true);
+  const regRodape = /descadastr|unsubscribe|cancelar (a |sua )?inscri|©|copyright/i;
+  let rodape = [...blocos].reverse().find(b => regRodape.test(b.textContent)) || null;
+  if (!rodape && blocos.length > 1) rodape = blocos[blocos.length - 1];
+  const SEGUE = Node.DOCUMENT_POSITION_FOLLOWING;
+  let cands = blocos.filter(b => b !== rodape &&
+    (!banner || (banner.compareDocumentPosition(b) & SEGUE)) &&
+    (!rodape || (b.compareDocumentPosition(rodape) & SEGUE)));
+  if (!cands.length) cands = blocos.filter(b => b !== rodape);
+  const corpo = cands.sort((a, b) => b.textContent.trim().length - a.textContent.trim().length)[0];
+  add(corpo, 'corpo', 'auto');
+  add(rodape, 'rodape', 'auto');
+  ordenarAreas(areas, doc);
+  return { areas, auto: true };
+}
+/* Marca todos os blocos de texto do e-mail para edição direta na prévia */
+function marcarTextos(doc = estado.doc) {
+  doc.querySelectorAll('[data-ee-t]').forEach(e => e.removeAttribute('data-ee-t'));
+  const botoesArea = estado.areas.filter(a => a.tipo === 'botao' || a.tipo === 'link').map(a => elDe(a.id, doc)).filter(Boolean);
+  const todos = [...new Set([...botoesArea, ...$$('a', doc.body).filter(ehBotao)])];
+  let n = 0;
+  blocosDeTexto(doc, todos, false).forEach(b => b.setAttribute('data-ee-t', 't' + (++n)));
+  todos.forEach(a => { if (!a.closest('[data-ee-t]') && a.textContent.trim()) a.setAttribute('data-ee-t', 't' + (++n)); });
+}
+
+function marcarImagens(doc = estado.doc) {
+  doc.querySelectorAll('[data-ee-i]').forEach(e => e.removeAttribute('data-ee-i'));
+  $$('img', doc.body).forEach((img, i) => img.setAttribute('data-ee-i', String(i)));
+}
+/* ---------- limpeza do HTML editado na prévia ---------- */
+function renomearTag(el, nova) {
+  const n = el.ownerDocument.createElement(nova);
+  for (const at of el.attributes) n.setAttribute(at.name, at.value);
+  while (el.firstChild) n.appendChild(el.firstChild);
+  el.replaceWith(n);
+  return n;
+}
+function extrairFonte(estilo) {
+  return dividirEstilo(estilo).filter(d => /^(font-family|font-size|line-height|color)\s*:/i.test(d)).map(d => d + ';').join('');
+}
+function limparInline(html) {
+  const box = document.createElement('div');
+  box.innerHTML = html;
+  box.querySelectorAll('script,style,meta,link,iframe,object').forEach(e => e.remove());
+  for (const el of $$('*', box)) {
+    el.removeAttribute('contenteditable');
+    el.removeAttribute('spellcheck');
+    for (const at of [...el.attributes]) if (/^on/i.test(at.name)) el.removeAttribute(at.name);
+    if (el.hasAttribute('class')) {
+      [...el.classList].filter(c => c.startsWith('__ee')).forEach(c => el.classList.remove(c));
+      if (!el.classList.length) el.removeAttribute('class');
+    }
+  }
+  $$('b', box).forEach(e => renomearTag(e, 'strong'));
+  $$('i', box).forEach(e => renomearTag(e, 'em'));
+  $$('font', box).forEach(e => {
+    const s = renomearTag(e, 'span');
+    if (s.getAttribute('color')) { setStyle(s, 'color', s.getAttribute('color')); s.removeAttribute('color'); }
+    s.removeAttribute('face'); s.removeAttribute('size');
+  });
+  $$('div', box).forEach(e => { if (!e.attributes.length) renomearTag(e, 'p'); });
+  const ref = box.querySelector('p[style]');
+  const estiloP = ref ? ref.getAttribute('style') : '';
+  const fonte = extrairFonte(estiloP);
+  $$('p:not([style])', box).forEach(p => { if (estiloP) p.setAttribute('style', estiloP); });
+  $$('ul:not([style]),ol:not([style])', box).forEach(l => l.setAttribute('style', 'margin:0 0 16px 0;padding-left:24px;' + fonte));
+  $$('li:not([style])', box).forEach(l => { if (fonte) l.setAttribute('style', fonte + 'margin:0 0 6px 0;'); });
+  $$('a', box).forEach(a => { if (!a.getAttribute('target')) a.setAttribute('target', '_blank'); });
+  return box.innerHTML;
+}
+
+/* =====================================================================
+   6. GRUPOS
+   ===================================================================== */
+async function carregarGrupos() {
+  try { estado.grupos = JSON.parse(await Armazenamento.get(PREFIXO + 'grupos')) || []; } catch (_) { estado.grupos = []; }
+}
+async function salvarGrupos() { await Armazenamento.set(PREFIXO + 'grupos', JSON.stringify(estado.grupos)); }
+const grupoPorId = id => estado.grupos.find(g => g.id === id) || null;
+
+function renderizarPastas() {
+  const box = $('#pastas');
+  box.innerHTML = '';
+  const conta = f => estado.lista.filter(f).length;
+  const linha = (chave, nome, cor, qtd, grupo) => {
+    const l = h('div', { class: 'pasta-linha' + (estado.filtro === chave ? ' ativa' : ''), 'data-pasta': chave },
+      h('button', { class: 'pasta', type: 'button', onclick: () => { estado.filtro = chave; renderizarLista(); } },
+        h('span', { html: ICONE_PASTA(cor) }), h('span', { class: 'nome', title: nome }, nome), h('span', { class: 'qtd' }, String(qtd))),
+      grupo ? h('button', { class: 'pasta-mais', type: 'button', title: 'Opções do grupo', 'aria-label': 'Opções do grupo ' + nome, onclick: e => menuGrupo(e.currentTarget, grupo) }, '⋯') : null);
+    if (chave !== 'todos') {
+      l.addEventListener('dragover', e => { e.preventDefault(); l.classList.add('sobre'); });
+      l.addEventListener('dragleave', () => l.classList.remove('sobre'));
+      l.addEventListener('drop', e => {
+        e.preventDefault(); l.classList.remove('sobre');
+        const id = e.dataTransfer.getData('text/plain');
+        if (id) moverEmail(id, chave === 'sem' ? null : chave);
+      });
+    }
+    return l;
+  };
+  box.append(
+    linha('todos', 'Todos os e-mails', '#94a3b8', estado.lista.length),
+    linha('sem', 'Sem grupo', '#cbd5e1', conta(e => !grupoPorId(e.grupoId))),
+    h('h4', {}, 'Grupos', h('button', { type: 'button', onclick: () => editarGrupo(null) }, '+ Novo')));
+  if (!estado.grupos.length) box.append(h('p', { class: 'dica-pastas' }, 'Crie grupos para organizar seus e-mails. Arraste um e-mail até o grupo para movê-lo.'));
+  for (const g of estado.grupos) box.append(linha(g.id, g.nome, g.cor, conta(e => e.grupoId === g.id), g));
+  if (estado.grupos.length) box.append(h('p', { class: 'dica-pastas' }, 'Dica: arraste um e-mail até um grupo para movê-lo.'));
+}
+function menuFlutuante(ancora, itens) {
+  $$('.menu.flutuante').forEach(m => m.remove());
+  const m = h('div', { class: 'menu flutuante' }, itens.map(it => it.titulo
+    ? h('div', { class: 'titulo-menu' }, it.titulo)
+    : h('button', { type: 'button', class: it.perigo ? 'perigo' : '', onclick: () => { m.remove(); it.acao(); } },
+        it.cor ? h('span', { class: 'bolinha', style: 'background:' + it.cor }) : null, it.rotulo)));
+  document.body.append(m);
+  const r = ancora.getBoundingClientRect();
+  let x = r.left, y = r.bottom + 4;
+  if (x + m.offsetWidth > innerWidth - 8) x = innerWidth - m.offsetWidth - 8;
+  if (y + m.offsetHeight > innerHeight - 8) y = r.top - m.offsetHeight - 4;
+  m.style.left = Math.max(8, x) + 'px';
+  m.style.top = Math.max(8, y) + 'px';
+  setTimeout(() => {
+    const fechar = e => { if (!m.contains(e.target)) { m.remove(); document.removeEventListener('mousedown', fechar, true); } };
+    document.addEventListener('mousedown', fechar, true);
+  });
+}
+function menuGrupo(ancora, g) {
+  menuFlutuante(ancora, [
+    { rotulo: 'Editar nome e cor', acao: () => editarGrupo(g) },
+    { rotulo: 'Excluir grupo', perigo: true, acao: () => excluirGrupo(g) }
+  ]);
+}
+async function editarGrupo(g) {
+  let cor = g ? g.cor : CORES_GRUPO[estado.grupos.length % CORES_GRUPO.length];
+  const inNome = h('input', { type: 'text', value: g ? g.nome : '', placeholder: 'Ex.: Convocação Nacional · BH', maxlength: '60' });
+  const livre = h('input', { type: 'color', value: cor, title: 'Outra cor', 'aria-label': 'Escolher outra cor' });
+  const paleta = h('div', { class: 'paleta' });
+  const desenhar = () => {
+    paleta.innerHTML = '';
+    CORES_GRUPO.forEach(c => paleta.append(h('button', { type: 'button', class: 'sw' + (c === cor ? ' sel' : ''), style: 'background:' + c, 'aria-label': 'Cor ' + c, onclick: () => { cor = c; livre.value = c; desenhar(); } })));
+    paleta.append(livre);
+  };
+  livre.addEventListener('input', () => { cor = livre.value; desenhar(); });
+  desenhar();
+  const corpo = h('div', {}, h('label', { class: 'campo' }, h('span', {}, 'Nome do grupo'), inNome), h('div', { class: 'campo' }, h('span', {}, 'Cor'), paleta));
+  const v = await abrirModal({
+    titulo: g ? 'Editar grupo' : 'Novo grupo', corpo,
+    botoes: [{ rotulo: 'Cancelar', valor: null }, { rotulo: g ? 'Salvar' : 'Criar grupo', valor: () => ({ nome: inNome.value.trim(), cor }), primario: true }],
+    aoAbrir: (f, fechar) => { setTimeout(() => inNome.focus(), 20); inNome.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); fechar({ nome: inNome.value.trim(), cor }); } }); }
+  });
+  if (!v) return null;
+  const nome = v.nome || 'Grupo sem nome';
+  let res = g;
+  if (g) { g.nome = nome; g.cor = v.cor; }
+  else { res = { id: novoId('gr_'), nome, cor: v.cor }; estado.grupos.push(res); }
+  await salvarGrupos();
+  if (estado.tela === 'lista') renderizarLista();
+  toast(g ? 'Grupo atualizado.' : 'Grupo “' + nome + '” criado.');
+  return res;
+}
+async function excluirGrupo(g) {
+  const ok = await confirmar({ titulo: 'Excluir o grupo “' + g.nome + '”?', texto: 'Os e-mails desse grupo não serão excluídos: eles vão para “Sem grupo”.', rotuloOk: 'Excluir grupo', perigo: true });
+  if (!ok) return;
+  for (const r of estado.lista.filter(e => e.grupoId === g.id)) {
+    const e = await obterEmail(r.id);
+    if (e) { e.grupoId = null; await gravarEmail(e); }
+  }
+  estado.grupos = estado.grupos.filter(x => x.id !== g.id);
+  if (estado.filtro === g.id) estado.filtro = 'todos';
+  await salvarGrupos();
+  renderizarLista();
+  toast('Grupo excluído.');
+}
+async function moverEmail(id, grupoId) {
+  const e = await obterEmail(id);
+  if (!e) return;
+  if ((e.grupoId || null) === (grupoId || null)) return;
+  e.grupoId = grupoId || null;
+  await gravarEmail(e);
+  renderizarLista();
+  const g = grupoPorId(grupoId);
+  toast(g ? 'Movido para “' + g.nome + '”.' : 'Movido para “Sem grupo”.');
+}
+function opcoesGrupo(select, valor) {
+  select.innerHTML = '';
+  select.append(h('option', { value: '' }, 'Sem grupo'));
+  for (const g of estado.grupos) select.append(h('option', { value: g.id }, g.nome));
+  select.append(h('option', { value: '__novo__' }, '+ Novo grupo…'));
+  select.value = valor && grupoPorId(valor) ? valor : '';
+  select.dataset.anterior = select.value;
+}
+async function tratarSelectGrupo(select) {
+  if (select.value !== '__novo__') { select.dataset.anterior = select.value; return true; }
+  const g = await editarGrupo(null);
+  opcoesGrupo(select, g ? g.id : select.dataset.anterior);
+  return !!g;
+}
+
+/* =====================================================================
+   6b. BIBLIOTECA DE IMAGENS COMPARTILHADAS
+   Quando uma imagem é trocada, o endereço antigo passa a apontar para o novo.
+   Os outros e-mails com a mesma imagem são atualizados juntos, e os próximos
+   e-mails criados já recebem a imagem certa.
+   ===================================================================== */
+let biblioteca = {};
+async function carregarBiblioteca() {
+  try { biblioteca = JSON.parse(await Armazenamento.get(PREFIXO + 'biblioteca')) || {}; } catch (_) { biblioteca = {}; }
+}
+async function salvarBiblioteca() { await Armazenamento.set(PREFIXO + 'biblioteca', JSON.stringify(biblioteca)); }
+const srcFunciona = s => /^https?:\/\//i.test(s || '');
+const srcQuebrado = s => !srcFunciona(s) && !/^data:/i.test(s || '');
+function nomeImagem(src) {
+  if (!src) return '(sem endereço)';
+  if (/^data:/i.test(src)) return 'imagem enviada (não hospedada)';
+  try { return decodeURIComponent(String(src).split(/[?#]/)[0].split('/').pop()) || src; } catch (_) { return src; }
+}
+function trocarSrcNoDoc(doc, antigo, novo) {
+  if (!antigo || antigo === novo) return 0;
+  let n = 0;
+  doc.querySelectorAll('img').forEach(i => { if (i.getAttribute('src') === antigo) { i.setAttribute('src', novo); n++; } });
+  doc.querySelectorAll('[background]').forEach(e => { if (e.getAttribute('background') === antigo) { e.setAttribute('background', novo); n++; } });
+  doc.querySelectorAll('[style]').forEach(e => {
+    const st = e.getAttribute('style');
+    if (st.includes('url(') && st.includes(antigo)) { e.setAttribute('style', st.split(antigo).join(novo)); n++; }
+  });
+  const w = doc.createTreeWalker(doc, NodeFilter.SHOW_COMMENT);
+  while (w.nextNode()) { const c = w.currentNode; if (c.data.includes(antigo)) { c.data = c.data.split(antigo).join(novo); n++; } }
+  return n;
+}
+function aplicarBiblioteca(doc) {
+  let n = 0;
+  for (const [k, v] of Object.entries(biblioteca)) n += trocarSrcNoDoc(doc, k, v);
+  return n;
+}
+function contarQuebradas(html) {
+  return (String(html).match(/<img\b[^>]*\ssrc="(?!https?:|data:)[^"]*"/gi) || []).length +
+         (String(html).match(/<img\b(?![^>]*\ssrc=)[^>]*>/gi) || []).length;
+}
+async function emailsComSrc(src, excetoId) {
+  const alvos = [...new Set([src, src.replace(/&/g, '&amp;')])].map(a => '="' + a + '"');
+  const res = [];
+  for (const r of estado.lista) {
+    if (r.id === excetoId) continue;
+    const e = await obterEmail(r.id);
+    if (e && (alvos.some(a => e.htmlAtual.includes(a)) || e.htmlAtual.includes('url(' + src) || e.htmlAtual.includes("url('" + src) || e.htmlAtual.includes('url(&quot;' + src))) res.push(e);
+  }
+  return res;
+}
+async function propagarImagem(src, url, emails) {
+  let n = 0;
+  for (const e of emails) {
+    const d = parse(e.htmlAtual);
+    if (!trocarSrcNoDoc(d, src, url)) continue;
+    e.htmlAtual = serializar(d, true, extrairDoctype(e.htmlOriginal));
+    if (e.miniatura === src) e.miniatura = url;
+    e.editadoEm = Date.now();
+    try { await gravarEmail(e); n++; } catch (_) {}
+  }
+  return n;
+}
+async function depoisDeTrocar(src, url) {
+  if (!src || src === url || /^data:/i.test(url) || /^data:/i.test(src)) return;
+  const quebrada = srcQuebrado(src);
+  if (quebrada) { biblioteca[src] = url; await salvarBiblioteca(); }
+  const outros = await emailsComSrc(src, estado.atual && estado.atual.id);
+  if (!outros.length) return;
+  if (!quebrada) {
+    const ok = await confirmar({
+      titulo: 'Trocar nos outros e-mails também?',
+      texto: 'A imagem “' + nomeImagem(src) + '” também aparece em ' + outros.length + ' outro(s) e-mail(s): ' +
+        outros.slice(0, 4).map(e => e.nome).join(', ') + (outros.length > 4 ? '…' : '') + '.',
+      rotuloOk: 'Trocar em todos (' + outros.length + ')'
+    });
+    if (!ok) return;
+    biblioteca[src] = url;
+    await salvarBiblioteca();
+  }
+  const n = await propagarImagem(src, url, outros);
+  if (n) toast('“' + nomeImagem(src) + '” atualizada também em ' + n + ' outro(s) e-mail(s).', '', 4500);
+}
+
+/* =====================================================================
+   7. LISTA DE E-MAILS
+   ===================================================================== */
+async function carregarLista() {
+  try { estado.lista = JSON.parse(await Armazenamento.get(PREFIXO + 'indice')) || []; }
+  catch (_) { estado.lista = []; }
+}
+async function salvarIndice() { await Armazenamento.set(PREFIXO + 'indice', JSON.stringify(estado.lista)); }
+async function obterEmail(id) {
+  try { return JSON.parse(await Armazenamento.get(PREFIXO + 'email:' + id)); } catch (_) { return null; }
+}
+async function gravarEmail(e) {
+  await Armazenamento.set(PREFIXO + 'email:' + e.id, JSON.stringify(e));
+  const resumo = {
+    id: e.id, nome: e.nome, criadoEm: e.criadoEm, editadoEm: e.editadoEm, grupoId: e.grupoId || null, quebradas: contarQuebradas(e.htmlAtual),
+    miniatura: e.miniatura && e.miniatura.length < 300000 ? e.miniatura : ''
+  };
+  const i = estado.lista.findIndex(x => x.id === e.id);
+  if (i >= 0) estado.lista[i] = resumo; else estado.lista.push(resumo);
+  await salvarIndice();
+}
+function mostrarTela(nome) {
+  estado.tela = nome;
+  $('#tela-lista').hidden = nome !== 'lista';
+  $('#tela-editor').hidden = nome !== 'editor';
+  if (nome !== 'editor') esconderBarra();
+}
+function renderizarLista() {
+  if (estado.filtro !== 'todos' && estado.filtro !== 'sem' && !grupoPorId(estado.filtro)) estado.filtro = 'todos';
+  renderizarPastas();
+  const termo = normalizar($('#busca').value);
+  const g = grupoPorId(estado.filtro);
+  const titulo = $('#titulo-lista');
+  titulo.innerHTML = '';
+  if (g) titulo.append(h('span', { class: 'bolinha', style: 'background:' + g.cor }), g.nome);
+  else titulo.append(estado.filtro === 'sem' ? 'Sem grupo' : 'Todos os e-mails');
+  const noFiltro = estado.lista.filter(e => estado.filtro === 'todos' ? true : estado.filtro === 'sem' ? !grupoPorId(e.grupoId) : e.grupoId === estado.filtro);
+  const itens = noFiltro.filter(e => normalizar(e.nome).includes(termo)).sort((a, b) => b.editadoEm - a.editadoEm);
+  const grade = $('#grade');
+  grade.innerHTML = '';
+  $('#lista-vazia').hidden = itens.length > 0;
+  if (!itens.length) {
+    if (!estado.lista.length) { $('#vazio-titulo').textContent = 'Nenhum e-mail ainda'; $('#vazio-texto').textContent = 'Envie um modelo em HTML para começar a editar, ou teste com o nosso modelo de exemplo.'; }
+    else if (termo) { $('#vazio-titulo').textContent = 'Nada encontrado'; $('#vazio-texto').textContent = 'Nenhum e-mail com “' + $('#busca').value + '” neste filtro.'; }
+    else { $('#vazio-titulo').textContent = 'Nenhum e-mail aqui'; $('#vazio-texto').textContent = 'Crie um e-mail novo neste grupo, ou arraste e-mails da lista até o grupo na barra lateral.'; }
+  }
+  for (const e of itens) {
+    const ge = grupoPorId(e.grupoId);
+    const card = h('article', { class: 'card', draggable: 'true', style: 'border-top-color:' + (ge ? ge.cor : 'var(--borda)') },
+      h('button', { class: 'thumb', onclick: () => editar(e.id), 'aria-label': 'Editar ' + e.nome, draggable: 'false' },
+        e.miniatura ? h('img', { src: e.miniatura, alt: '', draggable: 'false' }) : h('span', { class: 'thumb-vazia' }, 'Sem banner')),
+      h('div', { class: 'card-info' },
+        h('h3', { title: e.nome }, e.nome),
+        h('p', {}, 'Editado em ' + fmtData(e.editadoEm),
+          ge && estado.filtro === 'todos' ? h('span', { class: 'badge-grupo' }, h('i', { style: 'background:' + ge.cor }), ge.nome) : null,
+          e.quebradas ? h('span', { class: 'badge-quebradas', title: 'Imagens sem endereço válido' }, '⚠ ' + e.quebradas + (e.quebradas > 1 ? ' imagens quebradas' : ' imagem quebrada')) : null)),
+      h('div', { class: 'card-acoes' },
+        h('button', { class: 'btn primario peq', onclick: () => editar(e.id) }, 'Editar'),
+        h('button', { class: 'btn fantasma peq', onclick: () => duplicar(e.id) }, 'Duplicar'),
+        h('button', { class: 'btn fantasma peq', onclick: ev => menuMover(ev.currentTarget, e) }, 'Mover'),
+        h('button', { class: 'btn fantasma peq', onclick: () => renomear(e.id) }, 'Renomear'),
+        h('button', { class: 'btn fantasma peq excluir', onclick: () => excluir(e.id) }, 'Excluir')));
+    card.addEventListener('dragstart', ev => { ev.dataTransfer.setData('text/plain', e.id); ev.dataTransfer.effectAllowed = 'move'; card.classList.add('arrastando'); });
+    card.addEventListener('dragend', () => card.classList.remove('arrastando'));
+    grade.append(card);
+  }
+}
+function menuMover(ancora, e) {
+  const itens = [{ titulo: 'Mover para' }, { rotulo: 'Sem grupo', cor: '#cbd5e1', acao: () => moverEmail(e.id, null) }];
+  for (const g of estado.grupos) itens.push({ rotulo: g.nome + (g.id === e.grupoId ? '  ✓' : ''), cor: g.cor, acao: () => moverEmail(e.id, g.id) });
+  itens.push({ rotulo: '+ Novo grupo…', acao: async () => { const g = await editarGrupo(null); if (g) moverEmail(e.id, g.id); } });
+  menuFlutuante(ancora, itens);
+}
+async function editar(id) {
+  const e = await obterEmail(id);
+  if (!e) return toast('Não conseguimos abrir esse e-mail. Ele pode ter sido excluído.', 'erro');
+  abrirEditor(e);
+}
+async function duplicar(id, msg) {
+  const e = await obterEmail(id);
+  if (!e) return toast('Não conseguimos duplicar esse e-mail.', 'erro');
+  const agora = Date.now();
+  const copia = { ...JSON.parse(JSON.stringify(e)), id: novoId(), nome: 'Cópia de ' + e.nome, criadoEm: agora, editadoEm: agora };
+  try { await gravarEmail(copia); }
+  catch (_) { return toast('Não há espaço para criar a cópia. Exclua e-mails antigos e tente de novo.', 'erro'); }
+  if (estado.tela === 'lista') renderizarLista();
+  toast(msg || '“' + copia.nome + '” criado.');
+}
+async function renomear(id) {
+  const e = await obterEmail(id);
+  if (!e) return;
+  const nome = await pedirTexto({ titulo: 'Renomear e-mail', rotulo: 'Novo nome', valor: e.nome });
+  if (!nome || !nome.trim()) return;
+  e.nome = nome.trim();
+  await gravarEmail(e);
+  renderizarLista();
+  toast('E-mail renomeado.');
+}
+async function excluir(id) {
+  const e = estado.lista.find(x => x.id === id);
+  const ok = await confirmar({ titulo: 'Excluir e-mail?', texto: '“' + (e ? e.nome : '') + '” será excluído e não poderá ser recuperado.', rotuloOk: 'Excluir', perigo: true });
+  if (!ok) return;
+  await Armazenamento.del(PREFIXO + 'email:' + id);
+  estado.lista = estado.lista.filter(x => x.id !== id);
+  await salvarIndice();
+  renderizarLista();
+  toast('E-mail excluído.');
+}
+
+/* ---------- backup ---------- */
+async function baixarBackup() {
+  const emails = [];
+  for (const r of estado.lista) { const e = await obterEmail(r.id); if (e) emails.push(e); }
+  const blob = new Blob([JSON.stringify({ versao: 1, geradoEm: new Date().toISOString(), grupos: estado.grupos, biblioteca, emails })], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = h('a', { href: url, download: 'backup-editor-emails-' + new Date().toISOString().slice(0, 10) + '.json' });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast('Backup baixado com ' + emails.length + ' e-mail(s).');
+}
+async function restaurarBackup(arq) {
+  try {
+    const d = JSON.parse(await arq.text());
+    if (!d || !Array.isArray(d.emails)) throw new Error();
+    for (const g of d.grupos || []) if (!grupoPorId(g.id)) estado.grupos.push(g);
+    await salvarGrupos();
+    if (d.biblioteca) { biblioteca = { ...d.biblioteca, ...biblioteca }; await salvarBiblioteca(); }
+    for (const e of d.emails) if (e && e.id && e.htmlAtual) await gravarEmail(e);
+    renderizarLista();
+    toast('Backup restaurado: ' + d.emails.length + ' e-mail(s).');
+  } catch (_) {
+    toast('Esse arquivo não é um backup válido do Editor de E-mails.', 'erro');
+  }
+}
+
+/* =====================================================================
+   8. NOVO E-MAIL (UPLOAD DO MODELO)
+   ===================================================================== */
+let arquivosCarregados = [];
+function textoSoltar() {
+  return '<strong>Arraste um ou vários arquivos .html aqui</strong>ou clique para escolher no computador. Cada arquivo vira um e-mail.';
+}
+function abrirNovo() {
+  arquivosCarregados = [];
+  $('#novo-nome').value = '';
+  $('#novo-nome').disabled = false;
+  $('#novo-codigo').value = '';
+  $('#novo-erro').hidden = true;
+  opcoesGrupo($('#novo-grupo'), grupoPorId(estado.filtro) ? estado.filtro : '');
+  const s = $('#soltar');
+  s.classList.remove('carregado');
+  s.innerHTML = textoSoltar();
+  desenharArquivos();
+  trocarAba('arquivo');
+  $('#modal-novo').hidden = false;
+  setTimeout(() => $('#novo-nome').focus(), 30);
+}
+function trocarAba(aba) {
+  $$('#modal-novo .abas button').forEach(b => b.classList.toggle('ativo', b.dataset.aba === aba));
+  $$('#modal-novo [data-painel]').forEach(p => p.hidden = p.dataset.painel !== aba);
+  atualizarBotaoCriar();
+}
+function erroNovo(msg) { const e = $('#novo-erro'); e.textContent = msg; e.hidden = false; return null; }
+const nomeDoArquivo = n => n.replace(/\.html?$/i, '').replace(/[-_]+/g, ' ').trim();
+function atualizarBotaoCriar() {
+  const n = arquivosCarregados.length;
+  const multi = n > 1 && $('[data-painel="colar"]').hidden;
+  $('#btn-criar').textContent = multi ? 'Criar ' + n + ' e-mails' : 'Criar e editar';
+  const nome = $('#novo-nome');
+  nome.disabled = multi;
+  nome.placeholder = multi ? 'Cada e-mail usa o nome da lista abaixo' : 'Ex.: Newsletter de outubro';
+  if (multi) nome.value = '';
+}
+function desenharArquivos() {
+  const ul = $('#lista-arquivos');
+  ul.innerHTML = '';
+  ul.hidden = arquivosCarregados.length < 2;
+  arquivosCarregados.forEach((a, i) => {
+    const inp = h('input', { type: 'text', value: a.nome, 'aria-label': 'Nome do e-mail ' + (i + 1) });
+    inp.addEventListener('input', () => { a.nome = inp.value; });
+    ul.append(h('li', {},
+      h('span', { class: 'st' + (a.status === 'ok' ? ' ok' : a.status === 'erro' ? ' err' : ''), title: a.erro || '' }, a.status === 'ok' ? '✓' : a.status === 'erro' ? '!' : '•'),
+      inp, h('span', { class: 'arq', title: a.arquivo }, a.arquivo),
+      h('button', { type: 'button', class: 'link-btn', title: 'Remover da lista', onclick: () => { arquivosCarregados.splice(i, 1); desenharArquivos(); atualizarSoltar(); } }, '✕')));
+  });
+  atualizarBotaoCriar();
+}
+function atualizarSoltar() {
+  const s = $('#soltar');
+  const n = arquivosCarregados.length;
+  s.classList.toggle('carregado', n > 0);
+  if (!n) s.innerHTML = textoSoltar();
+  else if (n === 1) s.innerHTML = '<strong>✓ ' + esc(arquivosCarregados[0].arquivo) + '</strong>Arquivo carregado. Clique ou arraste para adicionar mais.';
+  else s.innerHTML = '<strong>✓ ' + n + ' arquivos carregados</strong>Confira os nomes abaixo. Clique ou arraste para adicionar mais.';
+}
+async function lerArquivosHtml(lista) {
+  const arqs = [...(lista || [])];
+  if (!arqs.length) return;
+  const validos = arqs.filter(a => /\.html?$/i.test(a.name) || a.type === 'text/html');
+  const ignorados = arqs.length - validos.length;
+  $('#novo-erro').hidden = true;
+  for (const arq of validos) {
+    try {
+      const html = await arq.text();
+      if (arquivosCarregados.some(x => x.arquivo === arq.name && x.html === html)) continue;
+      arquivosCarregados.push({ arquivo: arq.name, nome: nomeDoArquivo(arq.name), html });
+    } catch (_) { erroNovo('Não conseguimos ler “' + arq.name + '”.'); }
+  }
+  if (ignorados) erroNovo(ignorados + (ignorados > 1 ? ' arquivos foram ignorados por não serem .html.' : ' arquivo foi ignorado por não ser .html.'));
+  if (arquivosCarregados.length === 1 && !$('#novo-nome').value.trim()) $('#novo-nome').value = arquivosCarregados[0].nome;
+  desenharArquivos();
+  atualizarSoltar();
+}
+async function criarVarios(grupoId) {
+  const botao = $('#btn-criar');
+  botao.disabled = true;
+  let ok = 0;
+  for (const [i, a] of arquivosCarregados.entries()) {
+    if (a.status === 'ok') continue;
+    botao.textContent = 'Criando ' + (i + 1) + ' de ' + arquivosCarregados.length + '…';
+    const e = await criarEmail(a.nome, a.html, grupoId, { abrir: false });
+    a.status = e ? 'ok' : 'erro';
+    a.trocadas = e ? e.trocadasPelaBiblioteca : 0;
+    a.erro = e ? '' : $('#novo-erro').textContent;
+    if (e) ok++;
+  }
+  botao.disabled = false;
+  const falhas = arquivosCarregados.filter(a => a.status === 'erro').length;
+  desenharArquivos();
+  if (!falhas) {
+    $('#modal-novo').hidden = true;
+    if (grupoId && grupoPorId(grupoId)) estado.filtro = grupoId;
+    mostrarTela('lista');
+    renderizarLista();
+    const criados = estado.lista.slice(-ok);
+    const trocadas = arquivosCarregados.reduce((t, a) => t + (a.trocadas || 0), 0);
+    const comQuebra = criados.filter(r => r.quebradas).length;
+    toast(ok + ' e-mails criados.' + (trocadas ? ' ' + trocadas + ' imagem(ns) já corrigida(s) pela biblioteca.' : '') +
+      (comQuebra ? ' ' + comQuebra + ' com imagens quebradas: abra um deles e use “Trocar” em Todas as imagens; os outros atualizam juntos.' : ''), '', comQuebra ? 8000 : 3500);
+  } else {
+    arquivosCarregados = arquivosCarregados.filter(a => a.status !== 'ok');
+    desenharArquivos();
+    atualizarSoltar();
+    erroNovo(ok + ' e-mail(s) criado(s). ' + falhas + ' arquivo(s) não puderam ser lidos como e-mail; confira e tente de novo.');
+    renderizarLista();
+  }
+}
+async function criarEmail(nome, html, grupoId, { abrir = true } = {}) {
+  if (!html || !/<[a-z!]/i.test(html)) return erroNovo('Envie um arquivo .html ou cole o código do e-mail para continuar.');
+  const doc = parse(html);
+  if (!doc.body || (!doc.body.querySelector('*') && !doc.body.textContent.trim()))
+    return erroNovo('Não conseguimos ler esse conteúdo como um e-mail em HTML. Confira se é o arquivo certo.');
+  estado.doctype = extrairDoctype(html);
+  const { areas, auto } = detectar(doc);
+  const trocadas = aplicarBiblioteca(doc);
+  const agora = Date.now();
+  const email = {
+    id: novoId(), nome: (nome || '').trim() || 'E-mail sem nome', grupoId: grupoId && grupoId !== '__novo__' ? grupoId : null,
+    htmlOriginal: html, htmlAtual: serializar(doc, true), areas,
+    autoDetectado: auto, avisoVisto: false, criadoEm: agora, editadoEm: agora
+  };
+  const b = areas.find(a => ehImagem(a.tipo));
+  email.miniatura = b ? (elDe(b.id, doc).getAttribute('src') || '') : '';
+  try { await gravarEmail(email); }
+  catch (_) { return erroNovo('Não há espaço para salvar esse e-mail. Exclua e-mails antigos e tente de novo.'); }
+  email.trocadasPelaBiblioteca = trocadas;
+  if (!abrir) return email;
+  $('#modal-novo').hidden = true;
+  abrirEditor(email);
+  return email;
+}
+
+/* =====================================================================
+   9. EDITOR
+   ===================================================================== */
+function abrirEditor(email) {
+  estado.atual = email;
+  estado.doctype = extrairDoctype(email.htmlOriginal);
+  estado.doc = parse(email.htmlAtual);
+  const trocadas = aplicarBiblioteca(estado.doc);
+  estado.areas = email.areas || [];
+  estado.historico = [];
+  estado.ultimoSnap = 0;
+  $('#nome-email').value = email.nome;
+  opcoesGrupo($('#grupo-email'), email.grupoId);
+  setIndicador('Salvo', '');
+  atualizarDesfazer();
+  mostrarTela('editor');
+  mostrarAvisoDeteccao();
+  renderizarTudo();
+  if (trocadas) { agendarSalvar(); toast(trocadas + ' imagem(ns) atualizada(s) com as versões já hospedadas.'); }
+}
+function mostrarAvisoDeteccao() {
+  const e = estado.atual;
+  const mostrar = e.autoDetectado && !e.avisoVisto;
+  $('#aviso-deteccao').hidden = !mostrar;
+  if (mostrar) {
+    $('#aviso-deteccao-txt').textContent = estado.areas.some(a => !ehTexto(a.tipo))
+      ? 'Se faltar algo, clique na imagem ou no botão na prévia para marcar. Use “Desmarcar” para tirar uma área errada.'
+      : 'Não encontramos banner nem botão automaticamente. Clique neles na prévia para marcar.';
+  }
+}
+function renderizarTudo() {
+  estado.areas = estado.areas.filter(a => elDe(a.id));
+  marcarTextos();
+  marcarImagens();
+  renderizarCampos();
+  renderizarPrevia();
+}
+
+/* ---------- salvamento automático ---------- */
+function setIndicador(txt, cls) {
+  const i = $('#indicador');
+  i.textContent = txt;
+  i.className = 'indicador' + (cls ? ' ' + cls : '');
+}
+function agendarSalvar() {
+  setIndicador('Salvando…', 'salvando');
+  clearTimeout(estado.timerSalvar);
+  estado.timerSalvar = setTimeout(salvarAgora, 1000);
+}
+async function salvarAgora() {
+  clearTimeout(estado.timerSalvar);
+  estado.timerSalvar = null;
+  const e = estado.atual;
+  if (!e) return;
+  e.htmlAtual = serializar(estado.doc, true);
+  e.areas = estado.areas;
+  e.editadoEm = Date.now();
+  const b = estado.areas.find(a => ehImagem(a.tipo));
+  e.miniatura = b && elDe(b.id) ? (elDe(b.id).getAttribute('src') || '') : '';
+  try {
+    await gravarEmail(e);
+    setIndicador('Salvo', '');
+  } catch (err) {
+    setIndicador('Não salvo', 'erro');
+    toast(err && err.name === 'QuotaExceededError'
+      ? 'O armazenamento do navegador está cheio. Hospede as imagens no Painel (Exportar → Hospedar agora) ou exclua e-mails antigos.'
+      : 'Não conseguimos salvar agora. Tente de novo em instantes.', 'erro');
+  }
+}
+
+/* ---------- desfazer ---------- */
+function registrarHistorico(forcar) {
+  const agora = Date.now();
+  if (forcar || agora - estado.ultimoSnap > 1000) {
+    estado.historico.push({ html: serializar(estado.doc, true), areas: JSON.parse(JSON.stringify(estado.areas)) });
+    if (estado.historico.length > 60) estado.historico.shift();
+    atualizarDesfazer();
+  }
+  estado.ultimoSnap = forcar ? 0 : agora;
+}
+function atualizarDesfazer() { $('#btn-desfazer').disabled = !estado.historico.length; }
+function desfazer() {
+  const s = estado.historico.pop();
+  atualizarDesfazer();
+  if (!s) return toast('Não há alterações para desfazer.');
+  estado.doc = parse(s.html);
+  estado.areas = s.areas;
+  estado.ultimoSnap = 0;
+  renderizarTudo();
+  agendarSalvar();
+  toast('Alteração desfeita.');
+}
+
+/* ---------- aplica uma mudança no modelo e na prévia ---------- */
+function mutar(id, fn) {
+  const m = elDe(id);
+  if (m) fn(m, estado.doc);
+  const pd = docPrevia();
+  const p = pd && elDe(id, pd);
+  if (p) fn(p, pd);
+  agendarSalvar();
+}
+
+/* =====================================================================
+   10. PRÉVIA COM EDIÇÃO DIRETA
+   ===================================================================== */
+const docPrevia = () => { try { return $('#previa').contentDocument; } catch (_) { return null; } };
+const CSS_PREVIA = `
+  img[data-ee-id],a[data-ee-id]{outline:2px dashed rgba(37,99,235,.55)!important;outline-offset:2px!important;cursor:pointer!important}
+  img[data-ee-id]:hover,a[data-ee-id]:hover{outline:2px solid #2563eb!important}
+  [data-ee-t]{cursor:text!important}
+  [data-ee-t]:hover{outline:1px dashed rgba(37,99,235,.65)!important;outline-offset:3px!important}
+  [data-ee-t]:focus{outline:2px solid #2563eb!important;outline-offset:3px!important}
+  .__ee-ativo{outline:3px solid #2563eb!important;outline-offset:3px!important}
+  .__ee-hover{outline:1px dashed #8b94a5!important;outline-offset:1px!important;cursor:crosshair!important}`;
+
+function renderizarPrevia() {
+  const fr = $('#previa');
+  let rolagem = 0;
+  try { rolagem = fr.contentWindow ? fr.contentWindow.scrollY : 0; } catch (_) {}
+  esconderBarra();
+  fr.onload = () => {
+    const d = fr.contentDocument;
+    if (!d) return;
+    const st = d.createElement('style');
+    st.textContent = CSS_PREVIA;
+    (d.head || d.documentElement).appendChild(st);
+    d.querySelectorAll('[data-ee-t]').forEach(el => { el.setAttribute('contenteditable', 'true'); el.setAttribute('spellcheck', 'true'); });
+    try { d.execCommand('defaultParagraphSeparator', false, 'p'); } catch (_) {}
+    d.addEventListener('click', cliquePrevia, true);
+    d.addEventListener('submit', e => e.preventDefault(), true);
+    d.addEventListener('input', e => {
+      const t = e.target.nodeType === 1 ? e.target : e.target.parentElement;
+      const host = t && t.closest('[data-ee-t]');
+      if (host) sincronizarTexto(host);
+    });
+    d.addEventListener('paste', e => {
+      const t = e.target.nodeType === 1 ? e.target : e.target.parentElement;
+      if (!t || !t.closest('[data-ee-t]')) return;
+      e.preventDefault();
+      d.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+    });
+    d.addEventListener('keydown', e => {
+      const t = e.target.nodeType === 1 ? e.target : e.target.parentElement;
+      const host = t && t.closest('[data-ee-t]');
+      if (host && e.key === 'Enter') {
+        if (host.tagName === 'A') { e.preventDefault(); return; }
+        if (e.shiftKey) { e.preventDefault(); d.execCommand('insertLineBreak'); }
+      }
+      atalhos(e);
+    });
+    d.addEventListener('mouseover', e => {
+      d.querySelectorAll('.__ee-hover').forEach(x => x.classList.remove('__ee-hover'));
+      const t = e.target;
+      if (t.nodeType !== 1 || t === d.body || t === d.documentElement || t.closest('[data-ee-id],[data-ee-t]')) return;
+      t.classList.add('__ee-hover');
+    });
+    d.documentElement.addEventListener('mouseleave', () => d.querySelectorAll('.__ee-hover').forEach(x => x.classList.remove('__ee-hover')));
+    d.addEventListener('selectionchange', () => { salvarSelecao(); requestAnimationFrame(posicionarBarra); });
+    d.addEventListener('focusout', () => setTimeout(posicionarBarra, 120));
+    fr.contentWindow.addEventListener('scroll', posicionarBarra);
+    try { fr.contentWindow.scrollTo(0, rolagem); } catch (_) {}
+  };
+  fr.srcdoc = serializar(estado.doc, true);
+}
+function sincronizarTexto(host) {
+  const id = host.getAttribute('data-ee-t');
+  const m = estado.doc.querySelector('[data-ee-t="' + id + '"]');
+  if (!m) return;
+  const html = limparInline(host.innerHTML);
+  if (m.innerHTML === html) return;
+  registrarHistorico();
+  m.innerHTML = html;
+  const aid = host.getAttribute('data-ee-id');
+  if (aid) {
+    const inp = $('.area[data-area="' + aid + '"] [data-campo="texto"]');
+    if (inp) inp.value = host.textContent.trim().replace(/\s+/g, ' ');
+  }
+  agendarSalvar();
+}
+const areaPorId = id => estado.areas.find(a => a.id === id);
+function cliquePrevia(e) {
+  e.preventDefault();
+  const t = e.target.nodeType === 1 ? e.target : e.target.parentElement;
+  const d = t.ownerDocument;
+  fecharPop();
+  const ed = t.closest('[data-ee-id]');
+  const area = ed && areaPorId(ed.getAttribute('data-ee-id'));
+  if (area && !ehTexto(area.tipo)) return irParaCampo(area.id, true);
+  if (t.closest('[data-ee-t]')) return;
+  if (t === d.body || t === d.documentElement) return;
+  if (t.tagName === 'IMG') irParaImagem(t.getAttribute('data-ee-i'));
+  abrirPop(t, e);
+}
+function destacarPrevia(id, rolar) {
+  const d = docPrevia();
+  if (!d) return;
+  d.querySelectorAll('.__ee-ativo').forEach(x => x.classList.remove('__ee-ativo'));
+  const el = elDe(id, d);
+  if (!el) return;
+  if (!el.hasAttribute('data-ee-t')) el.classList.add('__ee-ativo');
+  if (rolar) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function irParaCampo(id, daPrevia) {
+  const box = $('.area[data-area="' + id + '"]');
+  if (!box) return;
+  const det = box.closest('details');
+  if (det) det.open = true;
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  box.classList.remove('piscar');
+  void box.offsetWidth;
+  box.classList.add('piscar');
+  if (!daPrevia) destacarPrevia(id, false);
+}
+
+/* ---------- barra flutuante de formatação ---------- */
+let selSalva = null, usandoBarra = false;
+function hostAtual() {
+  const fd = docPrevia();
+  if (!fd || !fd.hasFocus()) return null;
+  const sel = fd.getSelection();
+  if (!sel || !sel.rangeCount) return null;
+  const n = sel.anchorNode;
+  const el = n && (n.nodeType === 1 ? n : n.parentElement);
+  return el ? el.closest('[data-ee-t]') : null;
+}
+function salvarSelecao() {
+  const host = hostAtual();
+  if (host) selSalva = { host, range: docPrevia().getSelection().getRangeAt(0).cloneRange() };
+}
+function restaurarSelecao() {
+  if (!selSalva || !selSalva.host.isConnected) return null;
+  const fd = docPrevia();
+  $('#previa').contentWindow.focus();
+  selSalva.host.focus();
+  const sel = fd.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(selSalva.range);
+  return selSalva.host;
+}
+function esconderBarra() { const b = $('#barra-texto'); if (b) b.hidden = true; }
+function posicionarBarra() {
+  if (usandoBarra) return;
+  const barra = $('#barra-texto');
+  const host = hostAtual();
+  if (!host || host.tagName === 'A' || estado.tela !== 'editor') return esconderBarra();
+  const fd = docPrevia();
+  const r = fd.getSelection().getRangeAt(0);
+  let rect = r.collapsed ? host.getBoundingClientRect() : r.getBoundingClientRect();
+  if (!rect.width && !rect.height) rect = host.getBoundingClientRect();
+  const fr = $('#previa').getBoundingClientRect();
+  barra.hidden = false;
+  const w = barra.offsetWidth, bh = barra.offsetHeight;
+  let x = fr.left + rect.left + (r.collapsed ? 0 : rect.width / 2 - w / 2);
+  let y = fr.top + rect.top - bh - 10;
+  if (y < fr.top + 4) y = fr.top + rect.bottom + 10;
+  x = Math.max(fr.left + 4, Math.min(x, fr.right - w - 4));
+  if (y > fr.bottom - bh) y = fr.bottom - bh - 4;
+  barra.style.left = x + 'px';
+  barra.style.top = y + 'px';
+}
+async function linkInline(host) {
+  const fd = docPrevia();
+  const sel = fd.getSelection();
+  const range = selSalva && selSalva.host === host ? selSalva.range.cloneRange() : (sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null);
+  const no = range && (range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement);
+  const atual = no && no.closest('a');
+  esconderBarra();
+  const url = await pedirTexto({
+    titulo: atual ? 'Editar link' : 'Inserir link', rotulo: 'Endereço (URL). Também aceita link de WhatsApp (https://wa.me/…)',
+    valor: atual ? atual.getAttribute('href') : 'https://', placeholder: 'https://…', extra: atual ? 'Remover link' : null
+  });
+  $('#previa').contentWindow.focus();
+  host.focus();
+  if (range) { sel.removeAllRanges(); sel.addRange(range); }
+  if (url === null) return;
+  const u = String(url).trim();
+  if (url === '__remover__') {
+    if (atual && range && range.collapsed) { const rr = fd.createRange(); rr.selectNodeContents(atual); sel.removeAllRanges(); sel.addRange(rr); }
+    fd.execCommand('unlink');
+  } else if (atual && range && range.collapsed) {
+    atual.setAttribute('href', u);
+  } else if (range && !range.collapsed) {
+    fd.execCommand('createLink', false, u);
+  } else {
+    fd.execCommand('insertHTML', false, '<a href="' + esc(u) + '" target="_blank">' + esc(u) + '</a>');
+  }
+  sincronizarTexto(host);
+}
+
+/* ---------- marcar manualmente (imagens e botões) ---------- */
+function abrirPop(alvo, e) {
+  estado.alvoMarcar = alvo;
+  const pop = $('#pop-marcar');
+  $('#pop-trocar').hidden = alvo.tagName !== 'IMG';
+  const r = $('#previa').getBoundingClientRect();
+  pop.hidden = false;
+  const w = pop.offsetWidth, hgt = pop.offsetHeight;
+  let x = r.left + e.clientX + 8, y = r.top + e.clientY + 8;
+  if (x + w > innerWidth - 8) x = innerWidth - w - 8;
+  if (y + hgt > innerHeight - 8) y = r.top + e.clientY - hgt - 8;
+  pop.style.left = Math.max(8, x) + 'px';
+  pop.style.top = Math.max(8, y) + 'px';
+}
+function fecharPop() { $('#pop-marcar').hidden = true; }
+function caminhoDe(el) {
+  const p = [];
+  while (el && el.parentElement && el.tagName !== 'BODY') {
+    p.unshift([...el.parentElement.children].indexOf(el));
+    el = el.parentElement;
+  }
+  return p;
+}
+function resolverCaminho(doc, p) {
+  let el = doc.body;
+  for (const i of p) { el = el && el.children[i]; }
+  return el;
+}
+function marcarElemento(tipo) {
+  const t = estado.alvoMarcar;
+  fecharPop();
+  if (!t) return;
+  let alvo = null;
+  const td = t.closest('td,th');
+  if (ehImagem(tipo)) {
+    alvo = t.tagName === 'IMG' ? t : (t.querySelector('img') || (td && td.querySelector('img')));
+    if (!alvo) return toast('Esse elemento não é uma imagem. Clique direto na imagem que deseja marcar.', 'erro');
+  } else {
+    alvo = t.closest('a') || t.querySelector('a') || (td && td.querySelector('a'));
+    if (!alvo) return toast('Não encontramos um botão ou link nesse ponto. Clique direto no botão.', 'erro');
+  }
+  if (alvo.closest('[data-ee-id]') || alvo.querySelector('[data-ee-id]'))
+    return toast('Esse elemento já é uma área editável. Desmarque a área antes de marcar de novo.', 'erro');
+  const el = resolverCaminho(estado.doc, caminhoDe(alvo));
+  if (!el || el.tagName !== alvo.tagName) return toast('Não conseguimos marcar esse elemento. Tente clicar nele de novo.', 'erro');
+  registrarHistorico(true);
+  const max = estado.areas.reduce((m, a) => Math.max(m, parseInt(a.id.slice(1), 10) || 0), 0);
+  const id = 'e' + (max + 1);
+  el.setAttribute('data-ee-id', id);
+  const area = { id, tipo, origem: 'manual' };
+  if (ehImagem(tipo)) area.largura = larguraImg(el) || alvo.naturalWidth || 600;
+  estado.areas.push(area);
+  ordenarAreas();
+  renderizarTudo();
+  agendarSalvar();
+  setTimeout(() => irParaCampo(id), 200);
+  toast('Marcado como ' + NOMES[tipo] + '.');
+}
+function desmarcar(id) {
+  registrarHistorico(true);
+  const el = elDe(id);
+  if (el) { el.removeAttribute('data-ee-id'); el.removeAttribute('data-edit'); }
+  estado.areas = estado.areas.filter(a => a.id !== id);
+  renderizarTudo();
+  agendarSalvar();
+  toast('Área desmarcada.');
+}
+
+/* =====================================================================
+   11. CAMPOS DE EDIÇÃO (imagens e botões)
+   ===================================================================== */
+function rotulos() {
+  const mapa = {};
+  for (const g of GRUPOS_CAMPOS) {
+    const itens = estado.areas.filter(a => g.tipos.includes(a.tipo));
+    itens.forEach((a, i) => { mapa[a.id] = NOMES[a.tipo] + (itens.length > 1 ? ' ' + (i + 1) : ''); });
+  }
+  return mapa;
+}
+function renderizarCampos() {
+  const c = $('#campos');
+  const rolagem = c.parentElement.scrollTop;
+  c.innerHTML = '';
+  const rot = rotulos();
+  for (const g of GRUPOS_CAMPOS) {
+    const itens = estado.areas.filter(a => g.tipos.includes(a.tipo));
+    const det = h('details', { class: 'grupo' },
+      h('summary', {}, g.titulo, h('span', { class: 'contagem' }, itens.length ? String(itens.length) : '—')));
+    det.open = !estado.gruposFechados.has(g.titulo);
+    det.addEventListener('toggle', () => det.open ? estado.gruposFechados.delete(g.titulo) : estado.gruposFechados.add(g.titulo));
+    const corpo = h('div', { class: 'grupo-corpo' });
+    if (!itens.length) corpo.append(h('p', { class: 'vazio-grupo' }, g.vazio));
+    for (const a of itens) corpo.append(campoArea(a, rot[a.id]));
+    det.append(corpo);
+    c.append(det);
+  }
+  const gi = grupoImagens();
+  if (gi.dataset.ruins !== '0') c.prepend(gi); else c.append(gi);
+  c.parentElement.scrollTop = rolagem;
+}
+function grupoImagens() {
+  const mapa = new Map();
+  $$('img', estado.doc.body).forEach(img => {
+    const s = img.getAttribute('src') || '';
+    if (!mapa.has(s)) mapa.set(s, { src: s, imgs: [], area: false });
+    const it = mapa.get(s);
+    it.imgs.push(img);
+    if (img.hasAttribute('data-ee-id')) it.area = true;
+  });
+  const status = s => !s ? 'sem endereço' : /^data:/i.test(s) ? 'não hospedada' : !srcFunciona(s) ? 'quebrada' : '';
+  const itens = [...mapa.values()].sort((a, b) => (status(b.src) ? 1 : 0) - (status(a.src) ? 1 : 0));
+  const ruins = itens.filter(i => status(i.src)).length;
+  const titulo = 'Todas as imagens';
+  const det = h('details', { class: 'grupo' },
+    h('summary', {}, titulo, h('span', { class: 'contagem' + (ruins ? ' alerta' : '') }, ruins ? '⚠ ' + ruins + ' com problema' : String(itens.length))));
+  det.dataset.ruins = String(ruins);
+  det.open = !estado.gruposFechados.has(titulo);
+  det.addEventListener('toggle', () => det.open ? estado.gruposFechados.delete(titulo) : estado.gruposFechados.add(titulo));
+  const corpo = h('div', { class: 'grupo-corpo' },
+    h('p', { class: 'dica-imgs' }, 'Ícones, logos e outras imagens. Ao trocar uma imagem aqui, os outros e-mails que usam a mesma imagem são atualizados juntos.'));
+  if (!itens.length) corpo.append(h('p', { class: 'vazio-grupo' }, 'Este e-mail não tem imagens.'));
+  for (const it of itens) corpo.append(linhaImagem(it, status(it.src)));
+  det.append(corpo);
+  return det;
+}
+function linhaImagem(it, st) {
+  const idxs = it.imgs.map(i => i.getAttribute('data-ee-i'));
+  const badge = h('span', { class: 'badge-img' + (st ? ' ruim' : '') }, st || 'ok');
+  const quebrou = () => { if (!badge.classList.contains('ruim')) { badge.textContent = 'quebrada'; badge.classList.add('ruim'); } };
+  const thumb = h('div', { class: 'img-thumb' }, it.src && !srcQuebrado(it.src)
+    ? h('img', { src: it.src, alt: '', onerror: e => { e.target.replaceWith('⚠'); quebrou(); } })
+    : '⚠');
+  const prog = h('div', { class: 'progresso', hidden: true }, h('div'));
+  const msg = h('div', { class: 'msg', hidden: true });
+  const arquivo = h('input', { type: 'file', accept: '.jpg,.jpeg,.png,.gif,image/jpeg,image/png,image/gif', hidden: true });
+  arquivo.addEventListener('change', () => { const f = arquivo.files[0]; arquivo.value = ''; if (f) trocarImagem(it.src, f, { prog, msg }); });
+  const meta = [it.imgs.length > 1 ? 'usada ' + it.imgs.length + '×' : '', it.area ? 'também em Banner/Imagem' : ''].filter(Boolean).join(' · ');
+  const linha = h('div', { class: 'linha-img', title: it.src || '', onclick: e => { if (!e.target.closest('button')) destacarImg(idxs[0]); } },
+    thumb,
+    h('div', { class: 'img-info' }, h('div', { class: 'img-nome' }, nomeImagem(it.src)), h('div', { class: 'img-meta' }, badge, meta ? ' ' + meta : '')),
+    h('button', { class: 'btn peq' + (st ? ' primario' : ''), type: 'button', onclick: () => arquivo.click() }, 'Trocar'),
+    arquivo);
+  return h('div', { class: 'bloco-img', 'data-idxs': ' ' + idxs.join(' ') + ' ' }, linha, prog, msg);
+}
+function destacarImg(idx) {
+  const d = docPrevia();
+  if (!d) return;
+  d.querySelectorAll('.__ee-ativo').forEach(x => x.classList.remove('__ee-ativo'));
+  const el = d.querySelector('[data-ee-i="' + idx + '"]');
+  if (el) { el.classList.add('__ee-ativo'); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+}
+function blocoDaImagem(idx) { return $$('.bloco-img').find(b => b.dataset.idxs.includes(' ' + idx + ' ')); }
+function irParaImagem(idx) {
+  const b = blocoDaImagem(idx);
+  if (!b) return;
+  const det = b.closest('details');
+  if (det) det.open = true;
+  b.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  b.classList.remove('piscar'); void b.offsetWidth; b.classList.add('piscar');
+}
+async function subirComUi(arq, ui) {
+  ui.msg.hidden = true;
+  ui.msg.className = 'msg';
+  const erro = t => { ui.msg.className = 'msg erro'; ui.msg.textContent = t; ui.msg.hidden = false; return null; };
+  if (!/^image\/(jpeg|png|gif)$/.test(arq.type)) return erro('Formato não aceito. Envie uma imagem JPG, PNG ou GIF (WebP não abre no Outlook).');
+  if (!estado.modoLocal && !ENDPOINT_UPLOAD && arq.size > LIMITE_HOSPEDAGEM) return erro('A imagem passa de 4 MB, o limite da hospedagem. Reduza o tamanho e tente de novo.');
+  const barra = ui.prog.firstChild;
+  barra.style.width = '0%';
+  ui.prog.hidden = false;
+  try { return await uploadImagem(arq, p => { barra.style.width = Math.round(p * 100) + '%'; }); }
+  catch (e) {
+    if (e.status === 401) mostrarLogin('Sua sessão expirou. Entre de novo e envie a imagem outra vez.');
+    return erro(e.message || 'Não conseguimos enviar a imagem. Tente novamente.');
+  } finally { setTimeout(() => { ui.prog.hidden = true; }, 300); }
+}
+async function trocarImagem(src, arq, ui) {
+  const url = await subirComUi(arq, ui);
+  if (!url) return;
+  registrarHistorico(true);
+  const n = trocarSrcNoDoc(estado.doc, src, url);
+  renderizarTudo();
+  await salvarAgora();
+  toast('Imagem trocada' + (n > 1 ? ' em ' + n + ' lugares deste e-mail.' : '.'));
+  await depoisDeTrocar(src, url);
+}
+function campo(rotulo, input, dica) {
+  return h('label', { class: 'campo' }, h('span', {}, rotulo), input, dica || null);
+}
+function campoArea(a, rotulo) {
+  const el = elDe(a.id);
+  if (!el) return null;
+  const box = h('div', { class: 'area', 'data-area': a.id },
+    h('div', { class: 'area-cab' },
+      h('strong', {}, rotulo),
+      a.origem === 'auto' ? h('span', { class: 'tag', title: 'Área encontrada automaticamente' }, 'detectado') : null,
+      h('button', { class: 'link-btn', type: 'button', onclick: () => desmarcar(a.id), title: 'Deixar de editar esta área' }, 'Desmarcar')));
+  box.addEventListener('focusin', () => destacarPrevia(a.id, true));
+  if (ehImagem(a.tipo)) campoImagem(box, a, el);
+  else campoBotao(box, a, el, a.tipo === 'botao');
+  return box;
+}
+
+/* ---------- destino do link: WhatsApp ou link comum ---------- */
+function campoDestino({ href, opcional, aplicar, nomeItem }) {
+  const wa = lerWhats(href || '');
+  let modo = wa ? 'whats' : (!opcional && hrefMarcador(href) ? 'whats' : 'link');
+  const wrap = h('div', { class: 'destino' });
+  const bW = h('button', { type: 'button', class: 'zap' }, 'WhatsApp');
+  const bL = h('button', { type: 'button' }, 'Outro link');
+  const seg = h('div', { class: 'seg seg-peq' }, bW, bL);
+
+  const inNum = h('input', { type: 'tel', inputmode: 'numeric', placeholder: '5531953470346', value: wa ? wa.numero : (modo === 'whats' ? ultimoWhats() : '') });
+  const inMsg = h('textarea', { rows: '3', placeholder: 'Ex.: Quero planejar meu 2027' });
+  inMsg.value = wa ? wa.texto : '';
+  const dicaN = h('div', { class: 'dica-campo' });
+  const gerado = h('div', { class: 'link-gerado' });
+  const paneW = h('div', {},
+    campo('Número do WhatsApp (DDI + DDD + número)', inNum, dicaN),
+    campo('Mensagem que já vem escrita', inMsg),
+    gerado);
+
+  const inUrl = h('input', { type: 'url', placeholder: opcional ? 'https://… (opcional)' : 'https://…', value: wa ? '' : (href || '') });
+  const dicaL = h('div', { class: 'dica-campo' });
+  const paneL = h('div', {}, campo('Link (URL)', inUrl, dicaL));
+
+  const mostrarGerado = aplicado => {
+    const n = inNum.value.replace(/\D/g, '');
+    dicaN.textContent = dicaNumero(n);
+    gerado.innerHTML = '';
+    if (!n) { gerado.hidden = true; return; }
+    gerado.hidden = false;
+    const url = montarWhats(n, inMsg.value);
+    gerado.append(h('span', {}, url), h('a', { href: url, target: '_blank', rel: 'noopener' }, 'Testar ↗'));
+    if (!aplicado && hrefMarcador(href) && !dicaN.textContent) dicaN.textContent = 'Escreva a mensagem para aplicar este link ' + nomeItem + '.';
+  };
+  const aplicarWhats = () => {
+    const n = inNum.value.replace(/\D/g, '');
+    if (!n) { if (opcional) aplicar(''); mostrarGerado(); return; }
+    guardarWhats(n);
+    href = montarWhats(n, inMsg.value);
+    aplicar(href);
+    mostrarGerado(true);
+  };
+  const verificarL = v => {
+    dicaL.textContent = !v ? (opcional ? '' : 'Sem destino: coloque o endereço completo.')
+      : v.startsWith('#') ? 'Esse link ainda é um marcador (“' + v + '”). Troque pelo endereço real.'
+      : (!/^(https?:|mailto:|tel:|\{|\*\||%%|\[)/i.test(v) ? 'Confira o endereço: ele deve começar com https://' : '');
+  };
+  inNum.addEventListener('input', aplicarWhats);
+  inMsg.addEventListener('input', aplicarWhats);
+  inUrl.addEventListener('input', () => { const v = inUrl.value.trim(); verificarL(v); href = v; aplicar(v); });
+
+  const trocar = (m, aplicarAgora) => {
+    modo = m;
+    bW.classList.toggle('ativo', m === 'whats');
+    bL.classList.toggle('ativo', m === 'link');
+    paneW.hidden = m !== 'whats';
+    paneL.hidden = m !== 'link';
+    if (aplicarAgora) {
+      if (m === 'whats') { if (!inNum.value) inNum.value = ultimoWhats(); if (inNum.value) aplicarWhats(); else mostrarGerado(); }
+      else { const v = inUrl.value.trim(); verificarL(v); if (v || opcional) { href = v; aplicar(v); } }
+    }
+  };
+  bW.addEventListener('click', () => trocar('whats', true));
+  bL.addEventListener('click', () => trocar('link', true));
+  trocar(modo, false);
+  mostrarGerado(!!wa);
+  verificarL(inUrl.value.trim());
+  wrap.append(seg, paneW, paneL);
+  return wrap;
+}
+
+/* ---------- Banner / Imagem ---------- */
+function linkDaImagem(img) { const p = img.parentElement; return p && p.tagName === 'A' ? p : null; }
+function setLinkImagem(img, doc, url) {
+  let a = linkDaImagem(img);
+  if (url) {
+    if (!a) {
+      a = doc.createElement('a');
+      a.setAttribute('target', '_blank');
+      a.setAttribute('style', 'display:block;text-decoration:none;');
+      img.replaceWith(a);
+      a.appendChild(img);
+    }
+    a.setAttribute('href', url);
+  } else if (a) {
+    if (a.children.length === 1 && !a.textContent.trim()) a.replaceWith(img);
+    else a.setAttribute('href', '');
+  }
+}
+function dicaUrl(valor) {
+  if (!valor || /^data:/i.test(valor)) return '';
+  if (!/^https:\/\//i.test(valor)) return 'Use um endereço que comece com https:// para a imagem aparecer em todos os e-mails.';
+  return '';
+}
+function campoImagem(box, a, img) {
+  if (!a.largura) a.largura = larguraImg(img) || 600;
+  const src = img.getAttribute('src') || '';
+  const local = /^data:/i.test(src);
+  const mini = h('img', { src, alt: '' });
+  const prog = h('div', { class: 'progresso', hidden: true }, h('div'));
+  const msg = h('div', { class: 'msg', hidden: true });
+  const dicaSrc = h('div', { class: 'dica-campo' }, dicaUrl(src));
+  const inUrl = h('input', { type: 'url', placeholder: local ? 'Imagem salva só neste navegador' : 'https://…', value: local ? '' : src });
+  inUrl.addEventListener('input', () => {
+    const v = inUrl.value.trim();
+    dicaSrc.textContent = dicaUrl(v);
+    if (!v) return;
+    registrarHistorico();
+    mini.src = v;
+    mutar(a.id, x => x.setAttribute('src', v));
+  });
+  const inAlt = h('input', { type: 'text', placeholder: 'Descreva a imagem (ex.: Método RGV com Ricardo Nunes)', value: img.getAttribute('alt') || '' });
+  inAlt.addEventListener('input', () => { registrarHistorico(); mutar(a.id, x => x.setAttribute('alt', inAlt.value)); });
+  const link = linkDaImagem(img);
+  const destino = campoDestino({
+    href: link ? (link.getAttribute('href') || '') : '', opcional: true, nomeItem: 'à imagem',
+    aplicar: v => { registrarHistorico(); mutar(a.id, (x, d) => setLinkImagem(x, d, v)); }
+  });
+  const arquivo = h('input', { type: 'file', accept: '.jpg,.jpeg,.png,.gif,image/jpeg,image/png,image/gif', hidden: true });
+  arquivo.addEventListener('change', () => {
+    const f = arquivo.files[0];
+    arquivo.value = '';
+    if (f) enviarImagem(f, a, { mini, prog, msg, inUrl, dicaSrc });
+  });
+  if (local && !estado.modoLocal) {
+    msg.hidden = false;
+    msg.append('Esta imagem está salva só neste navegador e não aparece para quem recebe o e-mail.', h('br'),
+      h('button', { type: 'button', class: 'btn peq', onclick: () => hospedarImagensLocais() }, '⬆ Hospedar no Painel agora'));
+  }
+  box.append(
+    h('div', { class: 'mini' }, mini),
+    h('div', { class: 'linha' },
+      h('button', { class: 'btn peq', type: 'button', onclick: () => arquivo.click() }, '⬆ Enviar nova imagem'),
+      h('span', { class: 'dica' }, 'JPG, PNG ou GIF · ideal ' + a.largura + 'px ou ' + (a.largura * 2) + 'px de largura'),
+      arquivo),
+    prog, msg,
+    campo('Ou cole a URL da imagem', inUrl, dicaSrc),
+    campo('Texto alternativo (alt)', inAlt),
+    h('div', { class: 'campo' }, h('span', {}, 'Ao clicar na imagem, abrir:'), destino));
+}
+function larguraDoArquivo(arq) {
+  return new Promise(ok => {
+    const url = URL.createObjectURL(arq);
+    const i = new Image();
+    i.onload = () => { ok(i.naturalWidth); URL.revokeObjectURL(url); };
+    i.onerror = () => { ok(0); URL.revokeObjectURL(url); };
+    i.src = url;
+  });
+}
+async function enviarImagem(arq, area, ui) {
+  ui.msg.hidden = true;
+  ui.msg.className = 'msg';
+  ui.msg.innerHTML = '';
+  const erroUi = t => { ui.msg.className = 'msg erro'; ui.msg.textContent = t; ui.msg.hidden = false; };
+  if (!/^image\/(jpeg|png|gif)$/.test(arq.type)) return erroUi('Formato não aceito. Envie uma imagem JPG, PNG ou GIF (WebP não abre no Outlook).');
+  if (!estado.modoLocal && !ENDPOINT_UPLOAD && arq.size > LIMITE_HOSPEDAGEM) return erroUi('A imagem passa de 4 MB, o limite da hospedagem. Reduza o tamanho e tente de novo.');
+  const avisos = [];
+  if (arq.size > 1024 * 1024)
+    avisos.push('A imagem tem ' + (arq.size / 1048576).toFixed(1).replace('.', ',') + ' MB. Para o e-mail abrir rápido, prefira imagens com até 1 MB.');
+  const w = await larguraDoArquivo(arq);
+  const L = area.largura || 600;
+  if (w && w !== L && w !== L * 2)
+    avisos.push('A imagem tem ' + w + 'px de largura e o espaço original tem ' + L + 'px. Sugerimos ' + L + 'px ou ' + (L * 2) + 'px (para telas retina).');
+  const barra = ui.prog.firstChild;
+  barra.style.width = '0%';
+  ui.prog.hidden = false;
+  const inicio = Date.now();
+  try {
+    const url = await uploadImagem(arq, p => { barra.style.width = Math.round(p * 100) + '%'; });
+    await new Promise(r => setTimeout(r, Math.max(0, 350 - (Date.now() - inicio))));
+    registrarHistorico(true);
+    const srcAntigo = elDe(area.id) ? elDe(area.id).getAttribute('src') : '';
+    mutar(area.id, x => x.setAttribute('src', url));
+    setTimeout(() => depoisDeTrocar(srcAntigo, url), 400);
+    ui.mini.src = url;
+    if (/^data:/i.test(url)) {
+      ui.inUrl.value = '';
+      ui.inUrl.placeholder = 'Imagem salva só neste navegador';
+      avisos.push('Modo local: a imagem ficou salva só neste navegador. Abra o editor pelo Painel para hospedar a imagem.');
+    } else {
+      ui.inUrl.value = url;
+      toast('Imagem hospedada no Painel.');
+    }
+    ui.dicaSrc.textContent = '';
+  } catch (e) {
+    ui.msg.className = 'msg erro';
+    avisos.unshift(e.message || 'Não conseguimos enviar a imagem. Tente novamente.');
+    if (e.status === 401) mostrarLogin('Sua sessão expirou. Entre de novo e envie a imagem outra vez.');
+  } finally {
+    setTimeout(() => { ui.prog.hidden = true; }, 300);
+  }
+  if (avisos.length) { ui.msg.innerHTML = avisos.map(esc).join('<br>'); ui.msg.hidden = false; }
+}
+/* Envia para a hospedagem as imagens que ficaram salvas só no navegador */
+async function hospedarImagensLocais() {
+  if (estado.modoLocal) { toast('Abra o editor pelo Painel para hospedar as imagens.', 'erro'); return 0; }
+  const imgs = $$('img', estado.doc.body).filter(i => /^data:/i.test(i.getAttribute('src') || ''));
+  if (!imgs.length) { toast('Todas as imagens já estão hospedadas.'); return 0; }
+  toast('Hospedando ' + imgs.length + ' imagem(ns)…');
+  const feitos = {};
+  let ok = 0;
+  try {
+    for (const [k, img] of imgs.entries()) {
+      const src = img.getAttribute('src');
+      if (!feitos[src]) {
+        const blob = await (await fetch(src)).blob();
+        if (!/^image\/(jpeg|png|gif)$/.test(blob.type)) continue;
+        const ext = blob.type.split('/')[1].replace('jpeg', 'jpg');
+        const nome = (normalizar(estado.atual.nome).replace(/[^a-z0-9]+/g, '-').slice(0, 40) || 'email') + '-' + (k + 1) + '.' + ext;
+        feitos[src] = await uploadImagem(new File([blob], nome, { type: blob.type }));
+      }
+      if (!ok) registrarHistorico(true);
+      img.setAttribute('src', feitos[src]);
+      ok++;
+    }
+  } catch (e) {
+    if (e.status === 401) mostrarLogin('Sua sessão expirou. Entre de novo e clique em “Hospedar agora” outra vez.');
+    toast(e.message || 'Não conseguimos hospedar as imagens.', 'erro');
+  }
+  if (ok) { renderizarTudo(); await salvarAgora(); toast(ok + ' imagem(ns) hospedada(s) no Painel.'); }
+  return ok;
+}
+
+/* ---------- Botão / Link ---------- */
+function setTextoBotao(a, txt) {
+  const w = a.ownerDocument.createTreeWalker(a, NodeFilter.SHOW_TEXT);
+  const nos = [];
+  while (w.nextNode()) if (w.currentNode.nodeValue.trim()) nos.push(w.currentNode);
+  if (!nos.length) { a.textContent = txt; return; }
+  nos[0].nodeValue = txt;
+  nos.slice(1).forEach(n => { n.nodeValue = ''; });
+}
+function tdDoBotao(a) {
+  const td = a.closest('td,th');
+  return td && td.textContent.trim() === a.textContent.trim() ? td : null;
+}
+function corFundoBotao(a) {
+  const td = tdDoBotao(a);
+  return paraHex(getStyle(a, 'background-color')) || paraHex(getStyle(a, 'background')) ||
+    (td && (paraHex(td.getAttribute('bgcolor')) || paraHex(getStyle(td, 'background-color')) || paraHex(getStyle(td, 'background')))) || null;
+}
+function aplicarFundo(x, antiga, nova) {
+  const td = tdDoBotao(x);
+  for (const e of [x, td]) {
+    if (!e) continue;
+    const st = e.getAttribute('style');
+    if (st) e.setAttribute('style', substituirCor(st, antiga, nova));
+  }
+  setStyle(x, 'background-color', nova);
+  if (td) {
+    td.setAttribute('bgcolor', nova);
+    if (/background/i.test(td.getAttribute('style') || '')) setStyle(td, 'background-color', nova);
+    for (const n of td.childNodes) if (n.nodeType === 8) n.data = substituirCor(n.data, antiga, nova);
+  }
+}
+function aplicarCorTexto(x, antiga, nova) {
+  setStyle(x, 'color', nova);
+  x.querySelectorAll('[style]').forEach(e => e.setAttribute('style', substituirCor(e.getAttribute('style'), antiga, nova)));
+  const td = tdDoBotao(x);
+  if (td) for (const n of td.childNodes) if (n.nodeType === 8) n.data = n.data.replace(/(color\s*:\s*)#[0-9a-f]{3,6}/gi, '$1' + nova);
+}
+function linhaCor(rotulo, valor, aoMudar) {
+  const cor = h('input', { type: 'color', value: valor, 'aria-label': rotulo });
+  const hex = h('input', { type: 'text', value: valor, maxlength: '7', 'aria-label': rotulo + ' (hex)' });
+  cor.addEventListener('input', () => { hex.value = cor.value; aoMudar(cor.value.toLowerCase()); });
+  hex.addEventListener('input', () => {
+    let v = hex.value.trim();
+    if (!v.startsWith('#')) v = '#' + v;
+    const n = paraHex(v);
+    if (n && /^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(v)) { cor.value = n; aoMudar(n); }
+  });
+  return h('label', { class: 'campo' }, h('span', {}, rotulo), h('div', { class: 'cor-linha' }, cor, hex));
+}
+function campoBotao(box, a, el, comCores) {
+  const inTexto = h('input', { type: 'text', 'data-campo': 'texto', value: el.textContent.trim().replace(/\s+/g, ' ') });
+  inTexto.addEventListener('input', () => { registrarHistorico(); mutar(a.id, x => setTextoBotao(x, inTexto.value)); });
+  const destino = campoDestino({
+    href: el.getAttribute('href') || '', opcional: false, nomeItem: 'ao botão',
+    aplicar: v => { registrarHistorico(); mutar(a.id, x => x.setAttribute('href', v)); }
+  });
+  box.append(campo(comCores ? 'Texto do botão (também dá para editar direto na prévia)' : 'Texto do link', inTexto),
+    h('div', { class: 'campo' }, h('span', {}, 'Ao clicar, abrir:'), destino));
+  if (comCores) {
+    let fundo = corFundoBotao(el) || '#2563eb';
+    let texto = paraHex(getStyle(el, 'color')) || '#ffffff';
+    box.append(h('div', { class: 'cores' },
+      linhaCor('Cor de fundo', fundo, nova => {
+        if (nova === fundo) return;
+        const antiga = fundo; fundo = nova;
+        registrarHistorico();
+        mutar(a.id, x => aplicarFundo(x, antiga, nova));
+      }),
+      linhaCor('Cor do texto', texto, nova => {
+        if (nova === texto) return;
+        const antiga = texto; texto = nova;
+        registrarHistorico();
+        mutar(a.id, x => aplicarCorTexto(x, antiga, nova));
+      })));
+  }
+}
+
+/* =====================================================================
+   12. EXPORTAÇÃO E CHECAGEM
+   ===================================================================== */
+function checar() {
+  const d = estado.doc;
+  const rot = rotulos();
+  const avisos = [];
+  const linksArea = new Set();
+  for (const a of estado.areas) {
+    const el = elDe(a.id);
+    if (!el) continue;
+    if (a.tipo === 'botao' || a.tipo === 'link') {
+      linksArea.add(el);
+      const href = (el.getAttribute('href') || '').trim();
+      if (!href || href === '#') avisos.push({ texto: rot[a.id] + ': sem link de destino.', id: a.id });
+      else if (href.startsWith('#')) avisos.push({ texto: rot[a.id] + ': o link ainda é um marcador (“' + href + '”).', id: a.id });
+      else { const w = lerWhats(href); if (w && dicaNumero(w.numero)) avisos.push({ texto: rot[a.id] + ': confira o número do WhatsApp (' + w.numero + ').', id: a.id }); }
+    }
+    if (ehImagem(a.tipo)) {
+      if (!(el.getAttribute('alt') || '').trim()) avisos.push({ texto: rot[a.id] + ': imagem sem texto alternativo (alt).', id: a.id });
+      const src = el.getAttribute('src') || '';
+      if (!/^data:/i.test(src) && !/^https:\/\//i.test(src)) avisos.push({ texto: rot[a.id] + ': o endereço da imagem não é https.', id: a.id });
+    }
+  }
+  const locais = $$('img', d.body).filter(i => /^data:/i.test(i.getAttribute('src') || '')).length;
+  if (locais) avisos.unshift({ texto: locais + (locais > 1 ? ' imagens não estão hospedadas' : ' imagem não está hospedada') + ' (salva só no navegador). Quem receber o e-mail não vai ver.', hospedar: !estado.modoLocal });
+  const vazios = $$('a', d.body).filter(x => !linksArea.has(x) && hrefMarcador(x.getAttribute('href')));
+  if (vazios.length) {
+    const nomes = vazios.slice(0, 3).map(x => '“' + (x.textContent.trim() || 'imagem') + '”').join(', ');
+    avisos.push({ texto: vazios.length + (vazios.length > 1 ? ' links estão vazios' : ' link está vazio') + ' ou com “#”: ' + nomes + (vazios.length > 3 ? '…' : '') + '.' });
+  }
+  const imgsComum = $$('img', d.body).filter(i => !i.hasAttribute('data-ee-id'));
+  const semAlt = imgsComum.filter(i => !i.hasAttribute('alt')).length;
+  if (semAlt) avisos.push({ texto: semAlt + (semAlt > 1 ? ' imagens estão' : ' imagem está') + ' sem texto alternativo (alt).' });
+  const naoHttps = imgsComum.filter(i => { const s = i.getAttribute('src') || ''; return !/^data:/i.test(s) && !/^https:\/\//i.test(s); }).length;
+  if (naoHttps) avisos.push({ texto: naoHttps + (naoHttps > 1 ? ' imagens usam' : ' imagem usa') + ' endereço que não é https.' });
+  const exemplo = d.body.textContent.match(/lorem ipsum|dolor sit amet|seu texto aqui|texto de exemplo|digite (seu|o) texto/i);
+  if (exemplo) avisos.push({ texto: 'Parece haver texto de exemplo esquecido: “' + exemplo[0] + '”.' });
+  return avisos;
+}
+function abrirExportar() {
+  if (estado.timerSalvar) salvarAgora();
+  const avisos = checar();
+  const corpo = $('#exportar-corpo');
+  corpo.innerHTML = '';
+  if (!avisos.length) {
+    corpo.append(h('div', { class: 'checagem ok' }, '✓ Tudo certo! Não encontramos problemas no e-mail.'));
+  } else {
+    corpo.append(h('div', { class: 'checagem atencao' },
+      h('strong', {}, 'Vale revisar antes de disparar'),
+      h('div', {}, 'Você pode exportar mesmo assim.'),
+      h('ul', {}, avisos.map(a => h('li', {}, a.texto,
+        a.hospedar ? h('button', { type: 'button', onclick: async () => { await hospedarImagensLocais(); abrirExportar(); } }, 'Hospedar agora') : null,
+        a.id ? h('button', { type: 'button', onclick: () => { $('#modal-exportar').hidden = true; irParaCampo(a.id); } }, 'Corrigir') : null)))));
+  }
+  corpo.append(h('p', { style: 'color:var(--suave);font-size:13px;margin:12px 0 0' },
+    'O HTML exportado mantém a estrutura do seu modelo, sem marcações internas do editor e sem JavaScript.'));
+  $('#btn-copiar').textContent = 'Copiar código';
+  $('#modal-exportar').hidden = false;
+}
+async function copiarTexto(t) {
+  try { await navigator.clipboard.writeText(t); return true; }
+  catch (_) {
+    const ta = h('textarea', { style: 'position:fixed;left:-9999px' });
+    ta.value = t;
+    document.body.append(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (_) {}
+    ta.remove();
+    return ok;
+  }
+}
+function nomeArquivo() {
+  return (normalizar(estado.atual.nome).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'email') + '.html';
+}
+function baixar() {
+  const blob = new Blob([htmlFinal()], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = h('a', { href: url, download: nomeArquivo() });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast('Arquivo ' + nomeArquivo() + ' baixado.');
+}
+function verCodigo() {
+  const ta = h('textarea', { class: 'codigo', readonly: true, spellcheck: 'false', style: 'min-height:420px' });
+  ta.value = htmlFinal();
+  abrirModal({
+    titulo: 'Código HTML', largo: true, corpo: ta,
+    botoes: [{ rotulo: 'Fechar', valor: null }, { rotulo: 'Copiar código', valor: 'copiar', primario: true }]
+  }).then(async v => { if (v === 'copiar') toast(await copiarTexto(ta.value) ? 'Copiado!' : 'Não foi possível copiar.'); });
+}
+
+/* =====================================================================
+   13. MODAIS GENÉRICOS
+   ===================================================================== */
+function abrirModal({ titulo, corpo, botoes, largo, aoAbrir }) {
+  return new Promise(resolver => {
+    const fundo = h('div', { class: 'fundo-modal modal-generico' });
+    const fechar = v => { fundo.remove(); document.removeEventListener('keydown', tecla, true); resolver(v); };
+    const tecla = e => { if (e.key === 'Escape') { e.stopPropagation(); fechar(null); } };
+    const rodape = h('div', { class: 'modal-rodape' }, botoes.map(b => h('button', {
+      type: 'button', class: 'btn' + (b.primario ? ' primario' : '') + (b.perigo ? ' perigo' : '') + (b.esq ? ' esq' : ''),
+      onclick: () => fechar(typeof b.valor === 'function' ? b.valor() : b.valor)
+    }, b.rotulo)));
+    fundo.append(h('div', { class: 'modal' + (largo ? ' largo' : ''), role: 'dialog', 'aria-modal': 'true' },
+      h('div', { class: 'modal-cab' }, h('h2', {}, titulo)),
+      h('div', { class: 'modal-corpo' }, corpo), rodape));
+    fundo.addEventListener('mousedown', e => { if (e.target === fundo) fechar(null); });
+    document.addEventListener('keydown', tecla, true);
+    document.body.append(fundo);
+    if (aoAbrir) aoAbrir(fundo, fechar);
+  });
+}
+function confirmar({ titulo, texto, rotuloOk, perigo }) {
+  return abrirModal({
+    titulo, corpo: h('p', { style: 'margin:0;color:var(--suave)' }, texto),
+    botoes: [{ rotulo: 'Cancelar', valor: false }, { rotulo: rotuloOk || 'Confirmar', valor: true, perigo, primario: !perigo }]
+  }).then(v => !!v);
+}
+function pedirTexto({ titulo, rotulo, valor, placeholder, extra }) {
+  const input = h('input', { type: 'text', value: valor || '', placeholder: placeholder || '' });
+  const botoes = [];
+  if (extra) botoes.push({ rotulo: extra, valor: '__remover__', esq: true });
+  botoes.push({ rotulo: 'Cancelar', valor: null }, { rotulo: 'OK', valor: () => input.value, primario: true });
+  return abrirModal({
+    titulo, corpo: campo(rotulo, input), botoes,
+    aoAbrir: (fundo, fechar) => {
+      setTimeout(() => { input.focus(); input.select(); }, 20);
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); fechar(input.value); } });
+    }
+  });
+}
+
+/* =====================================================================
+   14. LOGIN (mesmo usuário e senha do Painel de Páginas)
+   ===================================================================== */
+function mostrarLogin(mensagem) {
+  const t = $('#tela-login');
+  t.classList.toggle('sobre', estado.iniciado && !!estado.usuario);
+  $('#login-sub').textContent = mensagem || 'Use o mesmo usuário e senha do Painel de Páginas.';
+  $('#login-erro').hidden = true;
+  t.hidden = false;
+  setTimeout(() => $('#form-login [name=usuario]').focus(), 30);
+}
+function atualizarUsuario() {
+  const u = $('#usuario');
+  u.innerHTML = '';
+  if (estado.modoLocal) {
+    u.append(h('span', { class: 'selo', title: 'Aberto fora do Painel: sem login e com imagens salvas só no navegador' }, 'Modo local'));
+    return;
+  }
+  u.append(h('span', {}, '👤 ' + (estado.usuario || 'Conectado')),
+    h('button', { class: 'btn fantasma peq', type: 'button', title: 'Sai também do Painel neste navegador', onclick: sair }, 'Sair'));
+}
+async function sair() {
+  if (estado.timerSalvar) await salvarAgora();
+  try { await chamarApi('login', { method: 'DELETE' }); } catch (_) {}
+  estado.usuario = '';
+  estado.atual = null;
+  mostrarTela('lista');
+  $('#tela-lista').hidden = true;
+  mostrarLogin('Você saiu. Entre de novo para continuar.');
+}
+$('#form-login').addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const botao = $('#btn-entrar');
+  botao.disabled = true; botao.textContent = 'Entrando…';
+  const erro = t => { const el = $('#login-erro'); el.textContent = t; el.hidden = false; };
+  try {
+    const r = await chamarApi('login', { method: 'POST', body: { usuario: String(f.get('usuario')).trim(), senha: f.get('senha') } });
+    if (!r.ok || r.dados.ok === false) return erro(r.dados.erro || 'Usuário ou senha incorretos.');
+    const s = await chamarApi('login');
+    estado.usuario = (s.dados && s.dados.usuario) || String(f.get('usuario')).trim();
+    $('#tela-login').hidden = true;
+    e.target.reset();
+    if (!estado.iniciado) await iniciarApp();
+    else { atualizarUsuario(); if (estado.tela === 'lista') { $('#tela-lista').hidden = false; renderizarLista(); } }
+    toast('Bem-vindo, ' + estado.usuario + '!');
+  } catch (_) {
+    erro('Não conseguimos conectar. Verifique a internet e tente de novo.');
+  } finally {
+    botao.disabled = false; botao.textContent = 'Entrar';
+  }
+});
+
+/* =====================================================================
+   15. EVENTOS
+   ===================================================================== */
+function atalhos(e) {
+  if (e.key === 'Escape') {
+    fecharPop();
+    esconderBarra();
+    $('#menu-mais').hidden = true;
+    $('#menu-backup').hidden = true;
+    if (!$('#modal-exportar').hidden) $('#modal-exportar').hidden = true;
+    else if (!$('#modal-novo').hidden) $('#modal-novo').hidden = true;
+  }
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z' && estado.tela === 'editor') {
+    const ae = e.target && e.target.nodeType === 1 ? e.target : document.activeElement;
+    if (ae && (ae.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) return;
+    if (!$('#modal-novo').hidden || !$('#modal-exportar').hidden || $('.modal-generico')) return;
+    e.preventDefault();
+    desfazer();
+  }
+}
+document.addEventListener('keydown', atalhos);
+window.addEventListener('resize', posicionarBarra);
+
+$('#busca').addEventListener('input', renderizarLista);
+$('#btn-novo').addEventListener('click', abrirNovo);
+$('#lista-vazia').addEventListener('click', e => {
+  const b = e.target.closest('[data-acao]');
+  if (!b) return;
+  if (b.dataset.acao === 'novo') abrirNovo();
+  if (b.dataset.acao === 'exemplo') criarEmail('Modelo de exemplo', $('#modelo-exemplo').textContent.trim(), grupoPorId(estado.filtro) ? estado.filtro : null);
+});
+$('#btn-backup').addEventListener('click', e => { e.stopPropagation(); $('#menu-backup').hidden = !$('#menu-backup').hidden; });
+$('#menu-backup').addEventListener('click', e => {
+  const b = e.target.closest('[data-acao]');
+  if (!b) return;
+  $('#menu-backup').hidden = true;
+  if (b.dataset.acao === 'baixar') baixarBackup();
+  if (b.dataset.acao === 'restaurar') $('#arquivo-backup').click();
+});
+$('#arquivo-backup').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) restaurarBackup(f); });
+
+$$('#modal-novo [data-fechar]').forEach(b => b.addEventListener('click', () => { $('#modal-novo').hidden = true; }));
+$('#modal-novo').addEventListener('mousedown', e => { if (e.target.id === 'modal-novo') $('#modal-novo').hidden = true; });
+$$('#modal-novo .abas button').forEach(b => b.addEventListener('click', () => trocarAba(b.dataset.aba)));
+$('#novo-grupo').addEventListener('change', e => tratarSelectGrupo(e.target));
+const zona = $('#soltar');
+zona.addEventListener('click', () => $('#arquivo-html').click());
+zona.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#arquivo-html').click(); } });
+zona.addEventListener('dragover', e => { e.preventDefault(); zona.classList.add('sobre'); });
+zona.addEventListener('dragleave', () => zona.classList.remove('sobre'));
+zona.addEventListener('drop', e => { e.preventDefault(); zona.classList.remove('sobre'); lerArquivosHtml(e.dataTransfer.files); });
+$('#arquivo-html').addEventListener('change', async e => { await lerArquivosHtml(e.target.files); e.target.value = ''; });
+$('#btn-criar').addEventListener('click', () => {
+  const colar = !$('[data-painel="colar"]').hidden;
+  const grupo = $('#novo-grupo').value || null;
+  if (!colar && arquivosCarregados.length > 1) return criarVarios(grupo);
+  const html = colar ? $('#novo-codigo').value.trim() : (arquivosCarregados[0] && arquivosCarregados[0].html);
+  if (!html) return erroNovo(colar ? 'Cole o código HTML do e-mail para continuar.' : 'Escolha um ou mais arquivos .html para continuar.');
+  criarEmail($('#novo-nome').value, html, grupo);
+});
+$('#btn-exemplo').addEventListener('click', () => {
+  criarEmail($('#novo-nome').value.trim() || 'Modelo de exemplo', $('#modelo-exemplo').textContent.trim(), $('#novo-grupo').value || null);
+});
+
+$('#btn-voltar').addEventListener('click', async () => {
+  if (estado.timerSalvar) await salvarAgora();
+  estado.atual = null;
+  fecharPop();
+  mostrarTela('lista');
+  renderizarLista();
+});
+$('#nome-email').addEventListener('input', e => {
+  if (!estado.atual) return;
+  estado.atual.nome = e.target.value.trim() || 'E-mail sem nome';
+  agendarSalvar();
+});
+$('#grupo-email').addEventListener('change', async e => {
+  if (!estado.atual) return;
+  const okSel = await tratarSelectGrupo(e.target);
+  if (!okSel && e.target.value === (estado.atual.grupoId || '')) return;
+  estado.atual.grupoId = e.target.value || null;
+  agendarSalvar();
+  const g = grupoPorId(estado.atual.grupoId);
+  toast(g ? 'E-mail no grupo “' + g.nome + '”.' : 'E-mail sem grupo.');
+});
+$('#btn-desfazer').addEventListener('click', desfazer);
+$('#btn-duplicar').addEventListener('click', async () => {
+  await salvarAgora();
+  duplicar(estado.atual.id, 'Cópia criada na sua lista de e-mails. Você continua editando o original.');
+});
+$('#btn-exportar').addEventListener('click', abrirExportar);
+$('#fechar-aviso').addEventListener('click', () => {
+  $('#aviso-deteccao').hidden = true;
+  if (estado.atual) { estado.atual.avisoVisto = true; agendarSalvar(); }
+});
+$$('.previa-barra .seg button').forEach(b => b.addEventListener('click', () => {
+  $$('.previa-barra .seg button').forEach(x => x.classList.toggle('ativo', x === b));
+  $('#previa').classList.toggle('celular', b.dataset.modo === 'celular');
+  esconderBarra();
+}));
+$('#btn-mais').addEventListener('click', e => { e.stopPropagation(); $('#menu-mais').hidden = !$('#menu-mais').hidden; });
+$('#menu-mais').addEventListener('click', async e => {
+  const b = e.target.closest('[data-acao]');
+  if (!b) return;
+  $('#menu-mais').hidden = true;
+  if (b.dataset.acao === 'codigo') verCodigo();
+  if (b.dataset.acao === 'redetectar') {
+    const ok = await confirmar({ titulo: 'Detectar áreas novamente?', texto: 'As marcações de banner e botão serão substituídas pelas encontradas automaticamente. O conteúdo que você já editou é mantido.', rotuloOk: 'Detectar' });
+    if (!ok) return;
+    registrarHistorico(true);
+    const r = detectar(estado.doc);
+    estado.areas = r.areas;
+    estado.atual.autoDetectado = r.auto;
+    estado.atual.avisoVisto = false;
+    mostrarAvisoDeteccao();
+    renderizarTudo();
+    agendarSalvar();
+  }
+  if (b.dataset.acao === 'restaurar') {
+    const ok = await confirmar({ titulo: 'Restaurar o modelo original?', texto: 'Todas as alterações feitas neste e-mail serão descartadas. Você ainda pode usar “Desfazer” nesta sessão.', rotuloOk: 'Restaurar', perigo: true });
+    if (!ok) return;
+    registrarHistorico(true);
+    estado.doc = parse(estado.atual.htmlOriginal);
+    const r = detectar(estado.doc);
+    estado.areas = r.areas;
+    estado.atual.autoDetectado = r.auto;
+    renderizarTudo();
+    agendarSalvar();
+    toast('Modelo original restaurado.');
+  }
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('.menu-wrap')) { $('#menu-mais').hidden = true; $('#menu-backup').hidden = true; }
+  if (!e.target.closest('#pop-marcar')) fecharPop();
+});
+$('#pop-trocar').addEventListener('click', e => {
+  e.stopPropagation();
+  const t = estado.alvoMarcar;
+  fecharPop();
+  const b = t && blocoDaImagem(t.getAttribute('data-ee-i'));
+  if (b) b.querySelector('input[type=file]').click();
+});
+$('#pop-marcar').addEventListener('click', e => {
+  const b = e.target.closest('[data-tipo]');
+  if (b) marcarElemento(b.dataset.tipo);
+});
+const barraTexto = $('#barra-texto');
+barraTexto.addEventListener('mousedown', e => { e.preventDefault(); usandoBarra = true; });
+barraTexto.addEventListener('click', async e => {
+  const b = e.target.closest('[data-cmd]');
+  const host = b && restaurarSelecao();
+  if (!host) { usandoBarra = false; return; }
+  if (b.dataset.cmd === 'link') { usandoBarra = false; await linkInline(host); return; }
+  docPrevia().execCommand(b.dataset.cmd, false, null);
+  sincronizarTexto(host);
+  usandoBarra = false;
+  salvarSelecao();
+  posicionarBarra();
+});
+document.addEventListener('mouseup', () => { if (usandoBarra) setTimeout(() => { usandoBarra = false; }, 50); });
+
+$$('#modal-exportar [data-fechar]').forEach(b => b.addEventListener('click', () => { $('#modal-exportar').hidden = true; }));
+$('#modal-exportar').addEventListener('mousedown', e => { if (e.target.id === 'modal-exportar') $('#modal-exportar').hidden = true; });
+$('#btn-copiar').addEventListener('click', async () => {
+  const ok = await copiarTexto(htmlFinal());
+  $('#btn-copiar').textContent = ok ? 'Copiado!' : 'Não foi possível copiar';
+  if (ok) toast('Copiado!');
+  setTimeout(() => { $('#btn-copiar').textContent = 'Copiar código'; }, 2000);
+});
+$('#btn-baixar').addEventListener('click', baixar);
+
+window.addEventListener('beforeunload', () => { if (estado.timerSalvar) salvarAgora(); });
+
+/* ---------- início ---------- */
+async function iniciarApp() {
+  estado.iniciado = true;
+  await carregarGrupos();
+  await carregarBiblioteca();
+  await carregarLista();
+  atualizarUsuario();
+  mostrarTela('lista');
+  renderizarLista();
+}
+(async () => {
+  if (!/^https?:$/.test(location.protocol)) { estado.modoLocal = true; return iniciarApp(); }
+  try {
+    const r = await chamarApi('login');
+    if (r.status === 404 || (!r.ok && r.status !== 401)) { estado.modoLocal = true; return iniciarApp(); }
+    if (r.ok && r.dados.logado !== false) { estado.usuario = r.dados.usuario || ''; return iniciarApp(); }
+    mostrarLogin();
+  } catch (_) {
+    estado.modoLocal = true;
+    iniciarApp();
+  }
+})();
+</script>
+</body>
+</html>
