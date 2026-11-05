@@ -2,6 +2,8 @@
 
 > **Onde está no ar:** o editor roda como página do painel em **https://ricardonunes.grupor1.com/emails** (a URL antiga `/rgv-e-mails` leva para lá), com o login e o Blob do próprio painel, e tem atalho no menu lateral ("E-mails").
 >
+> **Onde ficam os e-mails:** no banco do painel (tabela `emails_dados`, rota `api/emails.js` do painel), com o mesmo login. Na 1ª abertura em cada navegador, o que estava no localStorage sobe sozinho para o banco (script `armazenamento-banco`, igual a `public/armazenamento-nuvem.js`, embutido no `index.html`). Excluir só marca `excluido_em`: dá para recuperar pelo banco.
+>
 > Esta pasta é a **cópia do código no Git**: o painel entrega o HTML guardado no banco, não este arquivo. Ao mudar o editor, atualize os dois. Ela não entra no deploy do painel (`.vercelignore`). O passo a passo abaixo só serve se um dia ele virar um app separado.
 
 Editor visual de e-mails em HTML (modelos de e-mail marketing com botões para WhatsApp), extraído do Painel de Páginas (`/rgv-e-mails`) e preparado para rodar como app próprio na Vercel.
