@@ -8,7 +8,7 @@ import { otimizarHtml, guardarBackup, ultimoBackup, htmlAtual } from '../lib/oti
 // Nota do Google PageSpeed por página.
 //   GET                      → todas as notas guardadas ({ 'slug:mobile': resultado })
 //   GET ?slug=X&estrategia=  → mede agora (botão "Medir")
-//   GET ?cron=1              → (Vercel Cron, todo dia) mede todas as páginas ativas
+//   GET ?cron=1              → (Vercel Cron, toda segunda às 6h de Brasília) mede todas as páginas ativas
 //   POST { acao: 'otimizar' | 'desfazer', slug } → botão "Otimizar" / "Desfazer otimização"
 
 const hostDe = (request) => (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').replace(/:[0-9]+$/, '');

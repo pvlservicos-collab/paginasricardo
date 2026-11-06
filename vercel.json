@@ -16,6 +16,7 @@
   "functions": {
     "api/**/*.js": {
       "maxDuration": 60,
+      "memory": 1024,
       "includeFiles": "{paginas,criativos}/**"
     }
   },
@@ -220,14 +221,28 @@
       "destination": "/painel"
     },
     {
-      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|trackeamento$|wp-content|_vercel|\\.well-known).+)",
+      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|trackeamento$|wp-content|_vercel|_p/|zz-lab|\\.well-known).+)",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?<host>ricardonunes\\.grupor1\\.com|ricardonunes\\.convocacaonacional\\.com\\.br|ricardonunes\\.metodorgv\\.com\\.br|ricardonunes\\.turnemaquinadevendas\\.com\\.br|paginasricardo-[a-z0-9]+-pedrovictor007ph-gmailcoms-projects\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/_p/:host/:caminho"
+    },
+    {
+      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|trackeamento$|wp-content|_vercel|_p/|\\.well-known).+)",
       "destination": "/api/servir?caminho=:caminho"
     }
   ],
   "crons": [
     {
       "path": "/api/pagespeed?cron=1",
-      "schedule": "0 9 * * *"
+      "schedule": "0 9 * * 1"
+    },
+    {
+      "path": "/api/publicar",
+      "schedule": "* * * * *"
     }
   ]
 }
