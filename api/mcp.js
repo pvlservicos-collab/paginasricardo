@@ -7,7 +7,7 @@ import { registrar, ipDe } from '../lib/auth.mjs';
 import { carregarConfig } from '../lib/servidor.mjs';
 import { sql, usandoBanco } from '../lib/store.mjs';
 import { linkDaPagina, hostDaPagina, hostPadrao, rastreioDaPagina, detectarRastreio, limparHost, padraoDoDominio } from '../lib/core.mjs';
-import { criarPagina, atualizarPagina, excluirPagina, acharPagina, htmlDaPagina, dominioNoAr } from '../lib/operacoes.mjs';
+import { criarPagina, atualizarPagina, excluirPagina, acharPagina, htmlDaPagina, dominioNoAr, caminhoGrupo } from '../lib/operacoes.mjs';
 import { relatorioImagens, migrarImagens, salvarImagem, listarImagens, baixarImagem } from '../lib/imagens.mjs';
 
 const VERSOES = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
@@ -55,7 +55,7 @@ function ferramentas(cfg, hostAtual) {
         pixel: { type: 'string', enum: pix, description: 'Pixel da Meta (padrão = o do painel; nenhum = sem pixel; gtm = sem pixel direto, ele dispara pelo GTM).' },
         clarity: { type: 'string', enum: cla, description: 'Clarity (padrão = o do painel; nenhum = sem Clarity).' },
         gtm: { type: 'string', enum: gtm, description: 'Google Tag Manager (padrão = o do painel; nenhum = sem GTM).' },
-        grupo: { type: 'string', description: 'Título do grupo onde a página entra no painel (opcional; cria se não existir).' },
+        grupo: { type: 'string', description: 'Grupo da página no painel: título ou caminho com subgrupo, ex. "Convocação Nacional · Chapecó" (opcional; cria o que não existir).' },
       }, required: ['url', 'dominio', 'html'], additionalProperties: false },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false } },
     { name: 'atualizar_pagina', title: 'Editar página',
@@ -101,7 +101,7 @@ function ferramentas(cfg, hostAtual) {
 }
 
 const resumoPagina = (p, cfg, hostAtual, rastreio) => ({
-  url: p.url, titulo: p.titulo, grupo: cfg.grupos.find((g) => g.id === p.grupo)?.titulo || null, dominio: hostDaPagina(p, cfg, hostAtual), link: linkDaPagina(p, cfg, hostAtual), ativa: p.ativa,
+  url: p.url, titulo: p.titulo, grupo: (cfg.grupos.find((g) => g.id === p.grupo) && caminhoGrupo(cfg, cfg.grupos.find((g) => g.id === p.grupo))) || null, dominio: hostDaPagina(p, cfg, hostAtual), link: linkDaPagina(p, cfg, hostAtual), ativa: p.ativa,
   pixel: rastreio?.pixel?.map((x) => x.id).join(', ') || rastreioDaPagina(p, cfg).pixelMeta || 'nenhum',
   clarity: rastreio?.clarity?.map((x) => x.id).join(', ') || rastreioDaPagina(p, cfg).clarity || 'nenhum',
   gtm: rastreio?.gtm?.map((x) => x.id).join(', ') || rastreioDaPagina(p, cfg).gtm || 'nenhum',
@@ -132,7 +132,7 @@ async function executar(nome, a, ctx) {
         pixels: cfg.pixels.map((x) => ({ ...x, padrao: x.id === cfg.pixelMeta })),
         clarities: cfg.clarities.map((x) => ({ ...x, padrao: x.id === cfg.clarity })),
         gtms: cfg.gtms.map((x) => ({ ...x, padrao: x.id === cfg.gtm })),
-        grupos: cfg.grupos.map((g) => g.titulo),
+        grupos: cfg.grupos.map((g) => caminhoGrupo(cfg, g)), // "Pai · Subgrupo"; use o caminho completo ao escolher o grupo
         api_de_conversoes: cfg.pixels.filter((x) => process.env[`META_CAPI_TOKEN_${x.id}`]).map((x) => x.id),
         lembrete: 'Pergunte ao usuário em qual domínio publicar antes de criar a página.',
       };

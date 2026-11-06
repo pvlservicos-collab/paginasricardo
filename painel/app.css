@@ -399,3 +399,27 @@ td .psi{justify-content:flex-end;margin:0}
 .chips-rot{font-size:12px;color:var(--mut);font-weight:600;margin-right:2px}
 .chip.chip-ruim b{color:var(--bad)}
 .chip.chip-boa b{color:var(--ok)}
+
+/* grupos e subgrupos (chips com bolinha de cor; o grupo aberto mostra os subgrupos numa caixa da cor dele) */
+.chip-raiz{display:contents}
+.chip-raiz[hidden]{display:none}
+.chip-g{display:inline-flex;align-items:center;gap:7px}
+.chip-g .pt,.grupo-tit .pt,.cad-lista .pt{width:8px;height:8px;border-radius:50%;background:var(--cg);flex:none;display:inline-block}
+.chip-g .seta{display:inline-flex;margin-left:-2px;color:var(--mut)}
+.chip-g .seta svg{width:14px;height:14px;transition:transform .15s}
+.chip-g.aberto .seta svg{transform:rotate(180deg)}
+.chip.chip-g.on{background:color-mix(in srgb,var(--cg) 16%,var(--s1));border-color:color-mix(in srgb,var(--cg) 65%,transparent);color:var(--tx)}
+.chip.chip-g.on b{color:var(--tx)}
+.chip-caixa{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px;padding:3px;border-radius:14px;border:1px solid color-mix(in srgb,var(--cg) 38%,transparent);background:color-mix(in srgb,var(--cg) 7%,transparent)}
+.chip-caixa .chip-caixa{padding:2px}
+.chip.chip-novo{border-style:dashed;background:transparent;color:var(--mut)}
+.chip.chip-novo:hover{color:var(--tx);border-color:var(--mut)}
+.grupo-tit .pt{width:10px;height:10px}
+.cad-lista li b{display:inline-flex;align-items:center;gap:8px}
+.cad-lista li.nivel-1{margin-left:22px}
+.cad-lista li.nivel-2{margin-left:44px}
+.cores-grupo{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.cores-grupo input{position:absolute;opacity:0;pointer-events:none}
+.cores-grupo i{display:block;width:24px;height:24px;border-radius:50%;background:var(--cg);cursor:pointer;box-shadow:0 0 0 2px var(--s1);transition:box-shadow .12s}
+.cores-grupo input:checked + i{box-shadow:0 0 0 2px var(--s1),0 0 0 4px var(--cg)}
+.cores-grupo input:focus-visible + i{outline:2px solid var(--tx);outline-offset:3px}

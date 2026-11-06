@@ -85,7 +85,7 @@ export const POST = protegido(async (request, url, usuario) => {
     return json({ ok: true, ...r });
   }
   if (d.acao === 'grupo') {
-    const r = await gerenciarGrupo(String(d.tipo || ''), { id: d.id, titulo: d.titulo, paginas: d.paginas }, quem);
+    const r = await gerenciarGrupo(String(d.tipo || ''), { id: d.id, titulo: d.titulo, paginas: d.paginas, pai: d.pai, cor: d.cor }, quem);
     return json({ ok: true, ...r });
   }
   if (d.acao === 'descadastrar') {

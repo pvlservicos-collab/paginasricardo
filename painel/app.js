@@ -327,43 +327,92 @@ const botoesPadrao = () => `
   <button class="bt bt-ouro" data-acao="nova" ${E.podeGravar ? '' : 'disabled'}>${I.mais}Nova página</button>`;
 
 /* ================= grupos (só organização do painel) ================= */
-const grupoDe = (p) => (E.cfg.grupos || []).find((g) => g.id === p.grupo);
+// Grupos podem ter subgrupos (g.pai, até 3 níveis) e uma cor (g.cor, a bolinha do chip).
+// Cada página fica em um grupo só (p.grupo); o número de um grupo soma as páginas dos subgrupos.
+const CORES_GRUPO = ['#f43f5e', '#22c55e', '#22d3ee', '#f59e0b', '#a78bfa', '#60a5fa', '#f472b6', '#94a3b8'];
+const grupoPorId = (id) => (E.cfg.grupos || []).find((g) => g.id === id) || null;
+const grupoDe = (p) => grupoPorId(p.grupo);
+const raizesGrupo = () => (E.cfg.grupos || []).filter((g) => !g.pai || !grupoPorId(g.pai));
+const filhosDe = (id) => (E.cfg.grupos || []).filter((g) => g.pai === id);
+// [raiz, ..., g]
+function ancestrais(g) { const l = []; for (let a = g, i = 0; a && i < 10; a = grupoPorId(a.pai), i++) l.unshift(a); return l; }
+const caminhoGrupo = (g, sep = ' › ') => ancestrais(g).map((a) => a.titulo).join(sep);
+function descendentes(id) {
+  const d = new Set([id]);
+  for (let mudou = true; mudou;) { mudou = false; for (const g of E.cfg.grupos || []) if (g.pai && d.has(g.pai) && !d.has(g.id)) { d.add(g.id); mudou = true; } }
+  return d;
+}
+const corGrupo = (g) => (g && g.cor) || CORES_GRUPO[Math.max(0, (E.cfg.grupos || []).indexOf(g)) % CORES_GRUPO.length];
+// todos os grupos em ordem de árvore (pai e logo depois os subgrupos), com o nível
+function arvoreGrupos() {
+  const l = [];
+  const visita = (g, nivel) => { l.push({ g, nivel }); filhosDe(g.id).forEach((x) => visita(x, nivel + 1)); };
+  raizesGrupo().forEach((g) => visita(g, 0));
+  return l;
+}
+const paginasNoGrupo = (id) => { const d = descendentes(id); return E.cfg.paginas.filter((p) => d.has(p.grupo)); };
+const normBusca = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+
 // Divide as páginas em seções por grupo, respeitando o filtro escolhido no topo.
 function secoesPorGrupo(ps) {
   const grupos = E.cfg.grupos || [];
   if (!grupos.length) return [{ id: null, titulo: null, paginas: ps }];
   const f = E.filtroGrupo || 'todos';
-  const secs = grupos.map((g) => ({ id: g.id, titulo: g.titulo, paginas: ps.filter((p) => p.grupo === g.id) }));
-  secs.push({ id: 'sem', titulo: 'Sem grupo', paginas: ps.filter((p) => !grupoDe(p)) });
-  const escolhidas = f === 'todos' ? secs.filter((x) => x.paginas.length || x.id !== 'sem') : secs.filter((x) => x.id === f);
-  return escolhidas.length ? escolhidas : secs;
+  const sem = { id: 'sem', titulo: 'Sem grupo', paginas: ps.filter((p) => !grupoDe(p)) };
+  if (f === 'sem') return [sem];
+  const escolhido = grupoPorId(f);
+  const dentro = escolhido ? descendentes(f) : null;
+  const secs = arvoreGrupos().filter(({ g }) => !dentro || dentro.has(g.id))
+    .map(({ g }) => ({ id: g.id, titulo: caminhoGrupo(g), cor: corGrupo(g), paginas: ps.filter((p) => p.grupo === g.id) }));
+  // grupo que só junta subgrupos (sem página própria) não vira seção vazia
+  let l = secs.filter((x) => x.paginas.length || !filhosDe(x.id).length);
+  if (escolhido) { l = l.filter((x) => x.paginas.length || x.id === f); if (!l.length) l = secs.slice(0, 1); return l; }
+  if (sem.paginas.length) l.push(sem);
+  return l.length ? l : [sem];
 }
+const SETA_GRUPO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
 function filtrosGrupo() {
   const grupos = E.cfg.grupos || [];
   if (!grupos.length) return '';
   const f = E.filtroGrupo || 'todos';
-  const n = (id) => E.cfg.paginas.filter((p) => (id === 'sem' ? !grupoDe(p) : p.grupo === id)).length;
-  const chip = (id, t, qtd) => `<button class="chip ${f === id ? 'on' : ''}" data-acao="filtro-grupo" data-v="${h(id)}">${h(t)} <b>${qtd}</b></button>`;
-  const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  const busca = (g) => norm([g.titulo, ...E.cfg.paginas.filter((p) => p.grupo === g.id).flatMap((p) => [p.titulo, p.url])].join(' '));
-  const chipG = (g) => chip(g.id, g.titulo, n(g.id)).replace('<button ', `<button data-busca="${h(busca(g))}" ${f === g.id ? 'data-sel-atual ' : ''}`);
-  const aberto = !!E.chipsAberto;
+  const sel = grupoPorId(f);
+  const abertos = new Set(sel ? ancestrais(sel).map((g) => g.id) : []);
+  const fixo = (id, t, qtd) => `<button class="chip ${f === id ? 'on' : ''}" data-acao="filtro-grupo" data-v="${h(id)}">${h(t)} <b>${qtd}</b></button>`;
+  const busca = (g) => normBusca([caminhoGrupo(g, ' '), ...arvoreGrupos().filter((x) => descendentes(g.id).has(x.g.id)).map((x) => x.g.titulo), ...paginasNoGrupo(g.id).flatMap((p) => [p.titulo, p.url])].join(' '));
+  const chip = (g) => {
+    const tem = filhosDe(g.id).length > 0, ab = tem && abertos.has(g.id);
+    return `<button class="chip chip-g ${f === g.id ? 'on' : ''} ${ab ? 'aberto' : ''}" style="--cg:${corGrupo(g)}" data-acao="filtro-grupo" data-v="${h(g.id)}"${tem ? ` aria-expanded="${ab}"` : ''}>`
+      + `<i class="pt"></i>${h(g.titulo)} <b>${paginasNoGrupo(g.id).length}</b>${tem ? `<span class="seta">${SETA_GRUPO}</span>` : ''}</button>`;
+  };
+  const novoSub = (g) => (E.podeGravar ? `<button class="chip chip-novo" data-acao="subgrupo-novo" data-v="${h(g.id)}" title="Novo subgrupo dentro de ${h(g.titulo)}">+ Subgrupo</button>` : '');
+  // o grupo escolhido (e os pais dele) abre os subgrupos ao lado, numa caixa da cor do grupo
+  const bloco = (g) => {
+    const filhos = filhosDe(g.id);
+    if (!abertos.has(g.id) || (!filhos.length && g.id !== f) || (!filhos.length && g.pai)) return chip(g);
+    return `<div class="chip-caixa" style="--cg:${corGrupo(g)}">${chip(g)}${filhos.map(bloco).join('')}${ancestrais(g).length < 3 ? novoSub(g) : ''}</div>`;
+  };
+  const semN = E.cfg.paginas.filter((p) => !grupoDe(p)).length;
   return `<div class="chips">
     <label class="chip-busca"><span aria-hidden="true">🔍</span><input type="search" id="busca-grupo" placeholder="Buscar grupo ou página" autocomplete="off"></label>
-    ${chip('todos', 'Todos', E.cfg.paginas.length)}${chip('sem', 'Sem grupo', n('sem'))}
-    <button class="chip chip-conv ${aberto ? 'aberto' : ''}" data-acao="chips-conv" aria-expanded="${aberto}">Convocação Nacional <b>${grupos.length}</b> <span class="seta">▾</span></button>
-    <div class="chips-conv" ${aberto ? '' : 'hidden'}>${grupos.map(chipG).join('')}</div>
+    ${fixo('todos', 'Todos', E.cfg.paginas.length)}
+    ${raizesGrupo().map((g) => `<span class="chip-raiz" data-busca="${h(busca(g))}">${bloco(g)}</span>`).join('')}
+    ${semN ? fixo('sem', 'Sem grupo', semN) : ''}
+    ${E.podeGravar ? '<button class="chip chip-novo" data-acao="grupo-novo">+ Grupo</button>' : ''}
   </div>`;
 }
-// Filtra os grupos sem redesenhar a tela (não perde o foco do campo). Buscando, mostra os que batem mesmo recolhido.
+// Filtra os grupos sem redesenhar a tela (não perde o foco do campo). Acha também pelo nome do subgrupo ou da página.
 function buscarGrupos(q) {
-  const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
-  const t = norm(q), box = $('.chips-conv');
-  if (!box) return;
-  $$('.chip', box).forEach((c) => { c.hidden = !!t && !c.dataset.busca.includes(t); });
-  box.hidden = t ? false : !E.chipsAberto;
+  const t = normBusca(q);
+  $$('.chips .chip-raiz').forEach((c) => { c.hidden = !!t && !c.dataset.busca.includes(t); });
 }
-const tituloSecao = (x) => (x.titulo == null ? '' : `<div class="grupo-tit"><h2>${h(x.titulo)}</h2><span class="mut">${x.paginas.length} página(s)</span>${x.id !== 'sem' && E.podeGravar ? `<button class="bt bt-sm" data-acao="grupo-editar" data-v="${h(x.id)}">Editar grupo</button>` : ''}</div>`);
+// Clicar no grupo que já está aberto fecha (volta para Todos); clicar em outro, abre/escolhe.
+function escolherGrupo(v) {
+  const g = grupoPorId(v);
+  E.filtroGrupo = g && E.filtroGrupo === v && filhosDe(v).length ? (g.pai || 'todos') : v;
+  try { localStorage.setItem('r1-filtro-grupo', E.filtroGrupo); } catch {}
+  renderVista(false);
+}
+const tituloSecao = (x) => (x.titulo == null ? '' : `<div class="grupo-tit">${x.cor ? `<i class="pt" style="--cg:${x.cor}"></i>` : ''}<h2>${h(x.titulo)}</h2><span class="mut">${x.paginas.length} página(s)</span>${x.id !== 'sem' && E.podeGravar ? `<button class="bt bt-sm" data-acao="grupo-editar" data-v="${h(x.id)}">Editar grupo</button>` : ''}</div>`);
 const vazioSecao = '<div class="vazio-grupo mut">Nenhuma página neste grupo ainda. Use “Editar grupo” ou a lista suspensa de grupo em cada página.</div>';
 
 /* ================= vista: grade ================= */
@@ -613,33 +662,44 @@ function abrirGrupos() {
   const n = (id) => E.cfg.paginas.filter((p) => p.grupo === id).length;
   const md = modal({
     titulo: 'Grupos de páginas',
-    corpo: `<p class="mut" style="margin-top:0">Junte várias páginas sob um título para ver tudo organizado. Não muda nada nas páginas no ar.</p>
-      ${grupos.length ? `<ul class="cad-lista">${grupos.map((g) => `<li><b>${h(g.titulo)}</b><span class="mut">${n(g.id)} página(s)</span><button class="bt bt-sm" data-grupo-editar="${h(g.id)}">Editar</button>${E.podeGravar ? `<button class="bt bt-sm bt-icone bt-perigo" data-grupo-excluir="${h(g.id)}" title="Excluir grupo" aria-label="Excluir grupo">${I.fechar}</button>` : ''}</li>`).join('')}</ul>` : '<p class="mut">Nenhum grupo ainda.</p>'}`,
+    corpo: `<p class="mut" style="margin-top:0">Junte várias páginas sob um título para ver tudo organizado. Um grupo pode ter subgrupos (ex.: Convocação Nacional › Chapecó). Não muda nada nas páginas no ar.</p>
+      ${grupos.length ? `<ul class="cad-lista">${arvoreGrupos().map(({ g, nivel }) => `<li class="nivel-${nivel}" style="--cg:${corGrupo(g)}"><b><i class="pt"></i>${h(g.titulo)}</b><span class="mut">${n(g.id)} página(s)${filhosDe(g.id).length ? ` · ${filhosDe(g.id).length} subgrupo(s)` : ''}</span>${E.podeGravar && nivel < 2 ? `<button class="bt bt-sm" data-grupo-sub="${h(g.id)}" title="Novo subgrupo dentro de ${h(g.titulo)}">${I.mais}Subgrupo</button>` : ''}<button class="bt bt-sm" data-grupo-editar="${h(g.id)}">Editar</button>${E.podeGravar ? `<button class="bt bt-sm bt-icone bt-perigo" data-grupo-excluir="${h(g.id)}" title="Excluir grupo" aria-label="Excluir grupo">${I.fechar}</button>` : ''}</li>`).join('')}</ul>` : '<p class="mut">Nenhum grupo ainda.</p>'}`,
     pe: `<button class="bt" data-fechar>Fechar</button><button class="bt bt-ouro" id="grupo-novo" ${E.podeGravar ? '' : 'disabled'}>${I.mais}Novo grupo</button>`,
   });
   $('#grupo-novo', md.el).onclick = () => abrirGrupo(null);
   md.el.addEventListener('click', async (e) => {
-    const ed = e.target.closest('[data-grupo-editar]'), ex = e.target.closest('[data-grupo-excluir]');
+    const ed = e.target.closest('[data-grupo-editar]'), ex = e.target.closest('[data-grupo-excluir]'), sub = e.target.closest('[data-grupo-sub]');
     if (ed) abrirGrupo(ed.dataset.grupoEditar);
+    if (sub) abrirGrupo(null, [], sub.dataset.grupoSub);
     if (ex) {
       const g = grupos.find((x) => x.id === ex.dataset.grupoExcluir);
-      if (!(await confirmar('Excluir grupo', `Excluir o grupo <b>${h(g.titulo)}</b>? As páginas continuam existindo, só saem do grupo.`, 'Excluir', true))) { abrirGrupos(); return; }
+      const pai = grupoPorId(g.pai);
+      const destino = pai ? `vão para <b>${h(pai.titulo)}</b>` : 'ficam sem grupo';
+      if (!(await confirmar('Excluir grupo', `Excluir o grupo <b>${h(g.titulo)}</b>? As páginas continuam existindo; elas${filhosDe(g.id).length ? ' e os subgrupos' : ''} ${destino}.`, 'Excluir', true))) { abrirGrupos(); return; }
       try { await api('paginas', { method: 'POST', body: { acao: 'grupo', tipo: 'excluir', id: g.id } }); await carregarPaginas(); render(); toast('Grupo excluído.'); abrirGrupos(); }
       catch (err) { toast(err.message, 'bad'); }
     }
   });
 }
 
-// Criar (id = null) ou editar um grupo: título + quais páginas entram nele.
-function abrirGrupo(id, jaMarcadas = []) {
+// Criar (id = null) ou editar um grupo: título, dentro de qual grupo (subgrupo), cor e quais páginas entram nele.
+function abrirGrupo(id, jaMarcadas = [], paiPadrao = '') {
   const g = id ? (E.cfg.grupos || []).find((x) => x.id === id) : null;
+  const paiAtual = g ? g.pai || '' : paiPadrao || '';
+  // não pode ficar dentro de si mesmo nem de um subgrupo dele; no máximo 3 níveis
+  const proibidos = g ? descendentes(g.id) : new Set();
+  const opcoesPai = arvoreGrupos().filter(({ g: x, nivel }) => !proibidos.has(x.id) && nivel < 2)
+    .map(({ g: x, nivel }) => `<option value="${h(x.id)}" ${x.id === paiAtual ? 'selected' : ''}>${'  '.repeat(nivel)}${nivel ? '↳ ' : ''}${h(x.titulo)}</option>`).join('');
+  const corAtual = g ? corGrupo(g) : CORES_GRUPO[(E.cfg.grupos || []).length % CORES_GRUPO.length];
   return new Promise((ok) => {
     const md = modal({
-      titulo: g ? 'Editar grupo' : 'Novo grupo',
-      corpo: `<label class="campo"><span>Título do grupo</span><input id="grupo-titulo" maxlength="80" value="${h(g?.titulo || '')}" placeholder="Ex.: Black Friday · Outubro"></label>
+      titulo: g ? 'Editar grupo' : paiAtual ? `Novo subgrupo em ${grupoPorId(paiAtual)?.titulo || ''}` : 'Novo grupo',
+      corpo: `<label class="campo"><span>Título do grupo</span><input id="grupo-titulo" maxlength="80" value="${h(g?.titulo || '')}" placeholder="${paiAtual ? 'Ex.: Chapecó' : 'Ex.: Black Friday · Outubro'}"></label>
+        <label class="campo"><span>Dentro de</span><select id="grupo-pai"><option value="">Nenhum (grupo principal)</option>${opcoesPai}</select></label>
+        <div class="campo"><span>Cor</span><div class="cores-grupo">${CORES_GRUPO.map((c) => `<label title="${c}"><input type="radio" name="grupo-cor" value="${c}" ${c === corAtual ? 'checked' : ''}><i style="--cg:${c}"></i></label>`).join('')}</div></div>
         <div class="grupo-paginas"><span class="mut">Páginas do grupo</span>${E.cfg.paginas.map((p) => {
           const marcada = g ? p.grupo === g.id : jaMarcadas.includes(p.slug);
-          const outro = !marcada && grupoDe(p) ? ` <em class="mut">(hoje em ${h(grupoDe(p).titulo)})</em>` : '';
+          const outro = !marcada && grupoDe(p) ? ` <em class="mut">(hoje em ${h(caminhoGrupo(grupoDe(p)))})</em>` : '';
           return `<label class="chave"><input type="checkbox" value="${h(p.slug)}" ${marcada ? 'checked' : ''}><i></i>${h(p.titulo)} <span class="mono mut">/${h(p.url)}</span>${outro}</label>`;
         }).join('')}</div>`,
       pe: `<button class="bt" data-fechar>Cancelar</button><button class="bt bt-ouro" id="grupo-salvar" ${E.podeGravar ? '' : 'disabled'}>Salvar grupo</button>`,
@@ -652,7 +712,9 @@ function abrirGrupo(id, jaMarcadas = []) {
       const paginas = $$('.grupo-paginas input:checked', md.el).map((c) => c.value);
       e.target.disabled = true;
       try {
-        const r = await api('paginas', { method: 'POST', body: { acao: 'grupo', tipo: g ? 'renomear' : 'criar', id: g?.id, titulo, paginas } });
+        const pai = $('#grupo-pai', md.el).value, cor = ($('input[name="grupo-cor"]:checked', md.el) || {}).value || '';
+        const r = await api('paginas', { method: 'POST', body: { acao: 'grupo', tipo: g ? 'renomear' : 'criar', id: g?.id, titulo, paginas, pai, cor } });
+        if (!g && pai) { E.filtroGrupo = r.id; try { localStorage.setItem('r1-filtro-grupo', r.id); } catch {} } // mostra o subgrupo novo aberto
         md.fechar();
         await carregarPaginas();
         render();
@@ -1004,7 +1066,7 @@ function tagsRastreio(p) {
   const doms = E.cfg.dominios?.length ? E.cfg.dominios : [host];
   const dom = `<select class="tag-sel tag-dom" data-sel="dominio" data-slug="${p.slug}" ${off} title="Domínio onde a página fica no ar">${doms.map((d) => opcaoDominio(d, d === host)).join('')}${ehAdmin() ? '<option value="__novo">+ Adicionar domínio…</option>' : ''}</select>`;
   const grupos = E.cfg.grupos || [];
-  const grp = `<select class="tag-sel tag-grupo ${p.grupo ? '' : 'vazio'}" data-sel="grupo" data-slug="${p.slug}" ${off} title="Grupo da página no painel"><option value="">Sem grupo</option>${grupos.map((g) => `<option value="${h(g.id)}" ${g.id === p.grupo ? 'selected' : ''}>Grupo: ${h(g.titulo)}</option>`).join('')}<option value="__novo">+ Novo grupo…</option></select>`;
+  const grp = `<select class="tag-sel tag-grupo ${p.grupo ? '' : 'vazio'}" data-sel="grupo" data-slug="${p.slug}" ${off} title="Grupo da página no painel"><option value="">Sem grupo</option>${arvoreGrupos().map(({ g }) => `<option value="${h(g.id)}" ${g.id === p.grupo ? 'selected' : ''}>Grupo: ${h(caminhoGrupo(g))}</option>`).join('')}<option value="__novo">+ Novo grupo…</option></select>`;
   return `<div class="tags">${grp}${dom}${sel('pixel', 'Pixel', E.cfg.pixels || [], pd.pixel, 'tag-px')}${sel('clarity', 'Clarity', E.cfg.clarities || [], pd.clarity, 'tag-cl')}${sel('gtm', 'GTM', E.cfg.gtms || [], pd.gtm, 'tag-gtm')}</div>`;
 }
 
@@ -1317,8 +1379,9 @@ document.addEventListener('click', async (ev) => {
     case 'legenda-salvar': salvarLegenda(v, alvo); break;
     case 'cad-novo': if (await abrirCadastro(v)) { await carregarPaginas(E.vista === 'funil'); renderVista(false); } break;
     case 'grupo-editar': abrirGrupo(v); break;
-    case 'chips-conv': E.chipsAberto = !E.chipsAberto; renderVista(false); break;
-    case 'filtro-grupo': E.filtroGrupo = v; try { localStorage.setItem('r1-filtro-grupo', v); } catch {} renderVista(false); break;
+    case 'subgrupo-novo': abrirGrupo(null, [], v); break;
+    case 'grupo-novo': abrirGrupo(null); break;
+    case 'filtro-grupo': escolherGrupo(v); break;
     case 'claude': abrirClaude(); break;
     case 'img-escolher': $('#img-arq').click(); break;
     case 'img-copiar': await navigator.clipboard.writeText(v); toast('Link copiado: ' + v); break;
