@@ -58,7 +58,35 @@ async function api(caminho, { method = 'GET', body } = {}) {
   const d = await r.json().catch(() => ({}));
   if (r.status === 401 && caminho !== 'login') { telaLogin(); throw new Error('Sessão expirada.'); }
   if (!r.ok) throw new Error(d.erro || `Erro ${r.status}`);
+  if (method !== 'GET' && !/^(login|publicar|pagespeed)/.test(caminho)) acompanharPublicacao();
   return d;
+}
+
+// Publicação em lote (lib/publicacao.mjs): as páginas saem como arquivos estáticos e cada leva de alterações
+// entra no ar ~2 min depois da última edição + ~1 min de build. Aqui só mostramos em que pé está.
+let vigiaPub = null;
+function acompanharPublicacao() {
+  clearTimeout(vigiaPub);
+  vigiaPub = setTimeout(async function passo() {
+    try {
+      const s = await api('publicar');
+      const antes = E.pub && E.pub.estado;
+      E.pub = s;
+      const caixa = $('.deploy');
+      if (caixa) caixa.innerHTML = textoPublicacao();
+      if (s.estado !== 'no_ar') vigiaPub = setTimeout(passo, 20000);
+      else if (antes && antes !== 'no_ar') toast('Alterações publicadas: já estão no ar.', 'ok');
+    } catch {}
+  }, 3000);
+}
+function textoPublicacao() {
+  const s = E.pub || { estado: 'no_ar' };
+  if (s.estado === 'aguardando') {
+    const seg = Math.max(0, Math.round((new Date(s.publicaEm) - new Date(s.agora)) / 1000));
+    return `<b><span class="ponto pulsa"></span>Alterações salvas</b>Entram no ar em ~${Math.ceil(seg / 60) + 1} min (publica 2 min depois da última edição).`;
+  }
+  if (s.estado === 'publicando') return '<b><span class="ponto pulsa"></span>Publicando…</b>A Vercel está gerando a nova versão (~1 min).';
+  return '<b><span class="ponto"></span>Tudo publicado</b>Banco de dados · cada leva de alterações entra no ar em ~3 min.';
 }
 
 function toast(msg, tipo = '') {
@@ -188,6 +216,7 @@ function iniciar() {
       if (E.vista === 'imagens') carregarImagens();
       carregarPsi();
       if (E.publicando) vigiarDeploy();
+      if (E.usandoBanco && !ehTrafego()) acompanharPublicacao(); // ao abrir, mostra se há alteração esperando publicar
     })
     .catch((e) => { if (e.message !== 'Sessão expirada.') $('#app').innerHTML = `<div class="boot">${h(e.message)}</div>`; });
 }
@@ -211,7 +240,7 @@ function render() {
     : E.usandoGitHub
       ? `<b><span class="ponto"></span>Tudo publicado</b><span class="mono">${h((E.deploy.atual || '').slice(0, 7))}</span>`
       : E.usandoBanco
-        ? '<b><span class="ponto"></span>Tudo publicado</b>Banco de dados · cada alteração entra no ar em segundos.'
+        ? textoPublicacao()
         : `<b><span class="ponto"></span>${E.podeGravar ? 'Modo local' : 'Somente leitura'}</b>${E.podeGravar ? 'Alterações gravadas na pasta.' : 'Conecte o banco Postgres na Vercel.'}`;
   $('#app').innerHTML = `
   <div class="app">

@@ -1,12 +1,14 @@
-// Entrega as páginas publicadas (/black10x-g etc.) direto do banco.
+// Entrega as páginas direto do banco. Desde 06/11/2026 quase todas saem como arquivo estático do deploy
+// (scripts/estaticas.mjs, publicadas em lote por lib/publicacao.mjs), que a CDN entrega mesmo com ?fbclid=.
+// Esta função fica como reserva: página nova ainda não publicada, domínio errado (leva ao certo), domínio
+// ainda sem DNS, redirecionamento para fora, laboratório e prévias do painel.
 // O HTML entregue é o mesmo de antes (estático puro + pixel/Clarity): nenhum código do painel entra nele.
-// Para ser rápido e barato: a CDN da Vercel guarda a resposta por 60 s (entregando a cópia anterior
-// enquanto busca a nova) e esta função guarda a configuração e o HTML na memória por 5 s.
-// Uma alteração no painel aparece no site em até ~1 min.
+// A CDN guarda a resposta por 60 s (entregando a cópia anterior enquanto busca a nova) e esta função
+// guarda a configuração e o HTML na memória por 5 s.
 import { carregarConfig } from '../lib/servidor.mjs';
 import { lerArquivo } from '../lib/store.mjs';
 import { dominioNoAr } from '../lib/operacoes.mjs';
-import { PASTA_PAGINAS, normalizarUrl, montarDocumento, documentoInativo, documentoRedirecionamento, hostDaPagina, rastreioDaPagina } from '../lib/core.mjs';
+import { PASTA_PAGINAS, normalizarUrl, montarDocumento, documentoInativo, documentoRedirecionamento, hostDaPagina, documentoNoAr } from '../lib/core.mjs';
 
 const VALIDADE = 5000;
 let cfgCache = null;
@@ -51,14 +53,7 @@ async function entregar(p, cfg, request, url, caminho, apelido = false) {
   if (h == null) return resposta(documentoInativo(p.titulo), 404);
   // laboratório oculto: sem pixel/CAPI/Clarity/GTM e fora do Google
   if (p.lab) { const r = resposta(montarDocumento(h, p.titulo, {})); r.headers.set('X-Robots-Tag', 'noindex, nofollow'); return r; }
-  const rastreio = rastreioDaPagina(p, cfg);
-  rastreio.capi = Boolean(rastreio.pixelMeta && process.env[`META_CAPI_TOKEN_${rastreio.pixelMeta}`]);
-  let doc = montarDocumento(h, p.titulo, rastreio);
-  if (apelido) {
-    const troca = `<script>try{history.replaceState(history.state,'',${JSON.stringify('/' + caminho)}+location.search+location.hash)}catch(e){}</script><link rel="canonical" href="/${caminho}">`;
-    doc = /<head[^>]*>/i.test(doc) ? doc.replace(/<head[^>]*>/i, (m) => m + troca) : troca + doc;
-  }
-  return resposta(doc);
+  return resposta(documentoNoAr(p, cfg, h, caminho, apelido));
 }
 
 export async function GET(request) {

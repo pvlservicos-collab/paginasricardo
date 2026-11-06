@@ -5,6 +5,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ARQUIVO_CONFIG, PASTA_PAGINAS, mesclarConfig, validarUrls, documentoInativo } from '../lib/core.mjs';
+import { gerarEstaticas } from './estaticas.mjs';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(RAIZ, 'dist');
@@ -40,6 +41,12 @@ export async function build({ silencioso = false } = {}) {
   await copiarPasta(path.join(RAIZ, 'painel'), path.join(DIST, 'painel'));
   // Impostômetro do Raio-X Tributário (login próprio; API em api/raiox/)
   await copiarPasta(path.join(RAIZ, 'raiox'), path.join(DIST, 'raioxtributariodash'));
+  // Páginas como arquivos estáticos (cliques de anúncio saem do cache; ver scripts/estaticas.mjs).
+  // Na Vercel, se falhar, o build falha: sem elas os domínios do site dariam 404, então é melhor manter a versão anterior.
+  if (process.env.VERCEL || process.env.GERAR_ESTATICAS) {
+    try { await gerarEstaticas(DIST, log); }
+    catch (e) { throw new Error('Páginas estáticas não geradas: ' + e.message); }
+  }
   log(`Build pronto: painel + ${cfg.paginas.length} página(s) iniciais (imagens no Blob).`);
   return cfg;
 }
