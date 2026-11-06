@@ -35,7 +35,7 @@ const I = {
 const E = {
   cfg: null, usuario: null, rastreio: {}, podeGravar: false, usandoGitHub: false, temRedis: false, temHubspot: false,
   deploy: {}, publicando: false, versao: (() => { try { return localStorage.getItem('r1-versao') || novaVersao(); } catch { return Date.now().toString(36); } })(),
-  dominiosStatus: {}, imagens: null, otimizar: true, filtroPsi: (() => { try { return localStorage.getItem('r1-filtro-psi') || 'todas'; } catch { return 'todas'; } })(), filtroGrupo: (() => { try { return localStorage.getItem('r1-filtro-grupo') || 'todos'; } catch { return 'todos'; } })(),
+  dominiosStatus: {}, imagens: null, otimizar: true, ordem: (() => { try { return localStorage.getItem('r1-ordem') || 'funil'; } catch { return 'funil'; } })(), buscaPag: '', filtroPsi: (() => { try { return localStorage.getItem('r1-filtro-psi') || 'todas'; } catch { return 'todas'; } })(), filtroGrupo: (() => { try { return localStorage.getItem('r1-filtro-grupo') || 'todos'; } catch { return 'todos'; } })(),
   status: {}, verificando: false, metricas: null, dias: 7, copias: null, psi: {},
   vista: 'grade', previa: 'celular', funilPrevia: true,
 };
@@ -393,7 +393,6 @@ function filtrosGrupo() {
   };
   const semN = E.cfg.paginas.filter((p) => !grupoDe(p)).length;
   return `<div class="chips">
-    <label class="chip-busca"><span aria-hidden="true">🔍</span><input type="search" id="busca-grupo" placeholder="Buscar grupo ou página" autocomplete="off"></label>
     ${fixo('todos', 'Todos', E.cfg.paginas.length)}
     ${raizesGrupo().map((g) => `<span class="chip-raiz" data-busca="${h(busca(g))}">${bloco(g)}</span>`).join('')}
     ${semN ? fixo('sem', 'Sem grupo', semN) : ''}
@@ -413,6 +412,7 @@ function escolherGrupo(v) {
   renderVista(false);
 }
 const tituloSecao = (x) => (x.titulo == null ? '' : `<div class="grupo-tit">${x.cor ? `<i class="pt" style="--cg:${x.cor}"></i>` : ''}<h2>${h(x.titulo)}</h2><span class="mut">${x.paginas.length} página(s)</span>${x.id !== 'sem' && E.podeGravar ? `<button class="bt bt-sm" data-acao="grupo-editar" data-v="${h(x.id)}">Editar grupo</button>` : ''}</div>`);
+const vazioBusca = '<div class="vazio-grupo mut">Nenhuma página encontrada com esse filtro.</div>';
 const vazioSecao = '<div class="vazio-grupo mut">Nenhuma página neste grupo ainda. Use “Editar grupo” ou a lista suspensa de grupo em cada página.</div>';
 
 /* ================= vista: grade ================= */
@@ -450,6 +450,40 @@ function filtrarPsi(ps) {
   if (f === 'boas') return ps.filter((p) => notaDe(p.slug) != null && notaDe(p.slug) >= NOTA_MIN);
   if (f === 'sem') return ps.filter((p) => notaDe(p.slug) == null);
   return ps;
+}
+// Linha de cima: busca nas páginas (nome, URL, domínio, anotação) + nota do PageSpeed + ordem.
+const ORDENS = { funil: 'Ordem do funil', nome: 'Nome (A–Z)', pior: 'Nota: pior primeiro', melhor: 'Nota: melhor primeiro', ativas: 'Ativas primeiro' };
+function barraFiltros() {
+  const ps = E.cfg.paginas, f = E.filtroPsi || 'todas', o = E.ordem || 'funil';
+  const n = { todas: ps.length, ruins: 0, boas: 0, sem: 0 };
+  ps.forEach((p) => { const x = notaDe(p.slug); if (x == null) n.sem++; else if (x < NOTA_MIN) n.ruins++; else n.boas++; });
+  const op = (id, t) => `<option value="${id}" ${f === id ? 'selected' : ''}>${t}${id === 'todas' ? '' : ` (${n[id]})`}</option>`;
+  return `<div class="filtros-linha">
+    <label class="busca-pag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="busca-paginas" placeholder="Filtrar por nome, URL, domínio, anotação…" value="${h(E.buscaPag || '')}" autocomplete="off"></label>
+    <select class="sel-filtro" id="sel-psi" title="Nota do PageSpeed (celular)">${op('todas', 'Todas')}${op('ruins', `Abaixo de ${NOTA_MIN}`)}${op('boas', `${NOTA_MIN} ou mais`)}${op('sem', 'Sem nota')}</select>
+    <select class="sel-filtro" id="sel-ordem" title="Ordem das páginas">${Object.entries(ORDENS).map(([id, t]) => `<option value="${id}" ${o === id ? 'selected' : ''}>${t}</option>`).join('')}</select>
+  </div>`;
+}
+// Aplica busca, nota e ordem antes de dividir por grupo.
+function prepararLista(ps) {
+  const t = normBusca(E.buscaPag);
+  let l = filtrarPsi(ps);
+  if (t) l = l.filter((p) => normBusca([p.titulo, p.url, '/' + p.url, p.dominio || E.hostPadrao, p.notas, grupoDe(p) ? caminhoGrupo(grupoDe(p)) : ''].join(' ')).includes(t));
+  const o = E.ordem || 'funil', nota = (p) => notaDe(p.slug);
+  if (o === 'nome') l = [...l].sort((a, b) => a.titulo.localeCompare(b.titulo, 'pt-BR'));
+  if (o === 'pior') l = [...l].sort((a, b) => (nota(a) ?? 999) - (nota(b) ?? 999)); // sem nota vai para o fim
+  if (o === 'melhor') l = [...l].sort((a, b) => (nota(b) ?? -1) - (nota(a) ?? -1));
+  if (o === 'ativas') l = [...l].sort((a, b) => Number(b.ativa) - Number(a.ativa));
+  return l;
+}
+// Seções para a tela: buscando, esconde os grupos sem resultado.
+function secoesDaTela(ps) {
+  if (!normBusca(E.buscaPag)) return secoesPorGrupo(prepararLista(ps));
+  // buscando, procura em todas as páginas (não só no grupo escolhido nos chips)
+  const f = E.filtroGrupo; E.filtroGrupo = 'todos';
+  let secs; try { secs = secoesPorGrupo(prepararLista(ps)); } finally { E.filtroGrupo = f; }
+  const com = secs.filter((x) => x.paginas.length);
+  return com.length ? com : [{ id: null, titulo: null, paginas: [], vazio: true }];
 }
 function filtroPsi() {
   const ps = E.cfg.paginas, f = E.filtroPsi || 'todas';
@@ -518,8 +552,8 @@ function vistaGrade() {
   const seg = `<div class="seg"><button data-acao="previa" data-v="celular" class="${E.previa === 'celular' ? 'on' : ''}">Celular</button><button data-acao="previa" data-v="computador" class="${E.previa === 'computador' ? 'on' : ''}">Computador</button></div>`;
   if (!ps.length) return topo('Páginas', '', botoesPadrao()) + '<div class="vazio-geral">Nenhuma página ainda. Clique em “Nova página” ou “Adicionar em massa”.</div>';
   const [lw, lh] = E.previa === 'celular' ? [390, 844] : [1280, 800];
-  return topo('Páginas', sub, seg + botoesPadrao()) + filtrosGrupo() + filtroPsi() +
-    secoesPorGrupo(filtrarPsi(ps)).map((x) => tituloSecao(x) + (x.paginas.length ? `<div class="grade">${x.paginas.map((p) => cardPagina(p, lw, lh)).join('')}</div>` : vazioSecao)).join('');
+  return topo('Páginas', sub, seg + botoesPadrao()) + barraFiltros() + filtrosGrupo() +
+    secoesDaTela(ps).map((x) => tituloSecao(x) + (x.paginas.length ? `<div class="grade">${x.paginas.map((p) => cardPagina(p, lw, lh)).join('')}</div>` : x.vazio ? vazioBusca : vazioSecao)).join('');
 }
 
 /* ================= vista: lista ================= */
@@ -541,8 +575,8 @@ function linhaPagina(p) {
 function vistaLista() {
   const ps = E.cfg.paginas;
   const cab = `<thead><tr><th>Página</th><th>Status</th><th class="dir">Resposta</th><th class="dir">Visitas ${E.dias}d</th><th class="dir">Leads</th><th class="dir">Conv.</th><th class="dir">Google celular</th><th class="dir">Google PC</th><th></th></tr></thead>`;
-  return topo('Lista', 'Todas as páginas com status, números e nota do Google.', botoesPadrao()) + filtrosGrupo() + filtroPsi() +
-    secoesPorGrupo(filtrarPsi(ps)).map((x) => tituloSecao(x) + (x.paginas.length ? `<div class="tabela-wrap"><table>${cab}<tbody>${x.paginas.map(linhaPagina).join('')}</tbody></table></div>` : vazioSecao)).join('');
+  return topo('Lista', 'Todas as páginas com status, números e nota do Google.', botoesPadrao()) + barraFiltros() + filtrosGrupo() +
+    secoesDaTela(ps).map((x) => tituloSecao(x) + (x.paginas.length ? `<div class="tabela-wrap"><table>${cab}<tbody>${x.paginas.map(linhaPagina).join('')}</tbody></table></div>` : x.vazio ? vazioBusca : vazioSecao)).join('');
 }
 
 /* ================= vista: trackeamento ================= */
@@ -1358,7 +1392,22 @@ function abrirMassa() {
   };
 }
 
-document.addEventListener('input', (ev) => { if (ev.target.id === 'busca-grupo') buscarGrupos(ev.target.value); });
+let tBusca;
+document.addEventListener('input', (ev) => {
+  if (ev.target.id !== 'busca-paginas') return;
+  E.buscaPag = ev.target.value;
+  clearTimeout(tBusca);
+  tBusca = setTimeout(() => {
+    const pos = ev.target.selectionStart;
+    renderVista(false);
+    const i = $('#busca-paginas');
+    if (i) { i.focus(); try { i.setSelectionRange(pos, pos); } catch {} }
+  }, 180);
+});
+document.addEventListener('change', (ev) => {
+  if (ev.target.id === 'sel-psi') { E.filtroPsi = ev.target.value; try { localStorage.setItem('r1-filtro-psi', E.filtroPsi); } catch {} renderVista(false); }
+  if (ev.target.id === 'sel-ordem') { E.ordem = ev.target.value; try { localStorage.setItem('r1-ordem', E.ordem); } catch {} renderVista(false); }
+});
 
 /* ================= cliques ================= */
 document.addEventListener('click', async (ev) => {
