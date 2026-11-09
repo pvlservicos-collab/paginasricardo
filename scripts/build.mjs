@@ -41,6 +41,8 @@ export async function build({ silencioso = false } = {}) {
   await copiarPasta(path.join(RAIZ, 'painel'), path.join(DIST, 'painel'));
   // Impostômetro do Raio-X Tributário (login próprio; API em api/raiox/)
   await copiarPasta(path.join(RAIZ, 'raiox'), path.join(DIST, 'raioxtributariodash'));
+  // Fábrica de Formatos (monta os vídeos no navegador; IA e dados em api/fabrica.mjs)
+  await copiarPasta(path.join(RAIZ, 'fabrica'), path.join(DIST, 'fabrica'));
   // Páginas como arquivos estáticos (cliques de anúncio saem do cache; ver scripts/estaticas.mjs).
   // Na Vercel, se falhar, o build falha: sem elas os domínios do site dariam 404, então é melhor manter a versão anterior.
   if (process.env.VERCEL || process.env.GERAR_ESTATICAS) {

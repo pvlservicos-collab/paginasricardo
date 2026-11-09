@@ -18,11 +18,15 @@
       "maxDuration": 60,
       "memory": 1024,
       "includeFiles": "{paginas,criativos}/**"
+    },
+    "api/fabrica.mjs": {
+      "maxDuration": 300,
+      "memory": 1024
     }
   },
   "headers": [
     {
-      "source": "/((?!painel|trackeamento|raioxtributariodash).*)",
+      "source": "/((?!painel|trackeamento|raioxtributariodash|fabrica).*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
@@ -175,6 +179,47 @@
       ]
     },
     {
+      "source": "/fabrica(/.*)?",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; connect-src 'self' blob:; form-action 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+        }
+      ]
+    },
+    {
       "source": "/api/((?!servir).*)",
       "headers": [
         {
@@ -221,7 +266,7 @@
       "destination": "/painel"
     },
     {
-      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|trackeamento$|wp-content|_vercel|_p/|zz-lab|\\.well-known).+)",
+      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|fabrica|trackeamento$|wp-content|_vercel|_p/|zz-lab|\\.well-known).+)",
       "has": [
         {
           "type": "host",
@@ -231,7 +276,7 @@
       "destination": "/_p/:host/:caminho"
     },
     {
-      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|trackeamento$|wp-content|_vercel|_p/|\\.well-known).+)",
+      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|fabrica|trackeamento$|wp-content|_vercel|_p/|\\.well-known).+)",
       "destination": "/api/servir?caminho=:caminho"
     }
   ],
