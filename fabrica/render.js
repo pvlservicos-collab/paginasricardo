@@ -80,7 +80,36 @@
 
   /* Desenha texto com quebra automática, encolhe até caber em w x h.
      *palavras* entre asteriscos ganham a cor o.hi (e o peso o.hiWeight). */
+  /* ---------- textos arrastáveis ----------
+     Enquanto um formato é desenhado dentro de R.comCampos, cada texto que é o valor de um campo pode ganhar um
+     deslocamento (arrastado com o mouse no editor) e tem a sua área registrada para o clique. */
+  R.ctx = null;
+  R.comCampos = (mapa, desl, fn) => {
+    const antes = R.ctx; R.ctx = { mapa, desl: desl || {}, caixas: [], dentro: null };
+    try { fn(); return R.ctx.caixas; } finally { R.ctx = antes; }
+  };
+  const campoDe = str => (R.ctx && typeof str === 'string' && str.trim() ? R.ctx.mapa.get(str) : null);
+  const registrar = (c, k, x, y, w, h) => {
+    if (!R.ctx || !k) return;
+    const m = c.getTransform(), p = [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].map(([a, b]) => [m.a * a + m.c * b + m.e, m.b * a + m.d * b + m.f]);
+    const xs = p.map(q => q[0]), ys = p.map(q => q[1]);
+    R.ctx.caixas.push({ k, x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) });
+  };
+  const textoBase = (c, str, o) => R._text(c, str, o);
   R.text = (c, str, o) => {
+    const k = R.ctx && !R.ctx.dentro && !o.dry ? campoDe(str) : null;
+    const d = k && R.ctx.desl[k];
+    if (!k) return textoBase(c, str, o);
+    c.save(); if (d) c.translate(d.dx || 0, d.dy || 0);
+    const r = textoBase(c, str, o);
+    if (r.lines) {
+      const w = o.w, x = o.align === 'center' ? o.x + (o.w - r.width) / 2 : o.align === 'right' ? o.x + o.w - r.width : o.x;
+      registrar(c, k, Math.min(x, o.x + w) - 6, r.y - 6, r.width + 12, r.height + 12);
+    }
+    c.restore();
+    return d ? { ...r, y: r.y + (d.dy || 0), bottom: r.bottom + (d.dy || 0) } : r;
+  };
+  R._text = (c, str, o) => {
     if (!String(str ?? '').trim()) return { height: 0, size: o.size, y: o.y, bottom: o.y, lines: 0, width: 0 };
     const toks = tokens(str); const lh = o.lh || 1.18; const min = o.min || Math.round(o.size * 0.5);
     let size = o.size, lines;
@@ -153,10 +182,12 @@
     c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.clip();
     const img = B.logo;
     if (img && B.mostrarLogo) {
-      const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
-      const s = Math.max(2 * r / iw, 2 * r / ih) * (B.logoZoom || 1);
+      const iw = img.naturalWidth || img.width || 300, ih = img.naturalHeight || img.height || 300;
+      // "caber": a logo inteira dentro do círculo (bom para logos largas); "cobrir": preenche o círculo (foto)
+      const caber = B.logoModo === 'caber';
+      const s = (caber ? Math.min(2 * r * 0.78 / iw, 2 * r * 0.78 / ih) : Math.max(2 * r / iw, 2 * r / ih)) * (B.logoZoom || 1);
       const w = iw * s, h = ih * s;
-      c.fillStyle = '#fff'; c.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+      c.fillStyle = B.logoFundo || '#fff'; c.fillRect(cx - r, cy - r, 2 * r, 2 * r);
       c.drawImage(img, cx - w / 2 + (B.logoX || 0) * r, cy - h / 2 + (B.logoY || 0) * r, w, h);
     } else {
       c.fillStyle = B.primaria; c.fillRect(cx - r, cy - r, 2 * r, 2 * r);
@@ -219,7 +250,19 @@
   };
 
   /* caixinha de perguntas do Instagram; devolve o y final */
+  /* a caixinha inteira (cabeçalho + pergunta) se move junto quando um dos dois textos é arrastado */
   R.pergunta = (c, B, x, y, w, cab, perg, o = {}) => {
+    const k = campoDe(perg) || campoDe(cab), d = k && R.ctx.desl[k];
+    if (!k) return caixinha(c, B, x, y, w, cab, perg, o);
+    c.save(); if (d) c.translate(d.dx || 0, d.dy || 0);
+    const antes = R.ctx.dentro; R.ctx.dentro = k;
+    let fim;
+    try { fim = caixinha(c, B, x, y, w, cab, perg, o); } finally { R.ctx.dentro = antes; }
+    registrar(c, k, x, y - (o.avatar ? 60 : 0), w, fim - y + (o.avatar ? 60 : 0));
+    c.restore();
+    return fim + (d ? d.dy || 0 : 0);
+  };
+  const caixinha = (c, B, x, y, w, cab, perg, o = {}) => {
     const pad = 44, head = o.head || B.primaria, hh = o.avatar ? 140 : 110;
     const m = R.text(c, perg, { x: x + pad, y: 0, w: w - 2 * pad, size: 46, min: 28, font: B.fX, weight: 600, align: 'center', dry: true, maxLines: 5 });
     const bh = Math.max(150, m.height + 70);
@@ -313,12 +356,16 @@
     c.restore();
   };
   /* camadas fixas de um formato (fundo e topo) em 1080x1920, para a exportação */
-  R.fixas = (f, B, T) => {
+  /* valor de cada campo -> nome do campo (para achar o texto que foi arrastado) */
+  R.mapaCampos = (f, T) => { const m = new Map(); f.campos.forEach(c => { const v = T[c.k]; if (typeof v === 'string' && v.trim() && !m.has(v)) m.set(v, c.k); }); return m; };
+  R.fixas = (f, B, T, desl) => {
     const mk = () => { const c = document.createElement('canvas'); c.width = 1080; c.height = 1920; return c; };
     const b = mk(), t = mk(); const bx = b.getContext('2d');
     bx.fillStyle = '#000'; bx.fillRect(0, 0, 1080, 1920);
-    if (f.base) f.base(bx, B, T);
-    if (f.topo) f.topo(t.getContext('2d'), B, T);
+    R.comCampos(R.mapaCampos(f, T), desl, () => {
+      if (f.base) f.base(bx, B, T);
+      if (f.topo) f.topo(t.getContext('2d'), B, T);
+    });
     return { base: b, topo: t, slots: f.slots(B, T) };
   };
 

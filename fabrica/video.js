@@ -5,7 +5,7 @@
    Expõe window.Video e dispara o evento "video-pronto". */
 import {
   Input, BlobSource, ALL_FORMATS, Output, Mp4OutputFormat, WebMOutputFormat, BufferTarget, Conversion,
-  VideoSample, QUALITY_HIGH, canEncodeVideo, canEncodeAudio,
+  VideoSample, VideoSampleSink, QUALITY_HIGH, canEncodeVideo, canEncodeAudio,
 } from './vendor/mediabunny-1.61.6.min.mjs';
 
 const W = 1080, H = 1920, FPS = 30;
@@ -56,9 +56,24 @@ async function copiaAnalise(arquivo, aoProgredir) {
 }
 
 // Monta um formato: base (fundo) + vídeo nos espaços (slots) + topo, quadro a quadro.
-// desenhar(ctx, amostra) recebe o contexto 1080x1920 e o quadro do vídeo de origem.
+// desenhar(ctx, amostra, amostra2) recebe o contexto 1080x1920, o quadro do vídeo principal e, nos formatos de
+// tela dividida com um segundo vídeo, o quadro desse outro vídeo no mesmo instante (ele repete se for mais curto).
 let execucao = null;
-async function exportar(arquivo, desenhar, aoProgredir) {
+async function exportar(arquivo, desenhar, aoProgredir, { extra = null } = {}) {
+  let input2 = null, quadros2 = null;
+  if (extra) {
+    input2 = novoInput(extra);
+    const v2 = await input2.getPrimaryVideoTrack();
+    if (!v2 || !(await v2.canDecode())) throw new Error('O navegador não consegue ler o segundo vídeo. Use um MP4 H.264.');
+    const dur2 = Math.max(0.04, await input2.computeDuration());
+    const dur1 = await (async () => { const i = novoInput(arquivo); try { return await i.computeDuration(); } finally { i.dispose?.(); } })();
+    const tempos = Array.from({ length: Math.ceil(dur1 * FPS) + 2 }, (_, k) => (k / FPS) % dur2);
+    quadros2 = new VideoSampleSink(v2).samplesAtTimestamps(tempos)[Symbol.asyncIterator]();
+  }
+  try { return await exportarUm(arquivo, desenhar, aoProgredir, quadros2); }
+  finally { if (quadros2) await quadros2.return?.(); input2?.dispose?.(); }
+}
+async function exportarUm(arquivo, desenhar, aoProgredir, quadros2) {
   if (!(await canEncodeVideo('avc', { width: W, height: H }).catch(() => false))) {
     throw new Error('Este navegador não consegue gerar MP4 (H.264). Use o Google Chrome ou o Microsoft Edge atualizados.');
   }
@@ -71,8 +86,10 @@ async function exportar(arquivo, desenhar, aoProgredir) {
     video: {
       codec: 'avc', frameRate: FPS, bitrate: QUALITY_HIGH, forceTranscode: true, keyFrameInterval: 2,
       processedWidth: W, processedHeight: H,
-      process: (amostra) => {
-        desenhar(ctx, amostra);
+      process: async (amostra) => {
+        let a2 = null;
+        if (quadros2) { const r = await quadros2.next(); a2 = r.done ? null : r.value; }
+        try { desenhar(ctx, amostra, a2); } finally { a2?.close?.(); }
         // copia o quadro já pronto (a mesma tela é reaproveitada no quadro seguinte)
         return new VideoSample(tela, { timestamp: amostra.timestamp, duration: amostra.duration });
       },

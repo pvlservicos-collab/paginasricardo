@@ -49,7 +49,7 @@ const FONTES_TEXTO = ['Inter', 'Montserrat', 'Poppins', 'Roboto', 'Open Sans', '
 const PREV = ['live', 'tweet', 'fofoca-1', 'noticia', 'oferta-direta'];
 const novaMarca = () => ({
   id: 'm' + Date.now().toString(36), nome: 'Minha marca', arroba: '@minhamarca', pessoa: '', verificado: true, mostrarLogo: true, mostrarArroba: true,
-  logo: '', logoZoom: 1, logoX: 0, logoY: 0,
+  logo: '', logoZoom: 1, logoX: 0, logoY: 0, logoModo: 'cobrir', logoFundo: '#FFFFFF',
   primaria: '#E0261B', secundaria: '#F0287A', destaque: '#22C55E', escuro: '#0E0E10', claro: '#FFFFFF',
   fonteTitulo: 'Anton', fonteTexto: 'Inter', nicho: '', publico: '', oferta: '', tom: '', cta: '', instrucoes: ''
 });
@@ -65,10 +65,11 @@ document.body.appendChild(V);
 
 /* ---------------- marca / textos ---------------- */
 const logoCache = new Map();
+const aoCarregarLogo = new Set(); // telas que desenham logos fora do palco de prévia
 function logoImg(m) {
   if (!m.logo) return null;
   let im = logoCache.get(m.logo);
-  if (!im) { im = new Image(); im.onload = () => rebuildAll(); im.src = m.logo; logoCache.set(m.logo, im); }
+  if (!im) { im = new Image(); im.onload = () => { rebuildAll(); aoCarregarLogo.forEach(fn => fn()); }; im.src = m.logo; logoCache.set(m.logo, im); }
   return im.complete && im.naturalWidth ? im : null;
 }
 function marca() {
@@ -95,7 +96,8 @@ const salvarMarcas = debounce(() => api('marcas', { valor: S.marcas }).catch(e =
 const salvarProj = debounce(() => {
   if (!S.proj) return;
   const arquivo = ARQUIVOS.get(S.proj.id);
-  DB.put({ id: S.proj.id, proj: JSON.parse(JSON.stringify(S.proj)), arquivo, criado: S.proj.criado }).catch(e => toast('Não consegui guardar o projeto neste navegador: ' + e.message));
+  const extras = Object.fromEntries([...EXTRAS].map(([id, x]) => [id, x.arquivo]));
+  DB.put({ id: S.proj.id, proj: JSON.parse(JSON.stringify(S.proj)), arquivo, extras, criado: S.proj.criado }).catch(e => toast('Não consegui guardar o projeto neste navegador: ' + e.message));
 }, 600);
 
 /* ---------------- prompts ---------------- */
@@ -127,9 +129,23 @@ const VARS = [
 
 /* ---------------- palco de prévia ---------------- */
 const OBS = new IntersectionObserver(es => es.forEach(e => { const s = e.target._stage; if (s) { s.visivel = e.isIntersecting; s.dirty = true; } }));
+/* segundo vídeo (espaço de baixo) dos formatos de tela dividida: id do formato -> { arquivo, video } */
+const EXTRAS = new Map();
+const DOIS_VIDEOS = id => FMT[id] && FMT[id].slots(Bobj(), Tobj(FMT[id], Bobj())).length > 1;
+function ligarExtra(id, arquivo) {
+  const ant = EXTRAS.get(id); if (ant) { URL.revokeObjectURL(ant.video.src); ant.video.remove(); EXTRAS.delete(id); }
+  if (!arquivo) return;
+  const v = document.createElement('video');
+  v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'auto';
+  v.style.cssText = V.style.cssText; v.src = URL.createObjectURL(arquivo);
+  ['loadeddata', 'seeked'].forEach(e => v.addEventListener(e, () => S.stages.forEach(s => { s.dirty = true; })));
+  document.body.appendChild(v); v.play().catch(() => {});
+  EXTRAS.set(id, { arquivo, video: v });
+}
+const desl = f => S.proj?.formatos?.[f.id]?.desl || {};
 class Stage {
-  constructor(canvas, f) {
-    this.c = canvas; this.f = f; this.k = canvas.width / 1080; this.visivel = true;
+  constructor(canvas, f, { editavel = false } = {}) {
+    this.c = canvas; this.f = f; this.k = canvas.width / 1080; this.visivel = true; this.editavel = editavel; this.caixas = []; this.foco = null;
     this.b = document.createElement('canvas'); this.t = document.createElement('canvas');
     this.b.width = this.t.width = canvas.width; this.b.height = this.t.height = canvas.height;
     canvas._stage = this; S.stages.add(this); OBS.observe(canvas);
@@ -144,22 +160,33 @@ class Stage {
       x.setTransform(this.k, 0, 0, this.k, 0, 0);
       try { if (fn) fn(x, B, T); } catch (e) { console.error(this.f.id, e); }
     };
-    pinta(this.b, this.f.base, true); pinta(this.t, this.f.topo, false);
+    this.caixas = R.comCampos(R.mapaCampos(this.f, T), desl(this.f), () => { pinta(this.b, this.f.base, true); pinta(this.t, this.f.topo, false); });
     this.dirty = true;
   }
   draw() {
     const x = this.c.getContext('2d');
     x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(this.b, 0, 0);
     x.setTransform(this.k, 0, 0, this.k, 0, 0);
-    const fr = Fobj(this.f), fc = face();
-    this.slots.forEach((s, i) => R.slot(x, V, s, fr[i], fc));
+    const fr = Fobj(this.f), fc = face(), ex = EXTRAS.get(this.f.id);
+    this.slots.forEach((s, i) => (i === 1 && ex ? R.slot(x, ex.video, s, fr[i], null) : R.slot(x, V, s, fr[i], fc)));
     x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(this.t, 0, 0);
+    if (this.editavel) {
+      // contorno dos textos que dá para arrastar
+      x.save(); x.lineWidth = 2;
+      for (const cx of this.caixas) {
+        x.setLineDash(cx.k === this.foco ? [] : [6, 5]);
+        x.strokeStyle = cx.k === this.foco ? '#F2B544' : 'rgba(255,255,255,.75)';
+        x.strokeRect(cx.x, cx.y, cx.w, cx.h);
+      }
+      x.restore();
+    }
   }
+  caixaEm(px, py) { for (let i = this.caixas.length - 1; i >= 0; i--) { const b = this.caixas[i]; if (px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h) return b; } return null; }
 }
 (function loop() {
   for (const s of S.stages) {
     if (!s.c.isConnected) { S.stages.delete(s); OBS.unobserve(s.c); continue; }
-    if (s.visivel && (s.dirty || !V.paused)) { s.draw(); s.dirty = false; }
+    if (s.visivel && (s.dirty || !V.paused || (EXTRAS.has(s.f.id) && !EXTRAS.get(s.f.id).video.paused))) { s.draw(); s.dirty = false; }
   }
   requestAnimationFrame(loop);
 })();
@@ -211,7 +238,9 @@ function proporcao(w, h) {
   return r < 1 ? 'vertical' : 'horizontal';
 }
 let urlVideo = null;
-function abrirProj(p, arquivo) {
+function abrirProj(p, arquivo, extras = {}) {
+  [...EXTRAS.keys()].forEach(id => ligarExtra(id, null));
+  Object.entries(extras || {}).forEach(([id, a]) => a && ligarExtra(id, a));
   S.proj = p; p.formatos = p.formatos || {}; p.selecionados = p.selecionados || [];
   if (!p.marcaId && marca()) p.marcaId = marca().id;
   S.rxErro = null; S.jobs = {}; ls.set('proj', p.id);
@@ -223,7 +252,7 @@ function abrirProj(p, arquivo) {
 async function abrirGuardado(id) {
   const reg = await DB.get(id);
   if (!reg || !reg.arquivo) throw new Error('Esse criativo não está mais guardado neste navegador.');
-  abrirProj(reg.proj, reg.arquivo);
+  abrirProj(reg.proj, reg.arquivo, reg.extras);
 }
 function viewCriativo() {
   const p = S.proj;
@@ -237,7 +266,7 @@ function viewCriativo() {
     </section>
     <section class="painel"><h2>Vídeo de origem</h2>
       ${p ? `<video src="${p.url}" controls playsinline class="previa"></video>
-        <div class="info"><b>${h(p.arquivo)}</b><span>${proporcao(p.largura, p.altura)} • ${p.largura} × ${p.altura} • ${fmtDur(p.duracao)}${p.raiox ? ' • raio-x feito' : ''}</span></div>
+        <div class="info"><div class="nome-l"><b id="p-nome" title="${h(p.nome)}">${h(p.nome)}</b><button class="lapis" id="p-renomear" title="Renomear (é o nome usado nos arquivos exportados)" aria-label="Renomear">✎</button></div><span>${proporcao(p.largura, p.altura)} • ${p.largura} × ${p.altura} • ${fmtDur(p.duracao)}${p.raiox ? ' • raio-x feito' : ''}</span></div>
         <div class="acoes"><button class="btn pri" id="seguir">Continuar para marca →</button></div>`
       : '<div class="vazio">Nenhum vídeo ainda</div>'}
     </section></div>`;
@@ -248,6 +277,13 @@ function viewCriativo() {
   drop.ondrop = e => { e.preventDefault(); drop.classList.remove('sobre'); const f = e.dataTransfer.files[0]; if (f) enviar(f); };
   if (p) {
     $('#seguir').onclick = () => irPara('marca');
+    $('#p-renomear').onclick = () => {
+      const el = $('#p-nome').parentElement;
+      el.innerHTML = `<input id="p-nome-in" maxlength="80" value="${h(p.nome)}"><button class="lapis" id="p-ok" aria-label="Salvar nome">✓</button>`;
+      const inp = $('#p-nome-in'); inp.focus(); inp.select();
+      const ok = () => { const v = inp.value.trim(); if (v) { p.nome = v; salvarProj(); toast('Nome salvo'); } viewCriativo(); };
+      $('#p-ok').onclick = ok; inp.onkeydown = e => { if (e.key === 'Enter') ok(); if (e.key === 'Escape') viewCriativo(); };
+    };
     $('#tr').oninput = e => { p.transcricaoManual = e.target.value; salvarProj(); };
   }
   DB.todos().then(regs => {
@@ -288,13 +324,16 @@ function viewMarca() {
   const rng = (k, rot, a, b) => `<div class="rng"><span>${rot}</span><input type="range" data-m="${k}" min="${a}" max="${b}" step="0.01" value="${m[k] ?? 0}"></div>`;
   main.innerHTML = `<div class="grade2 marca">
   <section class="painel"><h1>Quem assina os anúncios</h1><p class="sub">A identidade da organização entra nos formatos (cores, fontes, foto, @) e em todos os prompts da IA.</p>
-    <div class="linha"><select id="m-sel" style="flex:1;min-width:180px">${S.marcas.map(x => `<option value="${x.id}" ${x.id === m.id ? 'selected' : ''}>${h(x.nome)}</option>`).join('')}</select>
-      <button class="btn sec p" id="m-nova">+ Nova</button><button class="btn sec p" id="m-dup">Duplicar</button><button class="btn sec p perigo" id="m-del">Excluir</button></div>
+    <h3>Marcas cadastradas</h3>
+    <div class="marcas-lista" id="m-lista">${S.marcas.map(x => `<button data-marca="${x.id}" class="${x.id === m.id ? 'on' : ''}" title="${h(x.nome)}"><canvas width="64" height="64" data-av="${x.id}"></canvas><span>${h(x.nome)}</span></button>`).join('')}</div>
+    <div class="linha"><button class="btn sec p" id="m-nova">+ Nova marca</button><button class="btn sec p" id="m-dup">Duplicar</button><button class="btn sec p perigo" id="m-del">Excluir</button></div>
     <h3>Identidade da marca</h3>
     <div class="logo-l"><div class="logo-prev" id="logo-prev"></div><div>
       <div class="linha"><label class="btn sec p">+ Trocar imagem<input type="file" id="m-logo" accept="image/*" hidden></label><button class="btn sec p" id="m-aj">Ajustar</button>${m.logo ? '<button class="btn sec p" id="m-rm">Remover</button>' : ''}</div>
       <p class="dica">Foto de perfil ou logo (PNG ou JPG). Depois de escolher, posicione e ajuste o tamanho.</p></div></div>
-    <div id="aj" class="aj" hidden>${rng('logoZoom', 'Tamanho', 1, 3)}${rng('logoX', 'Horizontal', -1, 1)}${rng('logoY', 'Vertical', -1, 1)}</div>
+    <div id="aj" class="aj" hidden>${rng('logoZoom', 'Tamanho', 0.5, 3)}${rng('logoX', 'Horizontal', -1, 1)}${rng('logoY', 'Vertical', -1, 1)}
+      <label class="campo"><span>Logo no círculo</span><select data-m="logoModo"><option value="cobrir" ${m.logoModo !== 'caber' ? 'selected' : ''}>Preencher o círculo (foto)</option><option value="caber" ${m.logoModo === 'caber' ? 'selected' : ''}>Caber inteira (logo larga)</option></select></label>
+      ${cor('logoFundo', 'Fundo do círculo')}</div>
     <div class="g2" style="margin-top:16px">${inp('nome', 'Nome da marca')}${inp('arroba', '@ do Instagram', '@suamarca')}</div>
     ${inp('pessoa', 'Nome da pessoa que aparece <em>(Tweet, Meet)</em>', 'Ex.: Nay Mendes')}
     <div class="toggles">${tog('mostrarLogo', 'Mostrar logo')}${tog('mostrarArroba', 'Mostrar @')}${tog('verificado', 'Selo de verificado')}</div>
@@ -313,6 +352,14 @@ function viewMarca() {
   </section></div>`;
 
   new Stage($('#cv-prev'), FMT[PREV[S.abaPrev]]);
+  const avatares = () => $$('[data-av]').forEach(cv => {
+    const x = S.marcas.find(y => y.id === cv.dataset.av); if (!x) return;
+    const c = cv.getContext('2d'); c.clearRect(0, 0, 64, 64);
+    R.avatar(c, 32, 32, 30, { ...x, logo: logoImg(x), fT: x.fonteTitulo || 'Anton', mostrarLogo: true });
+  });
+  avatares();
+  aoCarregarLogo.clear(); aoCarregarLogo.add(() => { if (S.passo === 'marca') { avatares(); logoPrev(); } });
+  $('#m-lista').onclick = e => { const b = e.target.closest('[data-marca]'); if (b) escolher(b.dataset.marca); };
   const logoPrev = () => {
     const el = $('#logo-prev'); if (!el) return;
     if (!m.logo) { el.textContent = '+'; return; }
@@ -326,7 +373,8 @@ function viewMarca() {
       const k = el.dataset.m;
       m[k] = el.type === 'checkbox' ? el.checked : el.type === 'range' ? +el.value : el.value;
       if (el.type === 'color') { const t = $(`[data-hex="${k}"]`); if (t) t.value = el.value; }
-      if (k === 'nome') { const o = $(`#m-sel option[value="${m.id}"]`); if (o) o.textContent = m.nome; }
+      if (k === 'nome') { const o = $(`[data-marca="${m.id}"] span`); if (o) o.textContent = m.nome; }
+      if (/^logo|^primaria|^nome/.test(k)) avatares();
       salvarMarcas(); mudou();
     };
   });
@@ -353,7 +401,6 @@ function viewMarca() {
   };
   if ($('#m-rm')) $('#m-rm').onclick = () => { m.logo = ''; salvarMarcas(); viewMarca(); rebuildAll(); };
   const escolher = id => { ls.set('marca', id); if (S.proj) { S.proj.marcaId = id; salvarProj(); } viewMarca(); rebuildAll(); };
-  $('#m-sel').onchange = e => escolher(e.target.value);
   $('#m-nova').onclick = () => { const n = novaMarca(); S.marcas.push(n); salvarMarcas(); escolher(n.id); };
   $('#m-dup').onclick = () => { const n = { ...m, id: 'm' + Date.now().toString(36), nome: m.nome + ' (cópia)' }; S.marcas.push(n); salvarMarcas(); escolher(n.id); };
   $('#m-del').onclick = () => {
@@ -383,16 +430,19 @@ function viewFormatos() {
     <div class="topo-cat"><div><h1>Catálogo de formatos</h1><p class="sub" style="margin:0">Escolha como o seu criativo vai aparecer.</p></div><div class="rx ${S.rxErro ? 'erro' : ''}" id="rx">${rxHTML()}</div></div>
     <div class="linha entre"><div class="abas" id="filtro">${[['todos', `Todos (${FORMATOS.length})`], ['encaixa', `Encaixa (${nE})`], ['adaptar', `Adaptar (${FORMATOS.length - nE})`]].map(([k, t]) => `<button data-f="${k}" class="${S.filtro === k ? 'on' : ''}">${t}</button>`).join('')}</div>
       <div class="linha"><button class="btn sec p" id="s-rec">Selecionar recomendados</button><button class="btn sec p" id="s-all">Selecionar todos</button><button class="btn sec p" id="s-none">Limpar</button></div></div>
-    <div class="cat">${lista.map(f => `<div class="card ${sel.has(f.id) ? 'on' : ''}" data-id="${f.id}"><div class="tela"><canvas width="270" height="480"></canvas><span class="chk">✓</span></div>
+    ${painelRaiox(rx)}
+    <div class="cat">${lista.map(f => `<div class="card ${sel.has(f.id) ? 'on' : ''}" data-id="${f.id}"><div class="faixa-rev">✓ Marcado para revisão</div><div class="tela"><canvas width="270" height="480"></canvas><span class="chk">✓</span></div>
       <div class="card-n"><b>${h(f.nome)}</b><span class="pill ${statusDe(f.id)}">${statusDe(f.id) === 'encaixa' ? 'Encaixa' : 'Adaptar'}</span></div>
-      <p class="motivo">${h(rx?.formatos?.[f.id]?.motivo || f.desc)}</p></div>`).join('')}</div>
+      <p class="motivo">${h(rx?.formatos?.[f.id]?.motivo || f.desc)}</p>
+      <button class="btn sec p editar-card" data-editar="${f.id}">✎ Editar</button></div>`).join('')}</div>
   </section>
   <div class="rodape"><span id="n-sel"></span><button class="btn pri" id="gerar">Gerar textos →</button></div>`;
   const conta = () => { const n = S.proj.selecionados.length; $('#n-sel').textContent = `${n} ${n === 1 ? 'formato selecionado' : 'formatos selecionados'}`; $('#gerar').disabled = !n; };
   conta();
   $$('.card').forEach(el => {
     new Stage($('canvas', el), FMT[el.dataset.id]);
-    el.onclick = () => {
+    el.onclick = e => {
+      if (e.target.closest('[data-editar]')) { e.stopPropagation(); return abrirEditor(el.dataset.id); }
       const id = el.dataset.id, s = new Set(S.proj.selecionados);
       s.has(id) ? s.delete(id) : s.add(id);
       S.proj.selecionados = FORMATOS.map(f => f.id).filter(x => s.has(x));
@@ -406,8 +456,86 @@ function viewFormatos() {
   $('#filtro').onclick = e => { const b = e.target.closest('[data-f]'); if (b) { S.filtro = b.dataset.f; viewFormatos(); } };
   $('#rx').onclick = e => { if (e.target.id === 'rx-de-novo') rodarRaiox(); };
   $('#gerar').onclick = gerarTextos;
+  const rp = $('.raiox-p'); if (rp) rp.ontoggle = () => ls.set('rxAberto', rp.open ? '1' : '0');
   if (!rx && temIA() && !S.rxRodando && !S.rxErro) rodarRaiox();
 }
+/* o que a IA viu no criativo (aparece em cima do catálogo depois do raio-x) */
+function painelRaiox(rx) {
+  if (!rx) return '';
+  const li = (t, v) => (v && String(v).trim() ? `<div><span>${t}</span><p>${h(Array.isArray(v) ? v.join('; ') : v)}</p></div>` : '');
+  return `<details class="raiox-p" ${ls.get('rxAberto') === '0' ? '' : 'open'}><summary>O que a IA viu no criativo ${rx.modelo ? `<small>${h(rx.modelo)}</small>` : ''}</summary>
+    <p class="dica">O Gemini assistiu o vídeo inteiro (fala, texto na tela e enquadramento). Com isso ele marcou cada formato: <b>Encaixa</b> = funciona com a moldura e os textos; <b>Adaptar</b> = vale ajustar texto ou enquadramento antes (use ✎ Editar). O rosto que ele achou centraliza o vídeo automaticamente.</p>
+    <div class="raiox-g">${li('Resumo', rx.resumo)}${li('Gancho', rx.gancho)}${li('Promessa', rx.promessa)}${li('Dores', rx.dores)}${li('Público', rx.publico)}${li('Tom', rx.tom)}${li('Tipo de vídeo', rx.tipo)}</div>
+    ${rx.transcricao ? `<details class="trans"><summary>Transcrição da fala</summary><p>${h(rx.transcricao)}</p></details>` : ''}
+  </details>`;
+}
+
+/* editor de um formato: prévia grande com os textos arrastáveis, campos, enquadramento e o vídeo de baixo */
+function abrirEditor(id) {
+  const f = FMT[id], st = pf(id), m = $('#modal');
+  st.desl = st.desl || {};
+  const B = Bobj(), T = Tobj(f, B), slots = f.slots(B, T), ex = EXTRAS.get(id);
+  const fr = i => st.frames[i] || {};
+  const rngF = (i, k, rot, a, b) => `<div class="rng"><span>${rot}</span><input type="range" data-fr="${i}:${k}" min="${a}" max="${b}" step="0.01" value="${fr(i)[k] ?? (k === 'zoom' ? 1 : 0.5)}"></div>`;
+  m.innerHTML = `<div class="mod-fundo"><div class="mod editor">
+    <div class="ed-tela"><div class="tela"><canvas width="540" height="960"></canvas></div><p class="dica">Arraste os textos com o mouse para mudar de lugar.</p></div>
+    <div class="ed-lado">
+      <div class="linha entre"><h2>${h(f.nome)} <span class="pill ${statusDe(id)}">${statusDe(id) === 'encaixa' ? 'Encaixa' : 'Adaptar'}</span></h2><button class="btn sec p" id="ed-x">Fechar</button></div>
+      ${S.proj.raiox?.formatos?.[id]?.motivo ? `<p class="motivo">IA: ${h(S.proj.raiox.formatos[id].motivo)}</p>` : ''}
+      <div class="campos">${f.campos.map(c => {
+        const v = T[c.k] ?? '';
+        const campo = c.max > 60 ? `<textarea data-k="${c.k}" rows="${c.max > 140 ? 4 : 2}">${h(v)}</textarea>` : `<input data-k="${c.k}" value="${h(v)}">`;
+        return `<label class="campo"><span>${h(c.rotulo)}<small data-cont="${c.k}" class="${len(v) > c.max ? 'over' : ''}">${len(v)}/${c.max}</small></span>${campo}</label>`;
+      }).join('')}</div>
+      <div class="linha"><button class="btn sec p" id="ed-pos">↺ Textos no lugar original</button>${temIA() ? '<button class="btn sec p" id="ed-ia">↻ Reescrever com IA</button>' : ''}</div>
+      <h3>Enquadramento do vídeo</h3>
+      ${slots.map((sl, i) => `<div class="slot"><b>${slots.length > 1 ? (i === 0 ? 'Vídeo de cima' : 'Vídeo de baixo') : 'Vídeo'} <button class="link" data-auto="${i}">automático</button></b>${rngF(i, 'zoom', 'Zoom', 1, 3)}${rngF(i, 'px', 'Horizontal', 0, 1)}${rngF(i, 'py', 'Vertical', 0, 1)}</div>`).join('')}
+      ${slots.length > 1 ? `<div class="extra"><b>Outro vídeo no espaço de baixo</b><p class="dica">${ex ? 'Usando: ' + h(ex.arquivo.name) : 'Hoje o mesmo vídeo aparece em cima e embaixo.'}</p>
+        <div class="linha"><label class="btn sec p">${ex ? 'Trocar vídeo' : '+ Adicionar vídeo'}<input type="file" id="ed-v2" accept="video/*" hidden></label>${ex ? '<button class="btn sec p" id="ed-v2x">Remover</button>' : ''}</div></div>` : ''}
+    </div></div></div>`;
+  const cv = $('canvas', m), stage = new Stage(cv, f, { editavel: true });
+  const fechar = () => { m.innerHTML = ''; document.removeEventListener('keydown', esc); if (S.passo === 'formatos') viewFormatos(); else if (S.passo === 'revisao') viewRevisao(); };
+  const esc = e => { if (e.key === 'Escape') fechar(); };
+  document.addEventListener('keydown', esc);
+  $('#ed-x').onclick = fechar;
+  $('.mod-fundo', m).onclick = e => { if (e.target.classList.contains('mod-fundo')) fechar(); };
+  const redesenha = debounce(() => stage.rebuild(), 80);
+  $$('[data-k]', m).forEach(inp => inp.oninput = () => {
+    const c = f.campos.find(x => x.k === inp.dataset.k);
+    st.textos[c.k] = inp.value;
+    const ct = $(`[data-cont="${c.k}"]`, m); ct.textContent = `${len(inp.value)}/${c.max}`; ct.classList.toggle('over', len(inp.value) > c.max);
+    redesenha(); salvarProj();
+  });
+  $$('[data-fr]', m).forEach(r => r.oninput = () => { const [i, k] = r.dataset.fr.split(':'); st.frames[i] = { ...(st.frames[i] || {}), [k]: +r.value }; stage.dirty = true; salvarProj(); });
+  $$('[data-auto]', m).forEach(b => b.onclick = e => { e.preventDefault(); const i = +b.dataset.auto; st.frames[i] = {}; stage.dirty = true; salvarProj(); $$(`[data-fr^="${i}:"]`, m).forEach(r => { r.value = r.dataset.fr.endsWith('zoom') ? 1 : 0.5; }); });
+  $('#ed-pos').onclick = () => { st.desl = {}; stage.rebuild(); salvarProj(); };
+  if ($('#ed-ia')) $('#ed-ia').onclick = async e => {
+    const b = e.target; b.disabled = true; b.innerHTML = '<span class="spin"></span> Escrevendo...';
+    try { await escreverFormato(id); salvarProj(); abrirEditor(id); } catch (err) { alert(err.message); b.disabled = false; b.textContent = '↻ Reescrever com IA'; }
+  };
+  if ($('#ed-v2')) $('#ed-v2').onchange = async e => {
+    const a = e.target.files[0]; if (!a) return;
+    try { const Vd = await videoPronto(); await Vd.info(a); ligarExtra(id, a); salvarProj(); abrirEditor(id); toast('Vídeo de baixo adicionado'); }
+    catch (err) { alert(err.message); }
+  };
+  if ($('#ed-v2x')) $('#ed-v2x').onclick = () => { ligarExtra(id, null); salvarProj(); abrirEditor(id); };
+  // arrastar textos: posição do mouse -> pixels do canvas -> espaço 1080x1920
+  let arr = null;
+  const ponto = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height]; };
+  cv.onpointerdown = e => {
+    const [px, py] = ponto(e), b = stage.caixaEm(px, py); if (!b) return;
+    arr = { k: b.k, x: px, y: py, base: { ...(st.desl[b.k] || { dx: 0, dy: 0 }) } };
+    stage.foco = b.k; stage.dirty = true; cv.setPointerCapture(e.pointerId); e.preventDefault();
+  };
+  cv.onpointermove = e => {
+    const [px, py] = ponto(e);
+    if (!arr) { cv.style.cursor = stage.caixaEm(px, py) ? 'move' : 'default'; return; }
+    st.desl[arr.k] = { dx: arr.base.dx + (px - arr.x) / stage.k, dy: arr.base.dy + (py - arr.y) / stage.k };
+    stage.rebuild();
+  };
+  cv.onpointerup = () => { if (arr) { arr = null; salvarProj(); } };
+}
+
 const PARTE = 3 * 1024 * 1024; // limite das funções da Vercel é ~4,5 MB por envio
 const dormir = ms => new Promise(ok => setTimeout(ok, ms));
 // manda a cópia leve do vídeo para o Gemini (via painel) e devolve { uri, mime }. Reaproveita por 40 h (o Gemini guarda 48 h).
@@ -510,18 +638,18 @@ function cardRev(f, B) {
   const st = pf(f.id), T = Tobj(f, B), slots = f.slots(B, T);
   const fr = i => st.frames[i] || {};
   const rngF = (i, k, rot, a, b) => `<div class="rng"><span>${rot}</span><input type="range" data-fr="${i}:${k}" min="${a}" max="${b}" step="0.01" value="${fr(i)[k] ?? (k === 'zoom' ? 1 : 0.5)}"></div>`;
-  return `<article class="rv ${st.aprovado ? 'aprovado' : ''} ${st.incluir === false ? 'fora' : ''}" id="rv-${f.id}" data-id="${f.id}">
+  return `<article class="rv ${st.incluir === false ? 'fora' : 'aprovado'}" id="rv-${f.id}" data-id="${f.id}">
     <div class="tela"><canvas width="360" height="640"></canvas></div>
     <div class="rv-c">
       <div class="linha entre"><h2>${h(f.nome)} <span class="pill ${statusDe(f.id)}">${statusDe(f.id) === 'encaixa' ? 'Encaixa' : 'Adaptar'}</span></h2>
-        <label class="inc"><input type="checkbox" data-inc ${st.incluir !== false ? 'checked' : ''}> Incluir na entrega</label></div>
+        <label class="inc"><input type="checkbox" data-inc ${st.incluir !== false ? 'checked' : ''}> Aprovado para exportar</label></div>
       <div class="campos">${f.campos.map(c => {
         const v = T[c.k] ?? '';
         const campo = c.max > 60 ? `<textarea data-k="${c.k}" rows="${c.max > 140 ? 4 : 2}">${h(v)}</textarea>` : `<input data-k="${c.k}" value="${h(v)}">`;
         return `<label class="campo"><span>${h(c.rotulo)} ${st.ia ? '<i class="tag">IA</i>' : ''}<small data-cont="${c.k}" class="${len(v) > c.max ? 'over' : ''}">${len(v)}/${c.max}</small></span>${campo}</label>`;
       }).join('')}</div>
       <details class="enq"><summary>Enquadramento do vídeo</summary>${slots.map((s, i) => `<div class="slot"><b>${slots.length > 1 ? `Vídeo ${i + 1}` : 'Vídeo'} <button class="link" data-auto="${i}">automático</button></b>${rngF(i, 'zoom', 'Zoom', 1, 3)}${rngF(i, 'px', 'Horizontal', 0, 1)}${rngF(i, 'py', 'Vertical', 0, 1)}</div>`).join('')}</details>
-      <div class="linha"><button class="btn sec p" data-ia ${temIA() ? '' : 'hidden'}>↻ Reescrever com IA</button><button class="btn sec p" data-ampliar>⤢ Ampliar prévia</button><button class="btn ${st.aprovado ? 'ok' : 'sec'} p" data-aprovar>✓ ${st.aprovado ? 'Aprovado' : 'Aprovar'}</button></div>
+      <div class="linha"><button class="btn sec p" data-editar-tela>✎ Editar na tela</button><button class="btn sec p" data-ia ${temIA() ? '' : 'hidden'}>↻ Reescrever com IA</button><button class="btn sec p" data-ampliar>⤢ Ampliar prévia</button></div>
     </div></article>`;
 }
 function viewRevisao() {
@@ -532,10 +660,10 @@ function viewRevisao() {
     $('#ir-f').onclick = () => irPara('formatos'); return;
   }
   const B = Bobj();
-  main.innerHTML = `<section class="painel"><h1>Revise seus formatos</h1><p class="sub" style="margin:0">Confira os textos e o enquadramento antes de exportar. Palavras entre *asteriscos* ficam na cor de destaque da marca.</p></section>
+  main.innerHTML = `<section class="painel"><h1>Revise seus formatos</h1><p class="sub" style="margin:0">Confira os textos e o enquadramento. Todos já vêm aprovados para exportar: desmarque o que não quiser. Palavras entre *asteriscos* ficam na cor de destaque da marca.</p></section>
     <div class="rev">${ids.map(id => cardRev(FMT[id], B)).join('')}</div>
     <div class="rodape"><button class="btn sec" id="voltar">← Formatos</button><span id="n-inc"></span><button class="btn pri" id="exportar">Exportar vídeos →</button></div>`;
-  const conta = () => { const n = ids.filter(id => pf(id).incluir !== false).length; $('#n-inc').textContent = `${n} de ${ids.length} na entrega`; $('#exportar').disabled = !n; };
+  const conta = () => { const n = ids.filter(id => pf(id).incluir !== false).length; $('#n-inc').textContent = `${n} de ${ids.length} aprovados para exportar`; $('#exportar').disabled = !n; };
   conta();
   $$('.rv').forEach(el => {
     const id = el.dataset.id, f = FMT[id], st = pf(id);
@@ -557,11 +685,8 @@ function viewRevisao() {
       st.frames[i] = {}; stage.dirty = true; salvarProj();
       $$(`[data-fr^="${i}:"]`, el).forEach(r => { r.value = r.dataset.fr.endsWith('zoom') ? 1 : 0.5; });
     });
-    $('[data-inc]', el).onchange = e => { st.incluir = e.target.checked; el.classList.toggle('fora', !st.incluir); conta(); salvarProj(); };
-    $('[data-aprovar]', el).onclick = e => {
-      st.aprovado = !st.aprovado; el.classList.toggle('aprovado', st.aprovado);
-      e.target.className = `btn ${st.aprovado ? 'ok' : 'sec'} p`; e.target.textContent = `✓ ${st.aprovado ? 'Aprovado' : 'Aprovar'}`; salvarProj();
-    };
+    $('[data-inc]', el).onchange = e => { st.incluir = e.target.checked; el.classList.toggle('fora', !st.incluir); el.classList.toggle('aprovado', st.incluir); conta(); salvarProj(); };
+    $('[data-editar-tela]', el).onclick = () => abrirEditor(id);
     $('[data-ampliar]', el).onclick = () => ampliar(f);
     $('[data-ia]', el).onclick = async e => {
       const b = e.target; b.disabled = true; b.innerHTML = '<span class="spin"></span> Escrevendo...';
@@ -605,19 +730,20 @@ async function exportar() {
     if (antigo && (antigo.status === 'fila' || antigo.status === 'gerando')) return;
     if (antigo?.url) URL.revokeObjectURL(antigo.url);
     // camadas e enquadramento congelados no momento do clique (editar depois não muda o que já está na fila)
-    const T = Tobj(f, B), camadas = R.fixas(f, B, T), frames = JSON.parse(JSON.stringify(Fobj(f))), rosto = face();
+    const T = Tobj(f, B), camadas = R.fixas(f, B, T, JSON.parse(JSON.stringify(desl(f)))), frames = JSON.parse(JSON.stringify(Fobj(f))), rosto = face();
+    const extra = EXTRAS.get(id)?.arquivo || null;
     const job = S.jobs[id] = { id, nome: f.nome, status: 'fila', progresso: 0, url: null, arquivo: limparNome(`${f.nome} - ${S.proj.nome}`) + '.mp4', erro: null };
     fila = fila.then(async () => {
       if (S.proj?.id !== pid || S.jobs[id] !== job) return;
       job.status = 'gerando'; atualizarExport();
       try {
         const Vd = await videoPronto();
-        const desenhar = (ctx, amostra) => {
+        const desenhar = (ctx, amostra, amostra2) => {
           ctx.drawImage(camadas.base, 0, 0);
-          camadas.slots.forEach((sl, i) => R.slot(ctx, amostra, sl, frames[i], rosto));
+          camadas.slots.forEach((sl, i) => (i === 1 && amostra2 ? R.slot(ctx, amostra2, sl, frames[i], null) : R.slot(ctx, amostra, sl, frames[i], rosto)));
           ctx.drawImage(camadas.topo, 0, 0);
         };
-        const blob = await Vd.exportar(ARQUIVOS.get(pid), desenhar, x => { job.progresso = Math.min(99, Math.round(x * 100)); atualizarExport(); });
+        const blob = await Vd.exportar(ARQUIVOS.get(pid), desenhar, x => { job.progresso = Math.min(99, Math.round(x * 100)); atualizarExport(); }, { extra });
         job.url = URL.createObjectURL(blob); job.tamanho = blob.size; job.status = 'ok'; job.progresso = 100;
       } catch (e) { job.status = 'erro'; job.erro = e.message; console.error('[exportar]', id, e); }
       atualizarExport();
@@ -634,11 +760,26 @@ function viewExportar() {
     <p class="dica">Os vídeos são montados neste computador. Deixe esta aba aberta até terminar.</p>
     <div class="acoes"><button class="btn sec" id="ex-voltar">← Voltar à edição</button></div></section>`;
   $('#ex-voltar').onclick = () => irPara('revisao');
-  $('#ex-lista').onclick = e => { const b = e.target.closest('[data-editar]'); if (b) editarFormato(b.dataset.editar); };
+  $('#ex-lista').onclick = e => {
+    const b = e.target.closest('[data-editar]'); if (b) return abrirEditor(b.dataset.editar);
+    const v = e.target.closest('[data-ver]'); if (v) visualizar(S.jobs[v.dataset.ver]);
+  };
   $('#baixar-todos').onclick = async () => {
     for (const j of Object.values(S.jobs).filter(x => x.status === 'ok')) { baixar(j); await dormir(700); }
   };
   atualizarExport();
+}
+/* toca o vídeo pronto numa janela por cima da tela */
+function visualizar(j) {
+  if (!j || j.status !== 'ok') return;
+  const m = $('#modal');
+  m.innerHTML = `<div class="mod-fundo"><div class="mod ver"><video src="${j.url}" controls autoplay playsinline></video>
+    <div class="linha centro"><b class="ver-nome">${h(j.arquivo)}</b><a class="btn sec p" href="${j.url}" download="${h(j.arquivo)}">↓ Baixar</a><button class="btn pri p" id="ver-x">Fechar</button></div></div></div>`;
+  const fechar = () => { m.innerHTML = ''; document.removeEventListener('keydown', esc); };
+  const esc = e => { if (e.key === 'Escape') fechar(); };
+  document.addEventListener('keydown', esc);
+  $('#ver-x').onclick = fechar;
+  $('.mod-fundo', m).onclick = e => { if (e.target.classList.contains('mod-fundo')) fechar(); };
 }
 function baixar(j) { const a = document.createElement('a'); a.href = j.url; a.download = j.arquivo; document.body.appendChild(a); a.click(); a.remove(); }
 function atualizarExport() {
@@ -659,7 +800,7 @@ function atualizarExport() {
     let row = $(`[data-job="${j.id}"]`, box);
     if (!row) {
       row = document.createElement('div'); row.className = 'ex'; row.dataset.job = j.id;
-      row.innerHTML = `<div class="tela"><canvas width="108" height="192"></canvas></div><div><b>${h(j.nome)}</b><small data-arq></small></div><span class="st" data-st></span><div class="linha"><a class="btn sec p" data-baixar>↓ Baixar</a><button class="btn sec p" data-editar="${j.id}">✎ Editar</button></div>`;
+      row.innerHTML = `<div class="tela"><canvas width="108" height="192"></canvas></div><div><b>${h(j.nome)}</b><small data-arq></small></div><span class="st" data-st></span><div class="linha"><button class="btn sec p" data-ver="${j.id}">▶ Visualizar</button><a class="btn sec p" data-baixar>↓ Baixar</a><button class="btn sec p" data-editar="${j.id}">✎ Editar</button></div>`;
       box.appendChild(row);
       if (FMT[j.id]) new Stage($('canvas', row), FMT[j.id]);
     }
@@ -669,6 +810,7 @@ function atualizarExport() {
     $('[data-arq]', row).innerHTML = j.status === 'erro' ? `<span class="erro-msg">${h(j.erro)}</span>` : h(j.arquivo + (j.tamanho ? ' · ' + mb(j.tamanho) : ''));
     const a = $('[data-baixar]', row);
     if (j.status === 'ok') { a.href = j.url; a.download = j.arquivo; a.removeAttribute('aria-disabled'); } else { a.removeAttribute('href'); a.setAttribute('aria-disabled', 'true'); }
+    $('[data-ver]', row).disabled = j.status !== 'ok';
   });
 }
 
