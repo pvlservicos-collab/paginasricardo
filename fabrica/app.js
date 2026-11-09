@@ -325,7 +325,7 @@ function viewMarca() {
   main.innerHTML = `<div class="grade2 marca">
   <section class="painel"><h1>Quem assina os anúncios</h1><p class="sub">A identidade da organização entra nos formatos (cores, fontes, foto, @) e em todos os prompts da IA.</p>
     <h3>Marcas cadastradas</h3>
-    <div class="marcas-lista" id="m-lista">${S.marcas.map(x => `<button data-marca="${x.id}" class="${x.id === m.id ? 'on' : ''}" title="${h(x.nome)}"><canvas width="64" height="64" data-av="${x.id}"></canvas><span>${h(x.nome)}</span></button>`).join('')}</div>
+    <label class="campo"><span>Marca selecionada</span><select id="m-sel">${S.marcas.map(x => `<option value="${x.id}" ${x.id === m.id ? 'selected' : ''}>${h(x.nome)}</option>`).join('')}</select></label>
     <div class="linha"><button class="btn sec p" id="m-nova">+ Nova marca</button><button class="btn sec p" id="m-dup">Duplicar</button><button class="btn sec p perigo" id="m-del">Excluir</button></div>
     <h3>Identidade da marca</h3>
     <div class="logo-l"><div class="logo-prev" id="logo-prev"></div><div>
@@ -352,14 +352,8 @@ function viewMarca() {
   </section></div>`;
 
   new Stage($('#cv-prev'), FMT[PREV[S.abaPrev]]);
-  const avatares = () => $$('[data-av]').forEach(cv => {
-    const x = S.marcas.find(y => y.id === cv.dataset.av); if (!x) return;
-    const c = cv.getContext('2d'); c.clearRect(0, 0, 64, 64);
-    R.avatar(c, 32, 32, 30, { ...x, logo: logoImg(x), fT: x.fonteTitulo || 'Anton', mostrarLogo: true });
-  });
-  avatares();
-  aoCarregarLogo.clear(); aoCarregarLogo.add(() => { if (S.passo === 'marca') { avatares(); logoPrev(); } });
-  $('#m-lista').onclick = e => { const b = e.target.closest('[data-marca]'); if (b) escolher(b.dataset.marca); };
+  aoCarregarLogo.clear(); aoCarregarLogo.add(() => { if (S.passo === 'marca') logoPrev(); });
+  $('#m-sel').onchange = e => escolher(e.target.value);
   const logoPrev = () => {
     const el = $('#logo-prev'); if (!el) return;
     if (!m.logo) { el.textContent = '+'; return; }
@@ -373,8 +367,7 @@ function viewMarca() {
       const k = el.dataset.m;
       m[k] = el.type === 'checkbox' ? el.checked : el.type === 'range' ? +el.value : el.value;
       if (el.type === 'color') { const t = $(`[data-hex="${k}"]`); if (t) t.value = el.value; }
-      if (k === 'nome') { const o = $(`[data-marca="${m.id}"] span`); if (o) o.textContent = m.nome; }
-      if (/^logo|^primaria|^nome/.test(k)) avatares();
+      if (k === 'nome') { const o = $(`#m-sel option[value="${m.id}"]`); if (o) o.textContent = m.nome; }
       salvarMarcas(); mudou();
     };
   });
@@ -641,15 +634,14 @@ function cardRev(f, B) {
   return `<article class="rv ${st.incluir === false ? 'fora' : 'aprovado'}" id="rv-${f.id}" data-id="${f.id}">
     <div class="tela"><canvas width="360" height="640"></canvas></div>
     <div class="rv-c">
-      <div class="linha entre"><h2>${h(f.nome)} <span class="pill ${statusDe(f.id)}">${statusDe(f.id) === 'encaixa' ? 'Encaixa' : 'Adaptar'}</span></h2>
-        <label class="inc"><input type="checkbox" data-inc ${st.incluir !== false ? 'checked' : ''}> Aprovado para exportar</label></div>
+      <div class="linha entre"><h2>${h(f.nome)} <span class="pill ${statusDe(f.id)}">${statusDe(f.id) === 'encaixa' ? 'Encaixa' : 'Adaptar'}</span></h2></div>
       <div class="campos">${f.campos.map(c => {
         const v = T[c.k] ?? '';
         const campo = c.max > 60 ? `<textarea data-k="${c.k}" rows="${c.max > 140 ? 4 : 2}">${h(v)}</textarea>` : `<input data-k="${c.k}" value="${h(v)}">`;
         return `<label class="campo"><span>${h(c.rotulo)} ${st.ia ? '<i class="tag">IA</i>' : ''}<small data-cont="${c.k}" class="${len(v) > c.max ? 'over' : ''}">${len(v)}/${c.max}</small></span>${campo}</label>`;
       }).join('')}</div>
       <details class="enq"><summary>Enquadramento do vídeo</summary>${slots.map((s, i) => `<div class="slot"><b>${slots.length > 1 ? `Vídeo ${i + 1}` : 'Vídeo'} <button class="link" data-auto="${i}">automático</button></b>${rngF(i, 'zoom', 'Zoom', 1, 3)}${rngF(i, 'px', 'Horizontal', 0, 1)}${rngF(i, 'py', 'Vertical', 0, 1)}</div>`).join('')}</details>
-      <div class="linha"><button class="btn sec p" data-editar-tela>✎ Editar na tela</button><button class="btn sec p" data-ia ${temIA() ? '' : 'hidden'}>↻ Reescrever com IA</button><button class="btn sec p" data-ampliar>⤢ Ampliar prévia</button></div>
+      <div class="linha"><button class="btn sec p" data-editar-tela>✎ Editar na tela</button><button class="btn sec p" data-ia ${temIA() ? '' : 'hidden'}>↻ Reescrever com IA</button><button class="btn sec p" data-ampliar>⤢ Ampliar prévia</button><label class="inc btn sec p"><input type="checkbox" data-inc ${st.incluir !== false ? 'checked' : ''}> Aprovado para exportar</label></div>
     </div></article>`;
 }
 function viewRevisao() {
