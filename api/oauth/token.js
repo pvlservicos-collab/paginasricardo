@@ -13,8 +13,11 @@ export async function POST(request) {
   let basic = null;
   const auth = request.headers.get('authorization') || '';
   if (/^Basic /i.test(auth)) {
-    const [id, segredo] = Buffer.from(auth.slice(6), 'base64').toString().split(':').map((x) => decodeURIComponent(x || ''));
-    basic = { id, segredo };
+    // cabeçalho malformado não pode derrubar a função: vira "cliente inválido"
+    try {
+      const [id, segredo] = Buffer.from(auth.slice(6), 'base64').toString().split(':').map((x) => decodeURIComponent(x || ''));
+      basic = { id, segredo };
+    } catch { return resp({ error: 'invalid_client', error_description: 'Cliente inválido.' }, 401); }
   }
   try {
     return resp(await trocarToken(p, request, basic));

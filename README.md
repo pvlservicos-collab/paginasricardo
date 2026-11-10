@@ -78,6 +78,9 @@ Cada `git push` na `main` publica o código do painel. As páginas em si **não*
 - Prévias de páginas rodam isoladas (sandbox): o código colado não acessa o painel nem a sessão.
 - Tudo que muda fica registrado na tabela `eventos` (quem, quando, IP) e no log da Vercel; erros têm um código para achar no log.
 - Backup: o Neon guarda o histórico do banco e permite restaurar para um ponto anterior (console do Neon → Restore).
+- Backup próprio (`lib/backup.mjs`, cron `/api/backup` todo dia às 00:00 de Brasília): banco inteiro (páginas, configurações, e-mails, leads, usuários, eventos) comprimido e criptografado (AES-256-GCM, variável `BACKUP_KEY`) no Vercel Blob, em `backups-db/`. Ficam o diário de hoje e o de ontem, e um mensal por mês (últimos 12). Sem a `BACKUP_KEY` o backup não roda e o arquivo não abre: guarde uma cópia dela fora da Vercel. Ler ou restaurar: `node scripts/backup.mjs listar | baixar | restaurar`.
+- O mesmo cron faz a faxina: apaga sessões, tentativas e tokens vencidos e pedaços de vídeo esquecidos da Fábrica.
+- O cadastro de conectores (`/api/oauth/registrar`) aceita no máximo 20 por hora por IP.
 
 ### Métricas (opcional, recomendado)
 

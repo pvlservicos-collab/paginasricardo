@@ -22,6 +22,10 @@
     "api/fabrica.mjs": {
       "maxDuration": 300,
       "memory": 1024
+    },
+    "api/backup.mjs": {
+      "maxDuration": 300,
+      "memory": 1024
     }
   },
   "headers": [
@@ -229,6 +233,10 @@
         {
           "key": "Cache-Control",
           "value": "no-store"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
         }
       ]
     }
@@ -288,6 +296,10 @@
     {
       "path": "/api/publicar",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/backup",
+      "schedule": "0 3 * * *"
     }
   ]
 }
