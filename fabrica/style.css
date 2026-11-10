@@ -243,3 +243,14 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
 .mod.ver { gap: 12px; } .mod.ver video { height: min(82vh, 1280px); max-width: 94vw; border-radius: 14px; background: #000; }
 .ver-nome { max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 900px) { .mod.editor { flex-direction: column; overflow: auto; } .mod.editor .ed-tela .tela { height: 60vh; } }
+
+/* ---------- biblioteca ---------- */
+.bib { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; margin-top: 20px; }
+.bib-item { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 8px; border-radius: 14px; background: var(--painel2); border: 1px solid var(--borda); }
+.bib-item .tela video { width: 100%; height: 100%; object-fit: cover; display: block; background: #000; }
+.bib-item b, .bib-item small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bib-item b { margin-top: 6px; font-size: 14px; }
+.bib-item small { color: var(--txt3); font-size: 12px; }
+.bib-item .linha { margin-top: 6px; gap: 6px; flex-wrap: wrap; }
+.bib-play { position: absolute; inset: 0; margin: auto; width: 54px; height: 54px; border-radius: 50%; border: 0; background: rgba(0,0,0,.55); color: #fff; font-size: 20px; cursor: pointer; }
+.bib-play:hover { background: var(--ouro); color: #1a1405; }

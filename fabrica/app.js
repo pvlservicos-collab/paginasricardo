@@ -24,16 +24,24 @@ function semLogin() {
 const DB = (() => {
   let abre;
   const db = () => abre || (abre = new Promise((ok, falha) => {
-    const r = indexedDB.open('fabrica-de-formatos', 1);
-    r.onupgradeneeded = () => r.result.createObjectStore('projetos', { keyPath: 'id' });
+    const r = indexedDB.open('fabrica-de-formatos', 2);
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      if (!d.objectStoreNames.contains('projetos')) d.createObjectStore('projetos', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('videos')) d.createObjectStore('videos', { keyPath: 'id' }); // Biblioteca
+    };
     r.onsuccess = () => ok(r.result); r.onerror = () => falha(r.error);
   }));
-  const tx = async (modo, fn) => { const d = await db(); return new Promise((ok, falha) => { const t = d.transaction('projetos', modo); const st = t.objectStore('projetos'); const r = fn(st); t.oncomplete = () => ok(r && r.result); t.onerror = () => falha(t.error); }); };
+  const tx = async (loja, modo, fn) => { const d = await db(); return new Promise((ok, falha) => { const t = d.transaction(loja, modo); const st = t.objectStore(loja); const r = fn(st); t.oncomplete = () => ok(r && r.result); t.onerror = () => falha(t.error); }); };
   return {
-    get: id => tx('readonly', st => st.get(id)),
-    put: reg => tx('readwrite', st => st.put(reg)),
-    del: id => tx('readwrite', st => st.delete(id)),
-    todos: () => tx('readonly', st => st.getAll()),
+    get: id => tx('projetos', 'readonly', st => st.get(id)),
+    put: reg => tx('projetos', 'readwrite', st => st.put(reg)),
+    del: id => tx('projetos', 'readwrite', st => st.delete(id)),
+    todos: () => tx('projetos', 'readonly', st => st.getAll()),
+    // Biblioteca: todos os vídeos exportados neste navegador
+    videos: () => tx('videos', 'readonly', st => st.getAll()),
+    guardarVideo: reg => tx('videos', 'readwrite', st => st.put(reg)),
+    apagarVideo: id => tx('videos', 'readwrite', st => st.delete(id)),
   };
 })();
 const ARQUIVOS = new Map(); // id do projeto -> File do vídeo
@@ -197,11 +205,13 @@ function irPara(p) { S.passo = p; ls.set('passo', p); render(); window.scrollTo(
 function render() {
   $('#passos').innerHTML = PASSOS.map(([k, t], i) => `<button data-passo="${k}" class="${S.passo === k ? 'on' : ''}"><i>${i + 1}</i>${t}</button>`).join('');
   $('#b-config').classList.toggle('pri', S.passo === 'config');
-  ({ config: viewConfig, criativo: viewCriativo, marca: viewMarca, formatos: viewFormatos, revisao: viewRevisao, exportar: viewExportar, prompts: viewPrompts }[S.passo] || viewCriativo)();
+  $('#b-biblioteca').classList.toggle('pri', S.passo === 'biblioteca');
+  ({ config: viewConfig, criativo: viewCriativo, marca: viewMarca, formatos: viewFormatos, revisao: viewRevisao, exportar: viewExportar, prompts: viewPrompts, biblioteca: viewBiblioteca }[S.passo] || viewCriativo)();
 }
 $('#passos').onclick = e => { const b = e.target.closest('[data-passo]'); if (b) irPara(b.dataset.passo); };
 $('#b-config').onclick = () => irPara('config');
 $('#b-prompts').onclick = () => irPara('prompts');
+$('#b-biblioteca').onclick = () => irPara('biblioteca');
 function semProj() {
   main.innerHTML = `<section class="painel estreito"><h1>Suba um criativo primeiro</h1><p class="sub">Os formatos são montados em cima do vídeo que você enviar.</p><div class="acoes"><button class="btn pri" id="ir-c">Adicionar criativo →</button></div></section>`;
   $('#ir-c').onclick = () => irPara('criativo');
@@ -737,6 +747,8 @@ async function exportar() {
         };
         const blob = await Vd.exportar(ARQUIVOS.get(pid), desenhar, x => { job.progresso = Math.min(99, Math.round(x * 100)); atualizarExport(); }, { extra });
         job.url = URL.createObjectURL(blob); job.tamanho = blob.size; job.status = 'ok'; job.progresso = 100;
+        DB.guardarVideo({ id: `${pid}:${id}`, projetoId: pid, projetoNome: S.proj?.nome || '', formatoId: id, formatoNome: f.nome, marcaNome: B.nome || '', arquivo: job.arquivo, blob, tamanho: blob.size, criado: new Date().toISOString() })
+          .catch(e => toast('Não consegui guardar na Biblioteca: ' + e.message));
       } catch (e) { job.status = 'erro'; job.erro = e.message; console.error('[exportar]', id, e); }
       atualizarExport();
     });
@@ -761,6 +773,44 @@ function viewExportar() {
   };
   atualizarExport();
 }
+/* ---------------- biblioteca: todos os vídeos exportados neste navegador ---------------- */
+let urlsBib = [];
+async function viewBiblioteca() {
+  urlsBib.forEach(u => URL.revokeObjectURL(u)); urlsBib = [];
+  main.innerHTML = '<section class="painel"><h1>Biblioteca</h1><p class="sub"><span class="spin"></span> Carregando os vídeos...</p></section>';
+  let vids = [];
+  try { vids = (await DB.videos()).sort((a, b) => String(b.criado).localeCompare(String(a.criado))); }
+  catch (e) { main.innerHTML = `<section class="painel"><h1>Biblioteca</h1><p class="sub">Não consegui abrir a Biblioteca: ${h(e.message)}</p></section>`; return; }
+  if (S.passo !== 'biblioteca') return;
+  const total = vids.reduce((a, v) => a + (v.tamanho || 0), 0);
+  const criativos = [...new Set(vids.map(v => v.projetoNome).filter(Boolean))];
+  const filtro = S.bibFiltro || '';
+  const lista = filtro ? vids.filter(v => v.projetoNome === filtro) : vids;
+  main.innerHTML = `<section class="painel">
+    <div class="linha entre"><div><h1>Biblioteca</h1><p class="sub" style="margin:0">${vids.length} ${vids.length === 1 ? 'vídeo exportado' : 'vídeos exportados'} · ${mb(total)} · guardados neste navegador</p></div>
+      <div class="linha">${criativos.length > 1 ? `<select id="bib-f"><option value="">Todos os criativos</option>${criativos.map(c => `<option ${c === filtro ? 'selected' : ''}>${h(c)}</option>`).join('')}</select>` : ''}<button class="btn sec" id="bib-todos" ${lista.length ? '' : 'disabled'}>↓ Baixar todos</button></div></div>
+    ${lista.length ? `<div class="bib">${lista.map(v => {
+      const u = URL.createObjectURL(v.blob); urlsBib.push(u);
+      return `<article class="bib-item" data-id="${h(v.id)}"><div class="tela"><video src="${u}#t=0.6" preload="metadata" muted playsinline></video><button class="bib-play" data-ver aria-label="Visualizar">▶</button></div>
+        <b title="${h(v.arquivo)}">${h(v.formatoNome)}</b><small title="${h(v.projetoNome)}">${h(v.projetoNome)}${v.marcaNome ? ' · ' + h(v.marcaNome) : ''}</small>
+        <small>${new Date(v.criado).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · ${mb(v.tamanho || 0)}</small>
+        <div class="linha"><button class="btn sec p" data-ver>▶ Visualizar</button><a class="btn sec p" href="${u}" download="${h(v.arquivo)}">↓ Baixar</a><button class="btn sec p perigo" data-apagar title="Excluir da Biblioteca">✕</button></div></article>`;
+    }).join('')}</div>` : '<div class="vazio" style="margin-top:20px">Nenhum vídeo exportado ainda. Os vídeos aparecem aqui assim que terminam de ser gerados.</div>'}
+  </section>`;
+  const porId = id => lista.find(v => v.id === id);
+  const urlDe = el => $('a[download]', el).href;
+  $$('.bib-item').forEach(el => {
+    $$('[data-ver]', el).forEach(b => b.onclick = () => visualizar({ status: 'ok', url: urlDe(el), arquivo: porId(el.dataset.id).arquivo }));
+    $('[data-apagar]', el).onclick = async () => {
+      const v = porId(el.dataset.id);
+      if (!confirm(`Excluir "${v.arquivo}" da Biblioteca?`)) return;
+      await DB.apagarVideo(v.id); toast('Vídeo excluído'); viewBiblioteca();
+    };
+  });
+  if ($('#bib-f')) $('#bib-f').onchange = e => { S.bibFiltro = e.target.value; viewBiblioteca(); };
+  $('#bib-todos').onclick = async () => { for (const el of $$('.bib-item')) { $('a[download]', el).click(); await dormir(700); } };
+}
+
 /* toca o vídeo pronto numa janela por cima da tela */
 function visualizar(j) {
   if (!j || j.status !== 'ok') return;
