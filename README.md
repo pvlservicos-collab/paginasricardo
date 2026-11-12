@@ -116,7 +116,7 @@ npm run dev
 
 Abra `http://localhost:3000/painel`. No modo local, as alterações são gravadas direto na pasta do projeto.
 
-## Painéis dos Raio-X (/raioxtributariodash)
+## Painéis dos Raio-X (/raioxtributariodash, /raiox-xequemate2dash, /tributario-raioxdash)
 
-- Um painel por quiz, escolhido no menu do canto superior direito (`?p=` na URL): **Raio-X Tributário** (`/raioxtributario` e variações `-v2`), **Raio-X Xeque-Mate** (`/raiox-xequemate`, `/raiox-xequemate2`) e **Tributário Raio-X** (`/tributario-raiox*`). Todos gravam em `/api/raiox/envio`; o painel separa pelo endereço da página (`PROJETOS` em `lib/raiox.mjs`). Quiz novo: acrescente lá.
+- Um painel por quiz, cada um no seu endereço (quiz + `dash`, mesmo login), com menu no canto superior direito para ir de um ao outro: **Raio-X Tributário** (`/raioxtributario` e variações `-v2`), **Raio-X Xeque-Mate** (`/raiox-xequemate`, `/raiox-xequemate2`) e **Tributário Raio-X** (`/tributario-raiox*`). Todos gravam em `/api/raiox/envio`; o painel separa pelo endereço da página (`PROJETOS` em `lib/raiox.mjs`). Quiz novo: acrescente lá.
 - **Integrações → RD Station Marketing** (só admin): cole a Chave de API (token público) da conta e clique em "Salvar e ligar". Cada diagnóstico com e-mail vira uma conversão no RD (uma vez por lead) com nome, e-mail, WhatsApp, faturamento, funcionários, estado e UTMs. Faturamento e funcionários vão para os campos personalizados `cf_faturamento` e `cf_numero_de_funcionarios` (crie no RD ou troque os nomes na tela). "Enviar leads antigos" manda os que chegaram antes. Código em `lib/rdstation.mjs`.

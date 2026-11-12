@@ -44,8 +44,13 @@
     ['folha', 'Folha + pró-labore'], ['cnpjs', 'CNPJs'], ['cliente', 'Vende para'], ['revisao', 'Última revisão do regime'], ['dono', 'Se o dono sumir 15 dias'], ['faturamento', 'Faturamento']];
 
   // ---------- projeto (cada quiz tem o seu dashboard; o menu do canto direito troca) ----------
-  let PROJS = [{id: 'tributario', nome: 'Raio-X Tributário', pagina: '/raioxtributario', formato: 'completo', n: 0}];
-  let projeto = (new URLSearchParams(location.search).get('p') || 'tributario').replace(/[^a-z-]/g, '');
+  // cada dashboard tem o seu endereço, no padrão do quiz + "dash"
+  let PROJS = [
+    {id: 'tributario', nome: 'Raio-X Tributário', pagina: '/raioxtributario', dash: '/raioxtributariodash', formato: 'completo', n: 0},
+    {id: 'xequemate', nome: 'Raio-X Xeque-Mate', pagina: '/raiox-xequemate2', dash: '/raiox-xequemate2dash', formato: 'curto', n: 0},
+    {id: 'tributario-raiox', nome: 'Tributário Raio-X', pagina: '/tributario-raiox', dash: '/tributario-raioxdash', formato: 'curto', n: 0}];
+  const aqui = location.pathname.replace(/\/+$/, '').toLowerCase();
+  let projeto = (PROJS.find(p => p.dash === aqui) || {}).id || (new URLSearchParams(location.search).get('p') || 'tributario').replace(/[^a-z-]/g, '');
   const proj = () => PROJS.find(p => p.id === projeto) || PROJS[0];
   const ehCurto = () => proj().formato === 'curto';
   const linhaFat = f => FAT2.find(x => x[0] === f);
@@ -561,17 +566,14 @@
     $('#pill').textContent = p.nome + ' · ao vivo';
     document.title = 'Resultômetro | ' + p.nome;
     $('#projMenu').innerHTML = '<small class="t">Dashboards</small>' + PROJS.map(x =>
-      `<button type="button" role="menuitem" data-proj="${esc(x.id)}" class="${x.id === p.id ? 'on' : ''}"><b>${esc(x.nome)}</b><em>${(x.n || 0).toLocaleString('pt-BR')}</em><small>${esc(x.pagina)}</small></button>`).join('');
+      `<button type="button" role="menuitem" data-proj="${esc(x.id)}" class="${x.id === p.id ? 'on' : ''}"><b>${esc(x.nome)}</b><em>${(x.n || 0).toLocaleString('pt-BR')}</em><small>${esc(x.dash || x.pagina)}</small></button>`).join('');
     $$('#projMenu [data-proj]').forEach(b => b.onclick = () => trocaProjeto(b.dataset.proj));
   }
   function trocaProjeto(id){
     fechaMenu();
     if(id === projeto) return;
-    projeto = id;
-    const u = new URL(location.href); if(id === 'tributario') u.searchParams.delete('p'); else u.searchParams.set('p', id);
-    history.replaceState(null, '', u);
-    TODOS = []; aberto = null; sel.clear(); limite = 100; etapa = 'todos';
-    mostraProjeto(); desenha(); carrega();
+    const p = PROJS.find(x => x.id === id);
+    if(p && p.dash) location.assign(p.dash); // o login vale para os três endereços
   }
   const fechaMenu = () => { $('#projMenu').classList.add('esc'); $('#projBtn').setAttribute('aria-expanded', 'false'); };
   $('#projBtn').onclick = ev => { ev.stopPropagation(); const abrir = $('#projMenu').classList.contains('esc');

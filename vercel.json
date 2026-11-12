@@ -30,7 +30,7 @@
   },
   "headers": [
     {
-      "source": "/((?!painel|trackeamento|raioxtributariodash|fabrica).*)",
+      "source": "/((?!painel|trackeamento|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|fabrica).*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
@@ -142,7 +142,7 @@
       ]
     },
     {
-      "source": "/raioxtributariodash(/.*)?",
+      "source": "/(raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash)(/.*)?",
       "headers": [
         {
           "key": "Content-Security-Policy",
@@ -274,7 +274,15 @@
       "destination": "/painel"
     },
     {
-      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|fabrica|trackeamento$|wp-content|_vercel|_p/|zz-lab|\\.well-known).+)",
+      "source": "/raiox-xequemate2dash",
+      "destination": "/raioxtributariodash"
+    },
+    {
+      "source": "/tributario-raioxdash",
+      "destination": "/raioxtributariodash"
+    },
+    {
+      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|fabrica|trackeamento$|wp-content|_vercel|_p/|zz-lab|\\.well-known).+)",
       "has": [
         {
           "type": "host",
@@ -284,7 +292,7 @@
       "destination": "/_p/:host/:caminho"
     },
     {
-      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|fabrica|trackeamento$|wp-content|_vercel|_p/|\\.well-known).+)",
+      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|fabrica|trackeamento$|wp-content|_vercel|_p/|\\.well-known).+)",
       "destination": "/api/servir?caminho=:caminho"
     }
   ],
