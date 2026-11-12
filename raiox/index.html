@@ -305,6 +305,9 @@ body.t-xequemate .login .lg-leao img{filter:grayscale(1) sepia(.25) contrast(1.1
   body.t-xequemate .login h1,body.t-tributario-raiox .login h1{font-size:min(42px,calc((100vw - 32px) / 9.6))}
 }
 
+/* BRG só no Raio-X Tributário (primeiro da lista) */
+body:not(.p-tributario) .marcas img.brg,body:not(.p-tributario) .marcas img.brg + i,body:not(.p-tributario) .marcas i:has(+ img.brg),body:not(.p-tributario) .so-brg{display:none}
+
 /* ---------- projetos (menu do canto direito) ---------- */
 .f-curto .so-trib,.f-completo .so-curto{display:none!important}
 .proj{position:relative;flex-shrink:0}
@@ -604,7 +607,7 @@ body.t-xequemate .login .lg-leao img{filter:grayscale(1) sepia(.25) contrast(1.1
     </section>
   </main>
 
-  <p class="rod">Valores estimados pelo Raio-X a partir das respostas de cada empresário. Grupo R1 · BRG.</p>
+  <p class="rod">Valores estimados pelo Raio-X a partir das respostas de cada empresário. Grupo R1<span class="so-brg"> · BRG</span>.</p>
 </div>
 
 <div class="tip" id="tip"></div>

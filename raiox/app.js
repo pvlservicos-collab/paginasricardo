@@ -60,6 +60,7 @@
       tit: 'Resultômetro do <em>Raio-X Tributário</em>', sub: 'Diagnósticos e leads do Raio-X Tributário, ao vivo.'},
   };
   (function visualDoLogin(){
+    document.body.classList.add('p-' + projeto); // BRG só aparece no Raio-X Tributário
     const t = LOGIN[projeto];
     if(!t) return;
     document.body.classList.add('t-' + projeto);
