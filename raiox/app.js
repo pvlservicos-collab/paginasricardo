@@ -24,6 +24,39 @@
     exporta:'Exporta',filiais:'Filiais em outros estados',subvencao:'Benefício de ICMS estadual',poder_publico:'Presta para o poder público',
     construcao_op:'Obra ou empreitada',pd:'Investe em P&D'};
 
+  // ---------- quizzes curtos (Xeque-Mate e tributario-raiox): mesmas perguntas, respostas em faixas ----------
+  const REG2 = {...REGIMES, naosei: 'Não sabe'};
+  const SET2 = {comercio: 'Comércio', industria: 'Indústria', servicos: 'Serviços', misto: 'Comércio e serviços'};
+  // [valor do quiz, rótulo, piso, meio]
+  const FAT2 = [['Menor que 100 mil por mês', 'Até R$ 100 mil', 0, 50000], ['100 mil a 200 mil por mês', 'R$ 100 a 200 mil', 100000, 150000],
+    ['200 mil a 499 mil por mês', 'R$ 200 a 499 mil', 200000, 350000], ['500 mil a 999 mil por mês', 'R$ 500 a 999 mil', 500000, 750000],
+    ['1 milhão a 3 milhões por mês', 'R$ 1 a 3 mi', 1e6, 2e6], ['3 milhões a 6 milhões por mês', 'R$ 3 a 6 mi', 3e6, 4.5e6], ['Maior que 6 milhões por mês', 'Acima de R$ 6 mi', 6e6, 6e6]];
+  const FUNC2 = [['Não tenho funcionários', 'Nenhum', 0], ['1-9', '1 a 9', 1], ['10-20', '10 a 20', 10], ['21-50', '21 a 50', 21], ['51-100', '51 a 100', 51], ['100+', 'Mais de 100', 101]];
+  const CURTO = {
+    cnpjs: {'1': 'Um', '2': 'Dois ou três', '4': 'Quatro ou mais'},
+    cliente: {empresa: 'Outras empresas', consumidor: 'Consumidor final', ambos: 'Os dois'},
+    revisao: {'12m': 'Nos últimos 12 meses', '1a': 'Há mais de 1 ano', nunca: 'Nunca', naosei: 'Não sabe'},
+    dono: {roda: 'Roda normal', cai: 'Roda, mas o resultado cai', para: 'Para'},
+    margem: {'3': 'Menos de R$ 5', '7.5': 'R$ 5 a 10', '15': 'R$ 10 a 20', '25': 'Mais de R$ 20', naosei: 'Não sabe'},
+    folha: {baixa: 'Menos de 15%', perto: '15% a 28%', ok: 'Mais de 28%', naosei: 'Não sabe'},
+  };
+  const PERGUNTAS = [['regime', 'Regime'], ['setor', 'O que faz'], ['uf', 'Estado'], ['funcionarios', 'Funcionários'], ['margem', 'Lucro de cada R$ 100'],
+    ['folha', 'Folha + pró-labore'], ['cnpjs', 'CNPJs'], ['cliente', 'Vende para'], ['revisao', 'Última revisão do regime'], ['dono', 'Se o dono sumir 15 dias'], ['faturamento', 'Faturamento']];
+
+  // ---------- projeto (cada quiz tem o seu dashboard; o menu do canto direito troca) ----------
+  let PROJS = [{id: 'tributario', nome: 'Raio-X Tributário', pagina: '/raioxtributario', formato: 'completo', n: 0}];
+  let projeto = (new URLSearchParams(location.search).get('p') || 'tributario').replace(/[^a-z-]/g, '');
+  const proj = () => PROJS.find(p => p.id === projeto) || PROJS[0];
+  const ehCurto = () => proj().formato === 'curto';
+  const linhaFat = f => FAT2.find(x => x[0] === f);
+  // faturamento por mês em número: o quiz completo manda o valor; os curtos, a faixa (piso ou meio dela)
+  const fatNum = (e, meio) => { const f = e.perfil.faturamento; if(typeof f === 'number' || /^\d+(\.\d+)?$/.test(f || '')) return +f;
+    const l = linhaFat(f); return l ? l[meio ? 3 : 2] : 0; };
+  const funcTxt = v => { if(v == null || v === '') return ''; const l = FUNC2.find(x => x[0] === v); return l ? l[1] : String(v); };
+  const funcNum = v => { const l = FUNC2.find(x => x[0] === v); return l ? l[2] : +v || 0; };
+  const respTxt = (k, v) => k === 'regime' ? REG2[v] || v : k === 'setor' ? SET2[v] || SETORES[v] || v : k === 'funcionarios' ? funcTxt(v)
+    : k === 'faturamento' ? (linhaFat(v) || [0, v])[1] : (CURTO[k] || {})[String(v)] || v;
+
   const brl = v => 'R$ ' + Math.round(v || 0).toLocaleString('pt-BR');
   const curto = v => { v = v || 0;
     if(v >= 1e9) return 'R$ ' + (v / 1e9).toFixed(1).replace('.', ',') + ' bi';
@@ -139,6 +172,11 @@
     const comPct = L.filter(e => e.res.pct > 0 && e.res.pct < 100);
     $('#kPct').textContent = (comPct.length ? Math.round(comPct.reduce((s, e) => s + e.res.pct, 0) / comPct.length) : 0) + '%';
     $('#kDiv').textContent = pct(L.filter(e => +e.perfil.divida).length, N) + '%';
+    $('#kEco2').textContent = curto(L.reduce((s, e) => s + (e.res.economia || 0), 0));
+    $('#kRec2').textContent = curto(L.reduce((s, e) => s + (e.res.recuperacao || 0), 0));
+    $('#kQ2').textContent = L.filter(ehQualif).length.toLocaleString('pt-BR');
+    $('#kQp2').textContent = pct(L.filter(ehQualif).length, N) + '%';
+    $('#kOpp2').textContent = (N ? L.reduce((s, e) => s + (e.res.nOpps || 0), 0) / N : 0).toFixed(1).replace('.', ',');
 
     const dias = periodo === '7' ? 7 : periodo === 'hoje' ? 7 : periodo === '30' ? 30 :
       Math.min(90, Math.max(14, L.length ? Math.ceil((Date.now() - Math.min(...L.map(e => +new Date(e.ts)))) / 864e5) + 1 : 14));
@@ -148,10 +186,17 @@
     const tipQ = l => `<b>${esc(l.n)}</b><br>${l.v} empresa${l.v === 1 ? '' : 's'} · ${pct(l.v, N)}%<br>${curto(l.soma)} identificados`;
     const agrupa = (fn, ordem) => { const m = new Map(); L.forEach(e => { const k = fn(e); if(!k) return; const o = m.get(k) || {n: k, v: 0, soma: 0}; o.v++; o.soma += e.res.total; m.set(k, o); });
       const arr = [...m.values()]; return ordem ? ordem.map(k => m.get(k)).filter(Boolean) : arr.sort((a, b) => b.v - a.v); };
-    barras($('#bFat'), agrupa(e => (FAIXAS.find(([lim]) => +e.perfil.faturamento <= lim) || [])[1], FAIXAS.map(f => f[1])), {tipFn: tipQ});
-    barras($('#bReg'), agrupa(e => REGIMES[e.perfil.regime] || e.perfil.regime, Object.values(REGIMES)), {tipFn: tipQ});
-    barras($('#bSet'), agrupa(e => SETORES[e.perfil.setor] || e.perfil.setor).slice(0, 8), {tipFn: tipQ});
-    barras($('#bUf'), agrupa(e => e.perfil.estado).slice(0, 8), {tipFn: tipQ});
+    const C = ehCurto();
+    barras($('#bFat'), C ? agrupa(e => faixaDe(e.perfil.faturamento), FAT2.map(f => f[1])) : agrupa(e => (FAIXAS.find(([lim]) => +e.perfil.faturamento <= lim) || [])[1], FAIXAS.map(f => f[1])), {tipFn: tipQ});
+    barras($('#bReg'), agrupa(e => REG2[e.perfil.regime] || e.perfil.regime, Object.values(REG2)), {tipFn: tipQ});
+    barras($('#bSet'), agrupa(e => setorDe(e.perfil)).slice(0, 8), {tipFn: tipQ});
+    barras($('#bUf'), agrupa(e => e.perfil.estado || e.perfil.uf).slice(0, 8), {tipFn: tipQ});
+    if(C){
+      barras($('#bFunc'), agrupa(e => funcTxt(e.perfil.funcionarios), FUNC2.map(f => f[1])), {tipFn: tipQ});
+      for(const [el, k] of [['#bCnpj', 'cnpjs'], ['#bCli', 'cliente'], ['#bRev', 'revisao'], ['#bDono', 'dono'], ['#bMargem', 'margem'], ['#bFolha', 'folha']])
+        barras($(el), agrupa(e => respTxt(k, e.perfil[k]), Object.values(CURTO[k])), {neutra: true, tipFn: tipQ});
+      barras($('#bPag'), agrupa(e => e.pagina || '—'), {neutra: true, tipFn: tipQ});
+    }
 
     const opp = new Map(); L.forEach(e => (e.res.top || []).forEach(o => { const x = opp.get(o.nome) || {n: o.nome, v: 0, q: 0}; x.v += o.val; x.q++; opp.set(o.nome, x); }));
     barras($('#bOpp'), [...opp.values()].sort((a, b) => b.v - a.v).slice(0, 8), {fmt: curto, tipFn: l => `<b>${esc(l.n)}</b><br>apareceu em ${l.q} diagnóstico${l.q === 1 ? '' : 's'}<br>${curto(l.v)} somados`});
@@ -168,7 +213,7 @@
 
   // ---------- métricas (admin) ----------
   const QUALIF = 200000; // faturamento/mês do público da reunião
-  const ehQualif = e => +e.perfil.faturamento >= QUALIF;
+  const ehQualif = e => fatNum(e) >= QUALIF;
   const temWhats = e => ((e.lead || {}).telefone || '').replace(/\D/g, '').length >= 10;
   const tipQtd = (N) => l => `<b>${esc(l.n)}</b><br>${l.v} empresa${l.v === 1 ? '' : 's'} · ${pct(l.v, N)}%`;
   function metricas(L){
@@ -178,17 +223,23 @@
     $('#cDv').textContent = curto(L.reduce((s, e) => s + (+e.perfil.divida ? +e.perfil.passivo_valor || 0 : 0), 0));
     $('#cCarga').textContent = curto(L.reduce((s, e) => s + (e.res.carga || 0), 0));
     $('#cOpp').textContent = (N ? L.reduce((s, e) => s + (e.res.nOpps || 0), 0) / N : 0).toFixed(1).replace('.', ',');
-    const comFat = L.filter(e => +e.perfil.faturamento > 0);
-    $('#cFat').textContent = curto(comFat.length ? comFat.reduce((s, e) => s + +e.perfil.faturamento, 0) / comFat.length : 0);
+    const comFat = L.filter(e => fatNum(e, true) > 0);
+    $('#cFat').textContent = $('#cFat2').textContent = curto(comFat.length ? comFat.reduce((s, e) => s + fatNum(e, true), 0) / comFat.length : 0);
+    $('#cEco2').textContent = curto(L.reduce((s, e) => s + (e.res.economia || 0), 0));
+    $('#cRec2').textContent = curto(L.reduce((s, e) => s + (e.res.recuperacao || 0), 0));
+    $('#cOpp2').textContent = (N ? L.reduce((s, e) => s + (e.res.nOpps || 0), 0) / N : 0).toFixed(1).replace('.', ',');
+    $('#cF10').textContent = pct(L.filter(e => funcNum(e.perfil.funcionarios) >= 10).length, N) + '%';
+    barras($('#bFuncQ'), FUNC2.map(([v, n]) => { const x = L.filter(e => e.perfil.funcionarios === v); return {n, v: pct(x.filter(ehQualif).length, x.length), q: x.length, ql: x.filter(ehQualif).length}; }).filter(l => l.q),
+      {fmt: v => v + '%', tipFn: l => `<b>${esc(l.n)}</b><br>${l.ql} de ${l.q} faturam R$ 200 mil+/mês`});
     const porFaixa = (el, faixas, valor) => barras($(el), N ? faixas.map(([lim, n]) => ({n, v: 0, lim})).map((f, i, arr) => {
         f.v = L.filter(e => { const x = valor(e); return x != null && x <= f.lim && (i === 0 || x > arr[i - 1].lim); }).length; return f; }) : [],
       {neutra: true, tipFn: tipQtd(N)});
     porFaixa('#bValor', [[50000, 'Até R$ 50 mil'], [200000, 'R$ 50 a 200 mil'], [1000000, 'R$ 200 mil a 1 mi'], [5000000, 'R$ 1 a 5 mi'], [Infinity, 'Acima de R$ 5 mi']], e => e.res.total || 0);
     porFaixa('#bCarga', [[8, 'Até 8%'], [12, '8% a 12%'], [16, '12% a 16%'], [20, '16% a 20%'], [Infinity, 'Acima de 20%']], e => e.res.pct > 0 ? e.res.pct : null);
-    const set = new Map(); L.forEach(e => { const k = SETORES[e.perfil.setor] || e.perfil.setor; if(!k) return; const o = set.get(k) || {n: k, q: 0, s: 0}; o.q++; o.s += e.res.total || 0; set.set(k, o); });
+    const set = new Map(); L.forEach(e => { const k = setorDe(e.perfil); if(!k) return; const o = set.get(k) || {n: k, q: 0, s: 0}; o.q++; o.s += e.res.total || 0; set.set(k, o); });
     barras($('#bSetMed'), [...set.values()].map(o => ({...o, v: o.s / o.q})).sort((a, b) => b.v - a.v).slice(0, 8),
       {fmt: curto, tipFn: l => `<b>${esc(l.n)}</b><br>${l.q} empresa${l.q === 1 ? '' : 's'}<br>média ${curto(l.v)} · total ${curto(l.s)}`});
-    barras($('#bRegQ'), Object.entries(REGIMES).map(([k, n]) => { const x = L.filter(e => e.perfil.regime === k); return {n, v: pct(x.filter(ehQualif).length, x.length), q: x.length, ql: x.filter(ehQualif).length}; }).filter(l => l.q),
+    barras($('#bRegQ'), Object.entries(REG2).map(([k, n]) => { const x = L.filter(e => e.perfil.regime === k); return {n, v: pct(x.filter(ehQualif).length, x.length), q: x.length, ql: x.filter(ehQualif).length}; }).filter(l => l.q),
       {fmt: v => v + '%', tipFn: l => `<b>${esc(l.n)}</b><br>${l.ql} de ${l.q} faturam R$ 200 mil+/mês`});
     $('#cQ').textContent = Q.length.toLocaleString('pt-BR');
     $('#cQp').textContent = pct(Q.length, N) + '%';
@@ -240,14 +291,18 @@
   // ---------- tabela de leads (gestão: etapa, anotações, teste, lixeira, ações em massa) ----------
   const quando = ts => new Date(ts).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'});
   const quandoAno = ts => new Date(ts).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'});
-  const faixaDe = f => (FAIXAS.find(([lim]) => +f <= lim) || [])[1] || '';
+  const faixaDe = f => { if(f == null || f === '') return ''; if(typeof f === 'number' || /^\d+(\.\d+)?$/.test(f)) return (FAIXAS.find(([lim]) => +f <= lim) || [])[1] || '';
+    return (linhaFat(f) || [0, f])[1]; };
+  const setorDe = p => SETORES[p.setor] || SET2[p.setor] || p.setor || '';
+  const rdTag = e => !e.rd ? '' : e.rd.status.startsWith('ok') ? `<span class="tag-rd" title="Enviado ao RD Station${e.rd.status === 'ok-sem-campos' ? ' (sem faturamento/funcionários: crie os campos no RD)' : ''}">RD</span>`
+    : e.rd.status.startsWith('erro') ? `<span class="tag-rd x" title="${esc(e.rd.status)}">RD ✗</span>` : '';
   const soDig = t => (t || '').replace(/\D/g, '');
   const wa = (t, msg) => { const d = soDig(t); return d ? 'https://wa.me/' + (d.length <= 11 ? '55' + d : d) + (msg ? '?text=' + encodeURIComponent(msg) : '') : ''; };
   const ETAPAS = {novo: 'Novo', contato: 'Em contato', reuniao: 'Reunião marcada', cliente: 'Cliente', perdido: 'Perdido'};
   const opcoesEtapa = atual => Object.entries(ETAPAS).map(([k, n]) => `<option value="${k}"${k === atual ? ' selected' : ''}>${n}</option>`).join('');
   $('#mEtapa').insertAdjacentHTML('beforeend', opcoesEtapa(''));
   const msgWhats = e => `Olá, ${((e.lead.nome || '').trim().split(/\s+/)[0]) || 'tudo bem'}! Aqui é do time do Ricardo Nunes. ` +
-    `Vi que você fez o Raio-X Tributário e ele apontou ${brl(e.res.total)} em oportunidades para a sua empresa. Posso te mostrar os próximos passos?`;
+    `Vi que você fez o ${proj().nome} e ele apontou ${brl(e.res.total)} em oportunidades para a sua empresa. Posso te mostrar os próximos passos?`;
 
   let etapa = 'todos', ordem = 'recente', soQualif = false, soWhats = false, limite = 100;
   const sel = new Set(), rascunho = {};
@@ -259,7 +314,7 @@
     let L = lixeira ? TODOS.filter(e => e.excluido) : filtrados();
     if(soQualif) L = L.filter(ehQualif);
     if(soWhats) L = L.filter(temWhats);
-    if(q) L = L.filter(e => [e.lead.nome, e.lead.email, e.lead.telefone, soDig(e.lead.telefone), e.perfil.nome, SETORES[e.perfil.setor], e.perfil.estado,
+    if(q) L = L.filter(e => [e.lead.nome, e.lead.email, e.lead.telefone, soDig(e.lead.telefone), e.perfil.nome, setorDe(e.perfil), e.perfil.estado, e.perfil.uf, faixaDe(e.perfil.faturamento), funcTxt(e.perfil.funcionarios),
       REGIMES[e.perfil.regime], ETAPAS[e.status], ...(e.notas || []).map(n => n.texto)].join(' ').toLowerCase().includes(q));
     return L;
   }
@@ -299,42 +354,55 @@
     $('#mais').textContent = `Mostrar mais (${L.length - limite} restantes)`;
     $('#selTodos').checked = L.length > 0 && L.every(e => sel.has(e.id));
     $('#selTodos').indeterminate = sel.size > 0 && !$('#selTodos').checked;
-    if(!L.length){ $('#tLeads').innerHTML = `<tr><td colspan="9"><div class="vazio">${lixeira ? 'A lixeira está vazia.' : 'Nenhum lead com esses filtros.'}</div></td></tr>`; return; }
+    if(!L.length){ $('#tLeads').innerHTML = `<tr><td colspan="10"><div class="vazio">${lixeira ? 'A lixeira está vazia.' : 'Nenhum lead com esses filtros.'}</div></td></tr>`; return; }
     $('#tLeads').innerHTML = L.slice(0, limite).map(e => {
       const p = e.perfil, l = e.lead, link = wa(l.telefone), r = rep(e);
       let h = `<tr class="lin${sel.has(e.id) ? ' sel' : ''}" data-id="${esc(e.id)}">
         <td class="ck"><input type="checkbox" data-ck="${esc(e.id)}"${sel.has(e.id) ? ' checked' : ''} aria-label="Selecionar"></td>
         <td class="num" style="text-align:left">${quando(e.ts)}</td>
-        <td><div class="nome">${esc(l.nome) || '—'}${ehTeste(e) ? '<span class="tag-t">teste</span>' : ''}${r > 1 ? `<span class="tag-r" title="Mesmo e-mail ou WhatsApp em ${r} diagnósticos">repetido ×${r}</span>` : ''}${(e.notas || []).length ? `<span class="tag-n" title="Anotações">✎ ${e.notas.length}</span>` : ''}</div></td>
+        <td><div class="nome">${esc(l.nome) || '—'}${ehTeste(e) ? '<span class="tag-t">teste</span>' : ''}${r > 1 ? `<span class="tag-r" title="Mesmo e-mail ou WhatsApp em ${r} diagnósticos">repetido ×${r}</span>` : ''}${(e.notas || []).length ? `<span class="tag-n" title="Anotações">✎ ${e.notas.length}</span>` : ''}${rdTag(e)}</div></td>
         <td>${link ? `<a href="${link}" target="_blank" rel="noopener">${esc(l.telefone)}</a>` : '—'}</td>
         <td>${l.email ? `<a href="mailto:${esc(l.email)}">${esc(l.email)}</a>` : '—'}</td>
-        <td>${p.nome ? `<div class="nome">${esc(p.nome)}</div>` : ''}${esc(SETORES[p.setor] || p.setor || '—')}<div class="sub">${esc(p.estado || '')} · ${esc(REGIMES[p.regime] || p.regime || '')}</div></td>
-        <td>${esc(faixaDe(p.faturamento))}</td>
+        <td>${p.nome ? `<div class="nome">${esc(p.nome)}</div>` : ''}${esc(setorDe(p) || '—')}<div class="sub">${esc(p.estado || p.uf || '')} · ${esc(REG2[p.regime] || p.regime || '')}</div></td>
+        <td>${esc(faixaDe(p.faturamento)) || '—'}</td>
+        <td>${esc(funcTxt(p.funcionarios)) || '—'}</td>
         <td>${lixeira ? '<span class="st st-perdido">Na lixeira</span>' : `<select class="etapa-sel" data-et-id="${esc(e.id)}" aria-label="Etapa">${opcoesEtapa(e.status)}</select>`}</td>
         <td class="num val">${brl(e.res.total)}</td></tr>`;
       if(aberto === e.id){
         const sinais = Object.entries(OPER).filter(([k]) => +p[k]).map(([, n]) => `<span>${esc(n)}</span>`).join('') || '<span>Nenhum</span>';
         const naoF = Object.entries(AUD).filter(([k]) => !+p[k]).map(([, n]) => `<span>${esc(n)}</span>`).join('') || '<span>Tudo em dia</span>';
         const notas = (e.notas || []).slice().reverse().map(n => `<li><small>${esc(n.por)} · ${quandoAno(n.em)}</small><p>${esc(n.texto)}</p><button data-tirar="${esc(n.id)}" title="Apagar anotação" aria-label="Apagar anotação">×</button></li>`).join('');
-        h += `<tr class="det"><td colspan="9"><div class="det-g">
-          <div><h4>Oportunidades encontradas (${e.res.nOpps})</h4><ul>${(e.res.top || []).map(o => `<li><span>${esc(o.nome)}</span><span>${brl(o.val)}</span></li>`).join('') || '<li>—</li>'}</ul>
-            <h4 style="margin-top:16px">Números</h4><ul>
-            <li><span>Imposto estimado por ano</span><span>${brl(e.res.carga)}</span></li>
+        const numeros = ehCurto()
+          ? `<li><span>Economia por ano</span><span>${brl(e.res.economia)}</span></li>
+            <li><span>Recuperável</span><span>${brl(e.res.recuperacao)}</span></li>
+            <li><span>Faturamento · funcionários</span><span>${esc(faixaDe(p.faturamento) || '—')} · ${esc(funcTxt(p.funcionarios) || '—')}</span></li>`
+          : `<li><span>Imposto estimado por ano</span><span>${brl(e.res.carga)}</span></li>
             <li><span>Economia por ano</span><span>${brl(e.res.economia)}</span></li>
+            <li><span>Faturamento por mês</span><span>${p.faturamento ? brl(p.faturamento) : '—'}</span></li>
             <li><span>Funcionários CLT · anos de empresa</span><span>${esc(p.funcionarios)} · ${esc(p.anos)}+</span></li>
-            ${+p.divida ? `<li><span>Dívida fiscal informada</span><span>${brl(p.passivo_valor)}</span></li>` : ''}</ul></div>
-          <div><h4>Como opera</h4><div class="chips">${sinais}</div>
+            ${+p.divida ? `<li><span>Dívida fiscal informada</span><span>${brl(p.passivo_valor)}</span></li>` : ''}`;
+        const meio = ehCurto()
+          ? `<div><h4>Respostas</h4><ul>${PERGUNTAS.filter(([k]) => p[k] != null && p[k] !== '').map(([k, n]) => `<li><span>${esc(n)}</span><span>${esc(respTxt(k, p[k]))}</span></li>`).join('')}</ul>
+            <h4 style="margin-top:16px">Origem</h4><div class="chips">${Object.entries(e.utm || {}).map(([k, v]) => `<span>${esc(k)}: ${esc(v)}</span>`).join('') || '<span>Direto / sem UTM</span>'}${e.pagina ? `<span>página: ${esc(e.pagina)}</span>` : ''}</div></div>`
+          : `<div><h4>Como opera</h4><div class="chips">${sinais}</div>
             <h4 style="margin-top:16px">Auditoria do dono: respondeu "não"</h4><div class="chips">${naoF}</div>
-            <h4 style="margin-top:16px">Origem</h4><div class="chips">${Object.entries(e.utm || {}).map(([k, v]) => `<span>${esc(k)}: ${esc(v)}</span>`).join('') || '<span>Direto / sem UTM</span>'}</div></div>
+            <h4 style="margin-top:16px">Origem</h4><div class="chips">${Object.entries(e.utm || {}).map(([k, v]) => `<span>${esc(k)}: ${esc(v)}</span>`).join('') || '<span>Direto / sem UTM</span>'}</div></div>`;
+        const rdLinha = !e.rd ? (rdLigado ? ' · ainda não foi para o RD' : '') : e.rd.status.startsWith('ok') ? ` · enviado ao RD em ${quandoAno(e.rd.em)}${e.rd.status === 'ok-sem-campos' ? ' (sem faturamento/funcionários)' : ''}`
+          : e.rd.status.startsWith('erro') ? ` · RD: ${esc(e.rd.status.replace(/^erro: /, ''))}` : ' · enviando ao RD';
+        h += `<tr class="det"><td colspan="10"><div class="det-g">
+          <div><h4>Oportunidades encontradas (${e.res.nOpps})</h4><ul>${(e.res.top || []).map(o => `<li><span>${esc(o.nome)}</span><span>${brl(o.val)}</span></li>`).join('') || '<li>—</li>'}</ul>
+            <h4 style="margin-top:16px">Números</h4><ul>${numeros}</ul></div>
+          ${meio}
           <div class="gest">
             <div><h4>Ações</h4><div class="acoes">
               ${link ? `<a class="btn-l" href="${wa(l.telefone, msgWhats(e))}" target="_blank" rel="noopener">WhatsApp com mensagem pronta</a>` : ''}
               <button class="btn-l" data-copiar>Copiar contato</button>
+              ${rdLigado && !lixeira ? `<button class="btn-l" data-rd>${e.rd && e.rd.status.startsWith('ok') ? 'Reenviar ao RD' : 'Enviar ao RD'}</button>` : ''}
               ${lixeira ? `<button class="btn-l" data-um="restaurar">Restaurar</button><button class="btn-l perigo" data-um="apagar">Apagar de vez</button>`
                 : `<button class="btn-l" data-um="${ehTeste(e) ? 'real' : 'teste'}">${ehTeste(e) ? 'Não é teste' : 'Marcar como teste'}</button>
                    <button class="btn-l perigo" data-um="excluir">Excluir</button>`}
             </div>
-            <div class="sub">Chegou em ${quandoAno(e.ts)}${e.gestao ? ` · última mudança por ${esc(e.gestao.por)} em ${quandoAno(e.gestao.em)}` : ''}${e.excluido ? ` · excluído por ${esc(e.excluido.por)} em ${quandoAno(e.excluido.em)}` : ''}${e.testeManual != null ? ' · teste marcado à mão' : ''}</div></div>
+            <div class="sub">Chegou em ${quandoAno(e.ts)}${e.gestao ? ` · última mudança por ${esc(e.gestao.por)} em ${quandoAno(e.gestao.em)}` : ''}${e.excluido ? ` · excluído por ${esc(e.excluido.por)} em ${quandoAno(e.excluido.em)}` : ''}${e.testeManual != null ? ' · teste marcado à mão' : ''}${rdLinha}</div></div>
             <div><h4>Anotações</h4>${notas ? `<ul class="notas">${notas}</ul>` : ''}
               <form class="nova-nota" data-nota="${esc(e.id)}"><textarea maxlength="2000" placeholder="Ex.: liguei, pediu para retornar na sexta">${esc(rascunho[e.id] || '')}</textarea><button class="btn-r">Salvar anotação</button></form></div>
           </div>
@@ -356,8 +424,15 @@
     $$('[data-um]', det).forEach(b => b.onclick = () => emMassa(b.dataset.um, [aberto]));
     const cp = $('[data-copiar]', det);
     if(cp) cp.onclick = () => {
-      const t = [e.lead.nome, e.lead.telefone, e.lead.email, e.perfil.nome].filter(Boolean).join(' · ');
+      const t = [e.lead.nome, e.lead.telefone, e.lead.email, e.perfil.nome, faixaDe(e.perfil.faturamento), funcTxt(e.perfil.funcionarios) && funcTxt(e.perfil.funcionarios) + ' funcionários'].filter(Boolean).join(' · ');
       (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => avisa('Contato copiado.'), () => prompt('Copie o contato:', t));
+    };
+    const brd = $('[data-rd]', det);
+    if(brd) brd.onclick = async () => {
+      brd.disabled = true; brd.textContent = 'Enviando…';
+      try { const j = await integ('POST', {acao: 'um', id: aberto}); avisa(j.aviso ? 'Enviado ao RD, mas sem faturamento/funcionários (crie os campos no RD).' : 'Lead enviado ao RD Station.'); }
+      catch(x) { avisa(x.message, true); }
+      carrega();
     };
     $$('[data-tirar]', det).forEach(b => b.onclick = () => { if(confirm('Apagar esta anotação?')) acao({acao: 'tirarNota', id: aberto, nota: b.dataset.tirar}, () => 'Anotação apagada.'); });
     const f = $('form.nova-nota', det), ta = $('textarea', f);
@@ -422,25 +497,43 @@
 
   function baixaCSV(lista){
     const L = lista || listaLeads(), cel = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
-    const cab = ['data','nome','email','whatsapp','empresa','setor','estado','regime','faturamento_mes','identificado','recuperacao','beneficios','economia_ano','divida',
+    if(ehCurto()){
+      const cab = ['data', 'nome', 'email', 'whatsapp', 'faturamento_mes', 'funcionarios', 'regime', 'setor', 'estado', 'cnpjs', 'vende_para', 'revisao_regime', 'dono_sumir_15_dias',
+        'lucro_de_100', 'folha', 'identificado', 'economia_ano', 'recuperavel', 'etapa', 'teste', 'rd_station', 'anotacoes', 'pagina', 'utm_source', 'utm_campaign', 'utm_content'];
+      const linhas = L.map(e => { const p = e.perfil, r = k => respTxt(k, p[k]) || '';
+        return [quandoAno(e.ts), e.lead.nome, e.lead.email, e.lead.telefone, faixaDe(p.faturamento), funcTxt(p.funcionarios), r('regime'), r('setor'), p.uf || p.estado,
+          r('cnpjs'), r('cliente'), r('revisao'), r('dono'), r('margem'), r('folha'), Math.round(e.res.total), Math.round(e.res.economia), Math.round(e.res.recuperacao),
+          e.excluido ? 'lixeira' : ETAPAS[e.status] || '', ehTeste(e) ? 'sim' : 'não', e.rd ? e.rd.status : '',
+          (e.notas || []).map(n => `[${quandoAno(n.em)} ${n.por}] ${n.texto}`).join(' | '), e.pagina, (e.utm || {}).source, (e.utm || {}).campaign, (e.utm || {}).content].map(cel).join(';'); });
+      return salvaCSV(cab, linhas);
+    }
+    const cab = ['data','nome','email','whatsapp','empresa','setor','estado','regime','faturamento_mes','funcionarios','identificado','recuperacao','beneficios','economia_ano','divida',
       'etapa','teste','anotacoes','utm_source','utm_campaign','utm_content'];
     const linhas = L.map(e => [quandoAno(e.ts), e.lead.nome, e.lead.email, e.lead.telefone, e.perfil.nome, SETORES[e.perfil.setor] || e.perfil.setor, e.perfil.estado,
-      REGIMES[e.perfil.regime] || e.perfil.regime, e.perfil.faturamento, Math.round(e.res.total), Math.round(e.res.recuperacao), Math.round(e.res.beneficios),
+      REGIMES[e.perfil.regime] || e.perfil.regime, e.perfil.faturamento, e.perfil.funcionarios, Math.round(e.res.total), Math.round(e.res.recuperacao), Math.round(e.res.beneficios),
       Math.round(e.res.economia), +e.perfil.divida ? 'sim' : 'não', e.excluido ? 'lixeira' : ETAPAS[e.status] || '', ehTeste(e) ? 'sim' : 'não',
       (e.notas || []).map(n => `[${quandoAno(n.em)} ${n.por}] ${n.texto}`).join(' | '),
       (e.utm || {}).source, (e.utm || {}).campaign, (e.utm || {}).content].map(cel).join(';'));
+    salvaCSV(cab, linhas);
+  }
+  function salvaCSV(cab, linhas){
     const blob = new Blob(['﻿' + [cab.join(';'), ...linhas].join('\n')], {type: 'text/csv;charset=utf-8'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'raiox-tributario-leads-' + hojeBR() + '.csv'; a.click();
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = proj().id + '-leads-' + hojeBR() + '.csv'; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
 
   // ---------- dados ----------
   async function carrega(){
     try {
-      const r = await fetch(API + '/envios', {credentials: 'same-origin', cache: 'no-store'});
+      const pedido = projeto;
+      const r = await fetch(API + '/envios?projeto=' + encodeURIComponent(pedido), {credentials: 'same-origin', cache: 'no-store'});
       if(r.status === 401){ entra(null); return; }
       const j = await r.json();
       if(j.papel !== papel){ entra(null); return; } // papel mudou (admin tirou o acesso): pede login de novo
+      if(pedido !== projeto) return; // trocou de projeto enquanto carregava
+      if(Array.isArray(j.projetos) && j.projetos.length) PROJS = j.projetos;
+      projeto = j.projeto || projeto;
+      mostraProjeto();
       TODOS = (j.envios || []).filter(e => e && e.res);
       $('#atualizado').textContent = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
       desenha();
@@ -455,8 +548,123 @@
     $$('.so-admin').forEach(x => x.classList.toggle('esc', papel !== 'admin'));
     $('#quem').innerHTML = u ? `<b>${esc(u.nome)}</b> · ${papel === 'admin' ? 'admin' : 'leitor'}` : '';
     clearInterval(relogio);
-    if(u){ mostraAba('painel'); TODOS = []; carrega(); relogio = setInterval(carrega, 30000); } else { TODOS = []; $('#lUsuario').focus(); }
+    if(u){ mostraAba('painel'); TODOS = []; mostraProjeto(); carrega(); relogio = setInterval(carrega, 30000); if(papel === 'admin') rdSituacao(); }
+    else { TODOS = []; $('#lUsuario').focus(); }
   }
+
+  // ---------- menu de projetos (canto superior direito) ----------
+  function mostraProjeto(){
+    const p = proj();
+    document.body.classList.toggle('f-curto', p.formato === 'curto');
+    document.body.classList.toggle('f-completo', p.formato !== 'curto');
+    $('#projNome').textContent = p.nome;
+    $('#pill').textContent = p.nome + ' · ao vivo';
+    document.title = 'Resultômetro | ' + p.nome;
+    $('#projMenu').innerHTML = '<small class="t">Dashboards</small>' + PROJS.map(x =>
+      `<button type="button" role="menuitem" data-proj="${esc(x.id)}" class="${x.id === p.id ? 'on' : ''}"><b>${esc(x.nome)}</b><em>${(x.n || 0).toLocaleString('pt-BR')}</em><small>${esc(x.pagina)}</small></button>`).join('');
+    $$('#projMenu [data-proj]').forEach(b => b.onclick = () => trocaProjeto(b.dataset.proj));
+  }
+  function trocaProjeto(id){
+    fechaMenu();
+    if(id === projeto) return;
+    projeto = id;
+    const u = new URL(location.href); if(id === 'tributario') u.searchParams.delete('p'); else u.searchParams.set('p', id);
+    history.replaceState(null, '', u);
+    TODOS = []; aberto = null; sel.clear(); limite = 100; etapa = 'todos';
+    mostraProjeto(); desenha(); carrega();
+  }
+  const fechaMenu = () => { $('#projMenu').classList.add('esc'); $('#projBtn').setAttribute('aria-expanded', 'false'); };
+  $('#projBtn').onclick = ev => { ev.stopPropagation(); const abrir = $('#projMenu').classList.contains('esc');
+    $('#projMenu').classList.toggle('esc', !abrir); $('#projBtn').setAttribute('aria-expanded', String(abrir)); if(abrir) ($('#projMenu .on') || $('#projMenu button')).focus(); };
+  document.addEventListener('click', ev => { if(!ev.target.closest('#proj')) fechaMenu(); });
+  document.addEventListener('keydown', ev => { if(ev.key === 'Escape') fechaMenu(); });
+
+  // ---------- integrações (admin): RD Station ----------
+  let rdLigado = false, RD = null;
+  const integ = (metodo, corpo) => fetch(API + '/integracoes', {method: metodo, credentials: 'same-origin', cache: 'no-store',
+    headers: corpo ? {'Content-Type': 'application/json'} : {}, body: corpo ? JSON.stringify(corpo) : undefined})
+    .then(async r => { const j = await r.json().catch(() => ({})); if(!r.ok) throw new Error(j.erro || 'Não deu certo.'); return j; });
+  const msgRD = (html, tipo) => { const m = $('#rdMsg'); m.innerHTML = html; m.className = 'rd-status' + (tipo ? ' ' + tipo : ''); };
+  async function rdSituacao(){
+    try { const j = await integ('GET'); mostraRD(j.rd); } catch(e) { /* a aba mostra o erro quando abrir */ }
+  }
+  function mostraRD(rd){
+    RD = rd; rdLigado = Boolean(rd.ligado);
+    $('#btnRD').classList.toggle('on', rdLigado);
+    const pend = Object.values(rd.pendentes || {}).reduce((a, b) => a + b, 0);
+    $('#rdEstado').textContent = rdLigado ? 'Ligado' + (pend ? ` · ${pend} lead(s) ainda não enviado(s)` : ' · tudo enviado') : rd.temChave ? 'Desligado (chave guardada)' : 'Desligado · clique para ligar';
+    $('#rdChave').textContent = rd.chave ? 'chave ' + rd.chave : '';
+    $('#rdToken').placeholder = rd.temChave ? 'Chave guardada (' + rd.chave + '). Cole outra só se quiser trocar.' : 'Cole aqui a Chave de API do RD';
+    $('#rdCampoFat').value = rd.campos.faturamento || '';
+    $('#rdCampoFunc').value = rd.campos.funcionarios || '';
+    $('#rdLigar').textContent = rdLigado ? 'Salvar' : 'Salvar e ligar';
+    $('#rdDesligar').classList.toggle('esc', !rdLigado);
+    $('#rdPend').classList.toggle('esc', !rd.temChave || !pend);
+    $('#rdPend').textContent = `Enviar leads antigos (${pend})`;
+    $('#rdProjetos').innerHTML = rd.lista.map(p => { const c = rd.projetos[p.id] || {};
+      return `<div class="rd-proj"><label><input type="checkbox" data-rd-ativo="${esc(p.id)}"${c.ativo ? ' checked' : ''}><span>${esc(p.nome)}
+          <span class="sub">${esc(p.pagina)} · <em>${rd.enviados[p.id] || 0} enviado(s)</em>${rd.pendentes[p.id] ? ` · <i>${rd.pendentes[p.id]} pendente(s)</i>` : ''}</span></span></label>
+        <input class="rd-in" data-rd-id="${esc(p.id)}" value="${esc(c.identificador || '')}" aria-label="Identificador da conversão no RD" spellcheck="false">
+        ${rd.temChave && rd.pendentes[p.id] ? `<button class="btn-l" type="button" data-rd-pend="${esc(p.id)}">Enviar ${rd.pendentes[p.id]}</button>` : '<span></span>'}</div>`; }).join('');
+    $$('[data-rd-pend]').forEach(b => b.onclick = () => pendentes(b.dataset.rdPend, b));
+    if(rd.ultimo && !$('#rdMsg').textContent){
+      const q = quandoAno(rd.ultimo.em);
+      if(rd.ultimo.ok && !rd.ultimo.msg) msgRD(`Último envio ao RD: ${q}, deu certo.`, 'ok');
+      else msgRD(`Último envio ao RD (${q}): ${esc(rd.ultimo.msg || 'deu certo')}`, rd.ultimo.ok ? '' : 'erro');
+    }
+  }
+  $('#btnRD').onclick = () => {
+    const card = $('#rdCard'), abrir = card.classList.contains('esc');
+    card.classList.toggle('esc', !abrir);
+    if(abrir){ (RD && RD.temChave ? $('#rdLigar') : $('#rdToken')).focus(); card.scrollIntoView({behavior: 'smooth', block: 'start'}); }
+  };
+  function lerFormRD(){
+    const projetos = {};
+    $$('[data-rd-ativo]').forEach(c => { projetos[c.dataset.rdAtivo] = {ativo: c.checked}; });
+    $$('[data-rd-id]').forEach(i => { (projetos[i.dataset.rdId] ||= {}).identificador = i.value.trim(); });
+    return {token: $('#rdToken').value.trim(), campos: {faturamento: $('#rdCampoFat').value.trim(), funcionarios: $('#rdCampoFunc').value.trim()}, projetos};
+  }
+  $('#rdCard').addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const b = $('#rdLigar'), eraLigado = rdLigado; b.disabled = true; msgRD('Conferindo a chave com o RD…');
+    try {
+      const j = await integ('POST', {acao: 'salvar', ligado: true, ...lerFormRD()});
+      $('#rdToken').value = ''; msgRD(''); mostraRD(j.rd);
+      const pend = Object.values(j.rd.pendentes).reduce((a, c) => a + c, 0);
+      msgRD(`${eraLigado ? 'Salvo.' : 'RD Station ligado.'} Daqui para a frente cada diagnóstico com e-mail vai para o RD.${pend ? ` Há ${pend} lead(s) de antes: use "Enviar leads antigos" para mandar também.` : ''}`, 'ok');
+      carrega();
+    } catch(e) { msgRD(esc(e.message), 'erro'); }
+    b.disabled = false;
+  });
+  $('#rdDesligar').onclick = async () => {
+    if(!confirm('Desligar o envio ao RD Station? Os leads novos param de ir para o RD (a chave fica guardada).')) return;
+    try { const j = await integ('POST', {acao: 'salvar', ligado: false}); msgRD(''); mostraRD(j.rd); msgRD('RD Station desligado.'); } catch(e) { msgRD(esc(e.message), 'erro'); }
+  };
+  $('#rdTeste').onclick = async () => {
+    const b = $('#rdTeste'); b.disabled = true; msgRD('Enviando lead de teste…');
+    try {
+      const f = lerFormRD();
+      if(f.token || f.campos.faturamento !== RD?.campos.faturamento || f.campos.funcionarios !== RD?.campos.funcionarios) mostraRD((await integ('POST', {acao: 'salvar', ...f})).rd);
+      $('#rdToken').value = '';
+      const j = await integ('POST', {acao: 'testar'});
+      msgRD(j.aviso ? esc(j.aviso) : `Lead de teste enviado: procure por <b>${esc(j.email)}</b> no RD (conversão "teste-integracao-painel"). Pode apagar lá depois.`, j.aviso ? 'erro' : 'ok');
+      rdSituacao();
+    } catch(e) { msgRD(esc(e.message), 'erro'); }
+    b.disabled = false;
+  };
+  async function pendentes(projetoId, botao){
+    const b = botao || $('#rdPend'); b.disabled = true; const txt = b.textContent; b.textContent = 'Enviando…';
+    msgRD('Enviando ao RD os leads que ainda não foram… (até 60 por vez)');
+    try {
+      const j = await integ('POST', {acao: 'pendentes', projeto: projetoId || undefined});
+      msgRD('');
+      mostraRD(j.rd);
+      msgRD(`${j.enviados} lead(s) enviado(s) ao RD${j.erros ? `, ${j.erros} com erro (${esc(j.ultimoErro)})` : ''}${j.avisos ? `. Atenção: ${esc(j.ultimoErro)}` : ''}${j.restantes ? `. Faltam ${j.restantes}: clique de novo.` : '.'}`, j.erros || j.avisos ? 'erro' : 'ok');
+      carrega();
+    } catch(e) { msgRD(esc(e.message), 'erro'); b.textContent = txt; }
+    b.disabled = false;
+  }
+  $('#rdPend').onclick = () => pendentes(null);
   $('#fLogin').addEventListener('submit', async ev => {
     ev.preventDefault(); $('#lErro').textContent = '';
     try {
@@ -470,12 +678,13 @@
   $('#sair').onclick = () => { fetch(API + '/login', {method: 'DELETE', credentials: 'same-origin'}).catch(() => {}); entra(null); };
 
   // ---------- interações ----------
-  const ABAS = {painel: '#abaPainel', leads: '#abaLeads', metricas: '#abaMetricas', usuarios: '#abaUsuarios'};
+  const ABAS = {painel: '#abaPainel', leads: '#abaLeads', metricas: '#abaMetricas', usuarios: '#abaUsuarios', integracoes: '#abaIntegracoes'};
   function mostraAba(nome){
     if(nome !== 'painel' && papel !== 'admin') nome = 'painel';
     $$('.aba').forEach(x => x.classList.toggle('on', x.dataset.aba === nome));
     Object.entries(ABAS).forEach(([k, sel]) => $(sel).classList.toggle('esc', k !== nome));
     if(nome === 'usuarios') usuarios();
+    if(nome === 'integracoes') integ('GET').then(j => mostraRD(j.rd)).catch(e => msgRD(esc(e.message), 'erro'));
     if(nome === 'metricas' && TODOS.length) desenha(); // a grade dos gráficos precisa estar visível para medir a largura
     scrollTo(0, 0);
   }

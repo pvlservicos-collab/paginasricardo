@@ -3,7 +3,7 @@
 import { lerJson } from '../../lib/servidor.mjs';
 import { protegidoRaiox, listarEnvios, gerirLeads, json, registrar, ipDe } from '../../lib/raiox.mjs';
 
-export const GET = protegidoRaiox(async (request, url, u) => json({ papel: u.papel, envios: await listarEnvios(u.papel) }));
+export const GET = protegidoRaiox(async (request, url, u) => json({ papel: u.papel, ...(await listarEnvios(u.papel, url.searchParams.get('projeto'))) }));
 
 export const PATCH = protegidoRaiox(async (request, url, u) => {
   const d = await lerJson(request, 64 * 1024);

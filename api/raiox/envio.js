@@ -1,6 +1,9 @@
-// Recebe cada diagnóstico do quiz Raio-X (pública). O quiz manda text/plain sem CORS (sem preflight),
+// Recebe cada diagnóstico dos quizzes Raio-X (pública). O quiz manda text/plain sem CORS (sem preflight),
 // com um id por visita: refazer o resultado sobrescreve em vez de duplicar. Responde 204 e pronto.
+// Se o RD Station estiver ligado (aba Integrações), o lead vai para lá depois da resposta (waitUntil).
+import { waitUntil } from '@vercel/functions';
 import { limparEnvio, salvarEnvio, ipDe } from '../../lib/raiox.mjs';
+import { rdDoEnvio } from '../../lib/rdstation.mjs';
 
 const vazio = (status = 204) => new Response(null, { status, headers: { 'Cache-Control': 'no-store' } });
 
@@ -17,5 +20,6 @@ export async function POST(request) {
     console.error(JSON.stringify({ tipo: 'erro', rota: '/api/raiox/envio', msg: err.message }));
     return vazio(503);
   }
+  if (e.lead.email) waitUntil(rdDoEnvio(e.id));
   return vazio();
 }
