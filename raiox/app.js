@@ -52,6 +52,24 @@
   const aqui = location.pathname.replace(/\/+$/, '').toLowerCase();
   let projeto = (PROJS.find(p => p.dash === aqui) || {}).id || (new URLSearchParams(location.search).get('p') || 'tributario').replace(/[^a-z-]/g, '');
   const proj = () => PROJS.find(p => p.id === projeto) || PROJS[0];
+  // tela de login com a cara do quiz de cada dashboard
+  const LOGIN = {
+    xequemate: {faixa: 'Painel do Raio-X · Xeque-Mate Tributário', logo: '/raioxtributariodash/xm-logo.svg', alt: 'Xeque-Mate Tributário', tag: '',
+      tit: 'Resultômetro do <em>Xeque-Mate</em>', sub: 'Diagnósticos e leads do Raio-X do Xeque-Mate Tributário, ao vivo.'},
+    'tributario-raiox': {faixa: '', logo: '/raioxtributariodash/r1-logo.webp', alt: 'Grupo R1', tag: 'Raio-X Tributário',
+      tit: 'Resultômetro do <em>Raio-X Tributário</em>', sub: 'Diagnósticos e leads do Raio-X Tributário, ao vivo.'},
+  };
+  (function visualDoLogin(){
+    const t = LOGIN[projeto];
+    if(!t) return;
+    document.body.classList.add('t-' + projeto);
+    $('#lgFaixa').textContent = t.faixa;
+    $('#lgLogo').src = t.logo; $('#lgLogo').alt = t.alt;
+    $('#lgTag').textContent = t.tag;
+    $('#lgTit').innerHTML = t.tit;
+    $('#lgSub').textContent = t.sub;
+    $('#lgLeao').src = '/raioxtributariodash/leao.webp';
+  })();
   const ehCurto = () => proj().formato === 'curto';
   const linhaFat = f => FAT2.find(x => x[0] === f);
   // faturamento por mês em número: o quiz completo manda o valor; os curtos, a faixa (piso ou meio dela)
