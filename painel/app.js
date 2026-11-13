@@ -29,6 +29,7 @@ const I = {
   imagem: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>',
   alerta: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
   sair: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3"/></svg>',
+  vps: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01M11 7.5h6M11 16.5h6"/></svg>',
   globo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>',
   trackeamento: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>',
 };
@@ -39,6 +40,7 @@ const E = {
   dominiosStatus: {}, imagens: null, otimizar: true, ordem: (() => { try { return localStorage.getItem('r1-ordem') || 'funil'; } catch { return 'funil'; } })(), buscaPag: '', filtroPsi: (() => { try { return localStorage.getItem('r1-filtro-psi') || 'todas'; } catch { return 'todas'; } })(), filtroGrupo: (() => { try { return localStorage.getItem('r1-filtro-grupo') || 'todos'; } catch { return 'todos'; } })(),
   status: {}, verificando: false, metricas: null, dias: 7, copias: null, psi: {},
   vista: 'grade', previa: 'celular', funilPrevia: true,
+  vps: null, vpsHoras: 24,
 };
 
 // Versão das prévias: só muda quando algo é salvo neste navegador. Assim abrir o painel de novo reaproveita
@@ -205,7 +207,7 @@ function vigiarDeploy() {
 function iniciar() {
   // /trackeamento abre direto na tela de trackeamento (mesmo painel, mesmo login)
   E.vista = (location.hash.slice(1) || (location.pathname.replace(/\/+$/, '') === '/trackeamento' ? 'trackeamento' : 'grade')).split('?')[0];
-  if (!['grade', 'lista', 'trackeamento', 'imagens', 'funil', 'metricas'].includes(E.vista)) E.vista = 'grade';
+  if (!['grade', 'lista', 'trackeamento', 'imagens', 'funil', 'metricas', 'vps'].includes(E.vista)) E.vista = 'grade';
   $('#app').innerHTML = '<div class="boot">Carregando páginas…</div>';
   carregarPaginas(E.vista === 'funil')
     .then(() => {
@@ -215,6 +217,7 @@ function iniciar() {
       if (ehAdmin()) carregarMetricas();
       carregarDominios();
       if (E.vista === 'imagens') carregarImagens();
+      if (E.vista === 'vps') carregarVps();
       carregarPsi();
       if (E.publicando) vigiarDeploy();
       if (E.usandoBanco && !ehTrafego()) acompanharPublicacao(); // ao abrir, mostra se há alteração esperando publicar
@@ -228,6 +231,7 @@ window.addEventListener('hashchange', () => {
   E.vista = v;
   if (v === 'funil' && !E.copias && ehAdmin()) carregarPaginas(true).then(render);
   if (v === 'imagens' && !E.imagens) carregarImagens();
+  if (v === 'vps') carregarVps();
   render();
 });
 
@@ -235,7 +239,7 @@ window.addEventListener('hashchange', () => {
 const EMAILS_URL = 'https://ricardonunes.grupor1.com/emails';
 
 function render() {
-  const nav = [['grade', 'Páginas'], ['lista', 'Lista'], ['trackeamento', 'Trackeamento'], ['imagens', 'Imagens'], ['funil', 'Funil'], ['metricas', 'Métricas']].filter(([k]) => !ehTrafego() || k === 'trackeamento');
+  const nav = [['grade', 'Páginas'], ['lista', 'Lista'], ['trackeamento', 'Trackeamento'], ['imagens', 'Imagens'], ['funil', 'Funil'], ['metricas', 'Métricas'], ['vps', 'Uso da VPS']].filter(([k]) => (!ehTrafego() || k === 'trackeamento') && (k !== 'vps' || ehAdmin()));
   const dep = E.publicando
     ? '<b><span class="ponto pulsa"></span>Publicando…</b>A Vercel está gerando a nova versão.'
     : E.usandoGitHub
@@ -270,7 +274,7 @@ function renderVista(rolarTopo = true) {
   const c = $('#conteudo');
   if (!c) return;
   const scroll = window.scrollY;
-  const v = ehTrafego() ? vistaTrackeamento : EM_OBRA.includes(E.vista) && !ehAdmin() ? vistaEmObra : ({ grade: vistaGrade, lista: vistaLista, trackeamento: vistaTrackeamento, imagens: vistaImagens, funil: vistaFunil, metricas: vistaMetricas }[E.vista] || vistaGrade);
+  const v = ehTrafego() ? vistaTrackeamento : EM_OBRA.includes(E.vista) && !ehAdmin() ? vistaEmObra : ({ grade: vistaGrade, lista: vistaLista, trackeamento: vistaTrackeamento, imagens: vistaImagens, funil: vistaFunil, metricas: vistaMetricas, vps: ehAdmin() ? vistaVps : vistaGrade }[E.vista] || vistaGrade);
   c.innerHTML = avisosGerais() + v();
   $$('.nav a').forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + E.vista));
   ajustarTelas();
@@ -869,6 +873,90 @@ function grafico(M) {
     <div class="legenda">${series.map((s) => `<span><i style="background:${s.cor}"></i>${h(s.p.titulo)}</span>`).join('')}</div></div>`;
 }
 
+/* ================= uso da VPS (servidor do banco) ================= */
+async function carregarVps() {
+  if (!ehAdmin()) return;
+  try { E.vps = await api('vps?horas=' + E.vpsHoras); } catch (e) { E.vps = { erro: e.message }; }
+  if (E.vista === 'vps') renderVista(false);
+}
+// atualiza sozinha a cada minuto enquanto a tela está aberta (a VPS coleta a cada 5 min)
+setInterval(() => { if (E.vista === 'vps' && document.visibilityState === 'visible' && E.usuario) carregarVps(); }, 60000);
+
+const umaCasa = (n) => (n == null ? '—' : Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 1 }));
+const horaBR = (d, comDia) => new Date(d).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', ...(comDia ? { day: '2-digit', month: '2-digit' } : {}), hour: '2-digit' }).replace(/:\d+$/, '') + 'h';
+const corUso = (v) => (v == null ? 'var(--mut2)' : v >= 85 ? 'var(--c4)' : v >= 60 ? 'var(--c1)' : 'var(--c3)');
+
+function cartaoUso(titulo, valor, pctUso, linha2) {
+  return `<div class="kpi"><span>${titulo}</span><b class="num">${valor}</b>
+    <div class="barrinha" style="margin:8px 0 6px"><i style="width:${Math.max(1, Math.min(100, pctUso || 0))}%;background:${corUso(pctUso)}"></i></div><small>${linha2}</small></div>`;
+}
+
+// gráfico de linha por hora; series = [{ nome, cor, campo }], max fixo (100 = porcentagem) ou automático
+function linhaHoras(serie, series, { max = null, sufixo = '', rotulo = '' } = {}) {
+  if (serie.length < 2) return '<p class="mut" style="margin:0">O gráfico aparece depois de duas horas de coleta.</p>';
+  const topoV = max ?? Math.max(1, ...serie.flatMap((p) => series.map((s) => p[s.campo] || 0))) * 1.15;
+  const estreito = window.innerWidth < 700; // celular: desenho mais estreito para as letras não ficarem miúdas
+  const W = estreito ? 420 : 900, H = estreito ? 260 : 230, pl = 44, pr = 12, pt = 12, pb = 28;
+  const x = (i) => pl + (i * (W - pl - pr)) / (serie.length - 1);
+  const y = (v) => pt + (H - pt - pb) * (1 - Math.min(v, topoV) / topoV);
+  const grade = [0, 0.25, 0.5, 0.75, 1].map((k) => { const v = topoV * k;
+    return `<line class="eixo" x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}"/><text x="${pl - 6}" y="${y(v) + 4}" text-anchor="end">${umaCasa(v >= 10 ? Math.round(v) : v)}${sufixo}</text>`; }).join('');
+  const varios = new Date(serie[serie.length - 1].hora) - new Date(serie[0].hora) > 26 * 3600e3;
+  const passo = Math.ceil(serie.length / (estreito ? (varios ? 3 : 5) : varios ? 7 : 12));
+  const rot = serie.map((p, i) => (i % passo === 0 || i === serie.length - 1) ? `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${horaBR(p.hora, varios)}</text>` : '').join('');
+  const linhas = series.map((s) => {
+    const pts = serie.map((p, i) => `${x(i)},${y(p[s.campo] || 0)}`).join(' ');
+    const bol = serie.map((p, i) => `<circle cx="${x(i)}" cy="${y(p[s.campo] || 0)}" r="3" fill="${s.cor}"><title>${s.nome} · ${horaBR(p.hora, true)}: ${umaCasa(p[s.campo])}${sufixo}${s.campoMax ? ' (pico ' + umaCasa(p[s.campoMax]) + sufixo + ')' : ''}</title></circle>`).join('');
+    return `<polyline points="${pts}" fill="none" stroke="${s.cor}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>${bol}`;
+  }).join('');
+  return `<div class="grafico"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${h(rotulo)}">${grade}${rot}${linhas}</svg>
+    <div class="legenda">${series.map((s) => `<span><i style="background:${s.cor}"></i>${s.nome}</span>`).join('')}</div></div>`;
+}
+
+function vistaVps() {
+  const V = E.vps;
+  const seg = `<div class="seg">${[[24, '24 horas'], [72, '3 dias'], [168, '7 dias']].map(([n, t]) => `<button data-acao="vps-horas" data-v="${n}" class="${E.vpsHoras === n ? 'on' : ''}">${t}</button>`).join('')}</div>
+    <button class="bt" data-acao="vps-atualizar">${I.pulso}Atualizar</button>`;
+  const tit = (sub) => topo('Uso da VPS', sub, seg);
+  if (!V) return tit('Servidor do banco de dados (Hostinger · Campinas)') + '<div class="carregando">Carregando números da VPS…</div>';
+  if (V.erro) return tit('') + `<div class="aviso">${I.alerta}<div>${h(V.erro)}</div></div>`;
+  if (V.semVps) return tit('') + `<div class="aviso">${I.alerta}<div>O banco do painel não está na VPS.</div></div>`;
+  const a = V.atual;
+  if (V.semDados || !a) return tit('Servidor do banco de dados (Hostinger · Campinas)') + `<div class="aviso">${I.alerta}<div>A VPS começa a mandar os números em até 5 minutos. Volte daqui a pouco.</div></div>`;
+  const r = V.resumo || {};
+  const memPct = a.mem_total_mb ? (a.mem_usada_mb * 100) / a.mem_total_mb : null;
+  const discoPct = a.disco_total_gb ? (a.disco_usado_gb * 100) / a.disco_total_gb : null;
+  const gb = (mb) => umaCasa(mb / 1024);
+  const periodo = { 24: '24 h', 72: '3 dias', 168: '7 dias' }[V.horas];
+  const minutos = Math.round((Date.now() - new Date(a.em)) / 60000);
+  const maior = Math.max(r.cpu_media || 0, memPct || 0, discoPct || 0);
+  const estimativa = maior < 40 ? ['Folgada', 'var(--c3)', 'A VPS usa pouco do que tem. Dá para crescer bastante (mais páginas, mais leads, mais acessos ao painel) sem trocar de plano.']
+    : maior < 75 ? ['Uso moderado', 'var(--c1)', 'A VPS está trabalhando, mas ainda com margem. Vale acompanhar os picos.']
+    : ['Apertada', 'var(--c4)', 'A VPS está perto do limite em algum recurso. Considere um plano maior se continuar assim.'];
+  const banco = umaCasa(a.banco_mb) + ' MB';
+  const transH = r.transacoes && V.serie.length ? Math.round(r.transacoes / V.serie.length) : 0;
+  return tit(`Servidor do banco de dados (Hostinger · Campinas) · última leitura há ${minutos <= 0 ? 'menos de 1 min' : minutos + ' min'}, coleta a cada 5 min`) + `
+  <div class="painel-bloco" style="display:flex;gap:14px;align-items:center">
+    <span class="pill" style="background:${estimativa[1]};color:#111;font-size:13px">${estimativa[0]}</span>
+    <div><b>Estimativa de uso (${periodo})</b><br><span class="mut">${estimativa[2]} Plano atual: 1 núcleo, ${gb(a.mem_total_mb)} GB de memória, ${umaCasa(a.disco_total_gb)} GB de disco.</span></div>
+  </div>
+  <div class="kpis">
+    ${cartaoUso('Processador', umaCasa(a.cpu_pct) + '%', a.cpu_pct, `média ${periodo}: ${umaCasa(r.cpu_media)}% · pico ${umaCasa(r.cpu_pico)}%`)}
+    ${cartaoUso('Memória', gb(a.mem_usada_mb) + ' de ' + gb(a.mem_total_mb) + ' GB', memPct, `${umaCasa(memPct)}% em uso · pico ${gb(r.mem_pico_mb)} GB`)}
+    ${cartaoUso('Disco', umaCasa(a.disco_usado_gb) + ' de ' + umaCasa(a.disco_total_gb) + ' GB', discoPct, `${umaCasa(discoPct)}% ocupado · banco ocupa ${banco}`)}
+    ${cartaoUso('Banco de dados', fmt(a.conexoes) + ' conexões', Math.min(100, (a.conexoes / 500) * 100), `agora (limite 500) · ~${fmt(transH)} transações por hora`)}
+  </div>
+  <div class="painel-bloco"><h3>Uso por hora</h3>${linhaHoras(V.serie, [
+    { nome: 'Processador (média da hora)', cor: 'var(--c2)', campo: 'cpu', campoMax: 'cpu_max' },
+    { nome: 'Memória', cor: 'var(--c1)', campo: 'mem' },
+    { nome: 'Disco', cor: 'var(--c3)', campo: 'disco' },
+  ], { max: 100, sufixo: '%', rotulo: 'Uso da VPS por hora' })}</div>
+  <div class="painel-bloco"><h3>Atividade do banco por hora</h3>${linhaHoras(V.serie, [
+    { nome: 'Transações no banco', cor: 'var(--c5)', campo: 'transacoes' },
+  ], { rotulo: 'Transações do banco por hora' })}
+    <p class="mut" style="font-size:12.5px;margin:10px 0 0">Tráfego de rede no período: ${umaCasa(r.rede_mb)} MB · pico de conexões: ${fmt(r.conexoes_pico)}. As páginas do site não passam pela VPS: elas saem prontas da Vercel. A VPS atende o painel, os dashboards, os quizzes e a publicação.</p></div>`;
+}
+
 /* ================= prévias em escala ================= */
 const ro = new ResizeObserver((itens) => {
   for (const it of itens) {
@@ -1445,6 +1533,8 @@ document.addEventListener('click', async (ev) => {
     case 'editar': abrirEditor(slug); break;
     case 'config': abrirConfig(slug); break;
     case 'previa': E.previa = v; renderVista(false); break;
+    case 'vps-horas': E.vpsHoras = Number(v); E.vps = null; renderVista(false); carregarVps(); break;
+    case 'vps-atualizar': carregarVps(); break;
     case 'dias': if (!ehAdmin()) break; E.dias = Number(v); E.metricas = null; renderVista(false); carregarMetricas(); break;
     case 'copiar-url': {
       await navigator.clipboard.writeText(urlPublica(p));
