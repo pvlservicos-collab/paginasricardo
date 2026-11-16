@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Central R1 · Gestão de membros</title>
+<link rel="stylesheet" href="/gestao-membros/app.css">
+<script src="/gestao-membros/app.js" defer></script>
+</head>
+<body>
+<main id="carregando" class="centro"><p class="sub">Carregando…</p></main>
+
+<!-- entrar -->
+<main id="telaLogin" class="centro" hidden>
+  <form id="fLogin" class="caixa" novalidate>
+    <div class="tag"><i></i>Grupo R1 · Central interna</div>
+    <h1>Gestão de membros</h1>
+    <p class="sub">Entre com a sua conta de admin da Central.</p>
+    <label for="lUser">E-mail</label><input id="lUser" type="text" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false">
+    <label for="lSenha">Senha</label><input id="lSenha" type="password" autocomplete="current-password">
+    <div class="erro" id="lErro" role="alert"></div>
+    <button id="lBtn" type="submit" class="pri largo">Entrar</button>
+  </form>
+</main>
+
+<!-- logado, mas não é admin -->
+<main id="telaSemAcesso" class="centro" hidden>
+  <div class="caixa">
+    <div class="tag"><i></i>Central R1</div>
+    <h1>Só para admin</h1>
+    <p class="sub">A sua conta dá acesso às páginas da Central, mas não à gestão de membros.</p>
+    <a class="btn pri largo" href="/centralr1">Abrir a Central</a>
+    <button type="button" class="lk" data-sair>Sair</button>
+  </div>
+</main>
+
+<!-- admin -->
+<div id="telaAdmin" hidden>
+  <header class="topo">
+    <div><div class="tag"><i></i>Central R1</div><h1>Gestão de membros</h1></div>
+    <div class="quem"><span id="eu"></span><a class="btn" href="/centralr1">Abrir a Central</a><button type="button" class="btn" data-sair>Sair</button></div>
+  </header>
+
+  <section class="cartao" id="cProtecao">
+    <div class="linha-protecao">
+      <div>
+        <h2>Proteção das páginas <span id="pEstado" class="selo"></span></h2>
+        <p class="sub" id="pTexto"></p>
+      </div>
+      <button type="button" id="pBtn" class="btn"></button>
+    </div>
+  </section>
+
+  <section class="cartao">
+    <h2>Novo membro</h2>
+    <p class="sub">A senha é gerada aleatória e aparece uma única vez. Envie para a pessoa por um canal privado.</p>
+    <form id="fNovo" class="grade-form" novalidate>
+      <div><label for="nNome">Nome</label><input id="nNome" type="text" maxlength="80" autocomplete="off"></div>
+      <div><label for="nLogin">E-mail</label><input id="nLogin" type="text" maxlength="120" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="off" placeholder="nome@grupor1.com"></div>
+      <div><label for="nPapel">Papel</label><select id="nPapel"><option value="membro">Membro (vê as páginas)</option><option value="admin">Admin (páginas + gestão)</option></select></div>
+      <div class="acao"><button type="submit" id="nBtn" class="pri">Criar e gerar senha</button></div>
+    </form>
+    <div class="erro" id="nErro" role="alert"></div>
+  </section>
+
+  <section class="cartao destaque" id="cSenha" hidden>
+    <h2 id="sTitulo">Senha gerada</h2>
+    <p class="sub">Copie agora: depois de fechar, ela não aparece de novo (no banco fica só o hash).</p>
+    <div class="credenciais">
+      <div><span class="rot">Endereço</span><code id="sEnd"></code></div>
+      <div><span class="rot">E-mail</span><code id="sLogin"></code></div>
+      <div><span class="rot">Senha</span><code id="sSenha"></code></div>
+    </div>
+    <div class="botoes"><button type="button" id="sCopiar" class="pri">Copiar mensagem para enviar</button><button type="button" id="sFechar" class="btn">Fechar</button></div>
+    <p class="ok" id="sOk"></p>
+  </section>
+
+  <section class="cartao">
+    <h2>Membros <span class="sub" id="mConta"></span></h2>
+    <div class="erro" id="mErro" role="alert"></div>
+    <div class="tabela-rolagem">
+      <table id="tMembros">
+        <thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Situação</th><th>Último acesso</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+</body>
+</html>

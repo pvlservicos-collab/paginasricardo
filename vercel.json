@@ -30,7 +30,7 @@
   },
   "headers": [
     {
-      "source": "/((?!painel|trackeamento|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|fabrica).*)",
+      "source": "/((?!painel|trackeamento|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|fabrica|gestao-membros).*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
@@ -183,6 +183,47 @@
       ]
     },
     {
+      "source": "/gestao-membros(/.*)?",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+        }
+      ]
+    },
+    {
       "source": "/fabrica(/.*)?",
       "headers": [
         {
@@ -282,7 +323,7 @@
       "destination": "/raioxtributariodash"
     },
     {
-      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|fabrica|trackeamento$|wp-content|_vercel|_p/|zz-lab|\\.well-known).+)",
+      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|fabrica|gestao-membros|trackeamento$|wp-content|_vercel|_p/|zz-lab|\\.well-known).+)",
       "has": [
         {
           "type": "host",
@@ -292,7 +333,7 @@
       "destination": "/_p/:host/:caminho"
     },
     {
-      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|fabrica|trackeamento$|wp-content|_vercel|_p/|\\.well-known).+)",
+      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|fabrica|gestao-membros|trackeamento$|wp-content|_vercel|_p/|\\.well-known).+)",
       "destination": "/api/servir?caminho=:caminho"
     }
   ],

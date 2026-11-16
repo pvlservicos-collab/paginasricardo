@@ -46,6 +46,7 @@ export async function gerarEstaticas(DIST, log = console.log) {
   const { dominioNoAr } = await import('../lib/operacoes.mjs');
   const { PASTA_PAGINAS, normalizarUrl, hostDaPagina, documentoNoAr, documentoInativo, documentoRedirecionamento } = await import('../lib/core.mjs');
   const { marcarGerado } = await import('../lib/publicacao.mjs');
+  const { ehCentral } = await import('../lib/central.mjs');
 
   const lista = await dominiosEstaticos();
   if (!lista.length) { log('Páginas estáticas: vercel.json sem a regra de /_p/, pulei.'); return 0; }
@@ -67,6 +68,9 @@ export async function gerarEstaticas(DIST, log = console.log) {
   // o que abrir em <comoSe>/<caminho> para a página p (apelido = veio de endereço antigo)
   const entrega = async (p, comoSe, caminho, apelido) => {
     const url = normalizarUrl(p.url), certo = hostDaPagina(p, cfg, '');
+    // páginas da Central R1 (área de membros) nunca viram arquivo aberto: sempre levam para o domínio dela,
+    // onde a api/servir confere o login (lib/central.mjs)
+    if (ehCentral(certo)) return documentoIr(`https://${certo}/${url}`);
     if (certo && certo !== comoSe && (await noAr(certo))) return documentoIr(`https://${certo}/${url}`);
     if (!p.ativa) return apelido ? documentoIr('/' + url) : p.redirecionarInativaPara ? documentoRedirecionamento(p.redirecionarInativaPara, p.titulo) : documentoInativo(p.titulo);
     const h = htmlDe.get(p.slug);

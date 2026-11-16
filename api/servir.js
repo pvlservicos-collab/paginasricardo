@@ -9,6 +9,7 @@ import { carregarConfig } from '../lib/servidor.mjs';
 import { lerArquivo } from '../lib/store.mjs';
 import { dominioNoAr } from '../lib/operacoes.mjs';
 import { PASTA_PAGINAS, normalizarUrl, montarDocumento, documentoInativo, documentoRedirecionamento, hostDaPagina, documentoNoAr } from '../lib/core.mjs';
+import { ehCentral, HOST_CENTRAL, protecaoLigada, sessao, documentoEntrada, comBarra } from '../lib/central.mjs';
 
 const VALIDADE = 5000;
 let cfgCache = null;
@@ -36,12 +37,37 @@ const resposta = (corpo, status = 200) => new Response(corpo, {
   },
 });
 
+// Página da Central R1 (interno.grupor1.com) com a proteção ligada: só para membro logado (lib/central.mjs).
+// Nada disso fica na CDN (private, no-store): cada pedido confere a sessão.
+const privada = (r) => {
+  r.headers.set('Cache-Control', 'private, no-store');
+  r.headers.delete('Vercel-CDN-Cache-Control');
+  r.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  r.headers.set('Referrer-Policy', 'same-origin');
+  return r;
+};
+async function entregarCentral(p, cfg, request, url, caminho, apelido, hostAtual) {
+  // fora do domínio da Central (o cookie é de lá): leva para lá, sempre (exceto no computador e nas prévias da Vercel)
+  if (!ehCentral(hostAtual) && !/^(localhost|127\.)/.test(hostAtual) && !/^paginasricardo-[a-z0-9-]+\.vercel\.app$/.test(hostAtual)) {
+    const destino = new URL(`https://${HOST_CENTRAL}/${caminho}`);
+    url.searchParams.forEach((v, k) => { if (k !== 'caminho') destino.searchParams.append(k, v); });
+    return privada(new Response(null, { status: 308, headers: { Location: destino.href } }));
+  }
+  const membro = await sessao(request);
+  if (!membro) return privada(resposta(documentoEntrada(p.titulo)));
+  if (!p.ativa) return privada(resposta(p.redirecionarInativaPara ? documentoRedirecionamento(p.redirecionarInativaPara, p.titulo) : documentoInativo(p.titulo)));
+  const h = await html(p.arquivo);
+  if (h == null) return privada(resposta(documentoInativo(p.titulo), 404));
+  return privada(resposta(comBarra(documentoNoAr(p, cfg, h, caminho, apelido), membro)));
+}
+
 // Entrega a página p. apelido = veio de um endereço antigo (redirecionamento) que aponta para ela.
 async function entregar(p, cfg, request, url, caminho, apelido = false) {
   // página de outro domínio: leva para o domínio certo (mantendo as UTMs), mas só quando ele já está no ar
   // (DNS apontado). Enquanto não estiver, a página continua abrindo aqui. As prévias do painel passam direto.
   const hostAtual = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').toLowerCase().replace(/:\d+$/, '');
   const hostCerto = hostDaPagina(p, cfg, hostAtual);
+  if (ehCentral(hostCerto) && await protecaoLigada()) return entregarCentral(p, cfg, request, url, caminho, apelido, hostAtual);
   const local = /^(localhost|127\.)/.test(hostAtual);
   if (!p.lab && hostCerto && hostAtual && hostCerto !== hostAtual && !local && !url.searchParams.has('r1previa') && await dominioNoAr(hostCerto)) {
     const destino = new URL(`https://${hostCerto}/${caminho}`);
