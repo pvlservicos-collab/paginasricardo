@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Criativos · Grupo R1</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%23c8f03c%27/%3E%3Cpath d=%27M9 22V10l7 6 7-6v12%27 fill=%27none%27 stroke=%27%23111%27 stroke-width=%273%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/dashboardscriacao/app.css">
+<script src="/fabrica/formatos.js" defer></script>
+<script src="/dashboardscriacao/app.js" defer></script>
+</head>
+<body>
+<main id="carregando" class="centro"><p class="sub">Carregando…</p></main>
+
+<main id="telaLogin" class="centro" hidden>
+  <div class="caixa">
+    <div class="tag"><i></i>Grupo R1 · Criativos</div>
+    <h1>Análise e criação de criativos</h1>
+    <p class="sub">Entre com a sua conta Google do Grupo R1 ou da Ivox. Outras contas entram depois que o administrador aprovar.</p>
+    <div id="gBtn"></div>
+    <div class="erro" id="lErro" role="alert"></div>
+  </div>
+</main>
+
+<div id="app" class="app" hidden>
+  <nav class="rail" aria-label="Seções">
+    <button type="button" class="rb ativo" data-vista="canvas" title="Criação (canvas)"><svg viewBox="0 0 24 24"><path d="M4 6h6v6H4zM14 12h6v6h-6z"/><path d="M10 9h4v6" fill="none"/></svg></button>
+    <button type="button" class="rb" data-vista="metricas" title="Métricas que a IA puxa"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-8M22 19H2" fill="none"/></svg></button>
+    <button type="button" class="rb" data-vista="sugestoes" title="Sugestões da IA"><svg viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-3 11.2V17h6v-2.8A6 6 0 0 0 12 3zM9 20h6" fill="none"/></svg></button>
+    <button type="button" class="rb" data-vista="conexao" title="Conexão (webhook)"><svg viewBox="0 0 24 24"><path d="M9 7H6a4 4 0 0 0 0 8h3M15 7h3a4 4 0 0 1 0 8h-3M8 11h8" fill="none"/></svg></button>
+    <span class="rail-esp"></span>
+    <button type="button" class="rb" id="bLado" title="Mostrar/ocultar sugestões"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM9 5v14" fill="none"/></svg></button>
+    <button type="button" class="rb" id="bChat" title="Mostrar/ocultar conversa"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z" fill="none"/></svg></button>
+    <button type="button" class="rb" id="sair" title="Sair"><svg viewBox="0 0 24 24"><path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9" fill="none"/></svg></button>
+  </nav>
+
+  <aside class="lado" id="lado">
+    <div class="lado-cab"><b>Sugestões da IA</b><span class="cont" id="ladoN">0</span></div>
+    <div class="chips" id="ladoChips">
+      <button type="button" class="chip ativo" data-f="">Todas</button>
+      <button type="button" class="chip" data-f="urgente">Urgentes</button>
+      <button type="button" class="chip" data-f="vencedor">Vencedores</button>
+      <button type="button" class="chip" data-f="variacao">Variações</button>
+      <button type="button" class="chip" data-f="trafego">Tráfego</button>
+    </div>
+    <div class="lado-lista" id="ladoLista"></div>
+    <div class="lado-pe">
+      <button type="button" class="bt lime" id="bAnalisar">Pedir análise agora</button>
+      <small id="ladoAviso"></small>
+    </div>
+  </aside>
+
+  <section class="centro-app">
+    <header class="topo" id="topo">
+      <div class="proj">
+        <span class="proj-ini" id="projIni">E</span>
+        <div class="proj-txt"><small>Projeto</small><select id="projSel" aria-label="Projeto"></select></div>
+      </div>
+      <button type="button" class="bt sec" id="bNovo">+ Novo</button>
+      <div class="passos" id="passos">
+        <span class="passo on" data-p="1"><i>1</i>Oferta</span><em></em>
+        <span class="passo" data-p="2"><i>2</i>Plano</span><em></em>
+        <span class="passo" data-p="3"><i>3</i>Copy</span><em></em>
+        <span class="passo" data-p="4"><i>4</i>Vídeos <b id="pVid">0/1</b></span>
+        <button type="button" class="bt lime" id="bLer">Ler a oferta →</button>
+      </div>
+      <div class="topo-dir">
+        <span class="estado" id="projEstado"><i></i>Rascunho</span>
+        <button type="button" class="bt sec p" id="bExcluir" title="Excluir este projeto">Excluir</button>
+      </div>
+    </header>
+
+    <div class="aviso-ex" id="avisoEx" hidden>Dados de exemplo ligados: tudo o que você vê nas métricas e sugestões é fictício. Desligue em Conexão.</div>
+
+    <div id="vCanvas" class="vista">
+      <div class="palco" id="palco">
+        <div class="canvas" id="canvas">
+          <svg class="fios" id="fios"></svg>
+          <div id="nos"></div>
+        </div>
+      </div>
+      <div class="zoom">
+        <button type="button" id="zMenos" aria-label="Diminuir">−</button>
+        <span id="zPct">80%</span>
+        <button type="button" id="zMais" aria-label="Aumentar">+</button>
+        <button type="button" id="zCentro">Centralizar</button>
+        <button type="button" id="zOrg">Organizar</button>
+        <button type="button" id="bMaisCriativo">+ Criativo</button>
+      </div>
+    </div>
+
+    <div id="vMetricas" class="vista rol" hidden>
+      <div class="met">
+        <div class="met-cab">
+          <div>
+            <div class="tag"><i></i>Métricas que a IA puxa</div>
+            <h1>Radar de Criativos</h1>
+            <p class="lead" id="metLead">Aguardando os primeiros dados do webhook.</p>
+            <p class="mini" id="metQuando"></p>
+          </div>
+          <div class="periodo" id="periodo">
+            <button type="button" class="chip ativo" data-d="7">7 dias</button>
+            <button type="button" class="chip" data-d="14">14 dias</button>
+            <button type="button" class="chip" data-d="30">30 dias</button>
+          </div>
+        </div>
+        <div class="kpis" id="kpis"></div>
+        <div class="met-grade">
+          <section class="cartao">
+            <h2>Gasto e leads por dia</h2>
+            <div id="gDia" class="graf"></div>
+          </section>
+          <section class="cartao">
+            <h2>Hook × hold por criativo</h2>
+            <p class="mini">Hook = % das impressões que viram 3 s. Hold = % dos que viram 3 s e chegaram ao ThruPlay.</p>
+            <div id="gHook" class="graf"></div>
+          </section>
+        </div>
+        <section class="cartao">
+          <div class="cartao-cab"><h2>O que fazer agora</h2><p class="mini">Cada linha é uma tarefa: o criativo ou a página, o que fazer e o número que motivou.</p></div>
+          <div class="filtros">
+            <label>Tipo <select id="fTipo"><option value="">Todos</option><option value="vencedor">Vencedor</option><option value="variacao">Variação</option><option value="trafego">Tráfego</option><option value="alerta">Alerta</option><option value="analise">Análise</option></select></label>
+            <label>Prioridade <select id="fPrio"><option value="">Todas</option><option value="urgente">Urgente</option><option value="alta">Alta</option><option value="normal">Normal</option></select></label>
+            <label>Frente <select id="fFrente"><option value="">Todas as frentes</option></select></label>
+          </div>
+          <div class="tabela-rol"><table class="tab" id="tFazer"><thead><tr><th>Prioridade</th><th>Ação</th><th>Criativo ou página</th><th>Por quê</th><th></th></tr></thead><tbody></tbody></table></div>
+        </section>
+        <section class="cartao">
+          <div class="cartao-cab"><h2>Criativos ativos</h2><p class="mini">Ordenados por gasto no período. Passe o mouse nos números para ver o nome inteiro.</p></div>
+          <div class="tabela-rol"><table class="tab" id="tCriativos"><thead><tr><th>Criativo</th><th>Frente / praça</th><th class="n">Gasto</th><th class="n">Impr.</th><th class="n">CTR</th><th class="n">CPM</th><th class="n">Hook</th><th class="n">Hold</th><th class="n">Leads</th><th class="n">CPL</th><th class="n">Vendas</th><th class="n">CPA</th><th class="n">ROAS</th><th>Gasto/dia</th></tr></thead><tbody></tbody></table></div>
+        </section>
+      </div>
+    </div>
+
+    <div id="vSugestoes" class="vista rol" hidden>
+      <div class="met">
+        <div class="met-cab"><div><div class="tag"><i></i>Sugestões da IA</div><h1>Tudo que a máquina sugeriu</h1><p class="lead">Vencedores para escalar, variações para fazer, estratégias de tráfego e alertas. Aceite, marque como feito ou descarte.</p></div></div>
+        <div class="sug-grade" id="sugGrade"></div>
+      </div>
+    </div>
+
+    <div id="vConexao" class="vista rol" hidden>
+      <div class="met">
+        <div class="met-cab"><div><div class="tag"><i></i>Conexão</div><h1>Webhook da IA</h1><p class="lead">A IA da VPS manda métricas, sugestões e respostas para cá. Tudo que chega aparece nas outras abas na hora.</p></div></div>
+        <div class="met-grade">
+          <section class="cartao">
+            <h2>Endereço</h2>
+            <pre class="cod" id="whUrl"></pre>
+            <p class="mini">Método POST, JSON, cabeçalho <code>Authorization: Bearer CHAVE</code>. A chave é a variável <code>CRIACAO_WEBHOOK_CHAVE</code> da Vercel. Estado: <b id="whEstado">…</b></p>
+            <h2>Métricas (um item por criativo por dia)</h2>
+            <pre class="cod">{ "tipo": "metricas", "itens": [ {
+  "criativo": { "id": "120210000000", "nome": "[CNE][PERP][IMG][AD02][19102026][BARREIRAS]",
+                "tipo": "video", "frente": "Turnê", "praca": "Barreiras",
+                "campanha": "CNE PERP", "conjunto": "Frio", "status": "ativo",
+                "previa": "https://…", "miniatura": "https://…" },
+  "dia": "2026-11-17", "gasto": 312.40, "impressoes": 18400, "alcance": 15200,
+  "cliques": 410, "cliques_link": 290, "views_3s": 6100, "thruplays": 1900,
+  "leads": 21, "vendas": 2, "receita": 994.00
+} ] }</pre>
+            <h2>Sugestões</h2>
+            <pre class="cod">{ "tipo": "insights", "itens": [ {
+  "tipo": "vencedor | variacao | trafego | alerta | analise",
+  "prioridade": "urgente | alta | normal",
+  "titulo": "Escalar AD02 Barreiras", "acao": "Escalar",
+  "texto": "CPL R$ 14,80 contra R$ 31 da média; hook 33%.",
+  "criativo_id": "120210000000"
+} ] }</pre>
+            <h2>Resposta na conversa</h2>
+            <pre class="cod">{ "tipo": "resposta", "projeto_id": "ID do projeto", "texto": "…" }</pre>
+            <p class="mini">Vários de uma vez: <code>{ "lotes": [ {…}, {…} ] }</code>. Teste rápido no terminal:</p>
+            <pre class="cod" id="whCurl"></pre>
+          </section>
+          <section class="cartao">
+            <h2>Últimos recebimentos</h2>
+            <div id="whEventos" class="eventos"></div>
+            <h2>Dados de exemplo</h2>
+            <p class="mini">Enche métricas e sugestões com números fictícios só neste navegador, para ver como a tela se comporta antes do webhook. Nada vai para o banco.</p>
+            <label class="sw"><input type="checkbox" id="chkExemplo"><span></span>Usar dados de exemplo</label>
+          </section>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="chat" id="chat">
+    <div class="chat-cab"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z" fill="none"/></svg><b>Conversa com a máquina</b><small id="chatQuem"></small></div>
+    <div class="chat-msgs" id="chatMsgs"><p class="chat-vazio">Aqui aparece tudo o que a máquina responde e pergunta. Você fala com ela pela caixa.</p></div>
+    <form class="chat-form" id="chatForm"><input id="chatIn" autocomplete="off" placeholder="Peça um ajuste, responda a máquina…" maxlength="4000"><button type="submit" class="bt lime" aria-label="Enviar">↑</button></form>
+  </aside>
+</div>
+
+<div id="modal" class="modal" hidden></div>
+<div id="toast" class="toast" hidden></div>
+</body>
+</html>

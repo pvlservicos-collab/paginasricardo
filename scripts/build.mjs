@@ -45,6 +45,8 @@ export async function build({ silencioso = false } = {}) {
   await copiarPasta(path.join(RAIZ, 'central'), path.join(DIST, 'gestao-membros'));
   // Aprovação de acessos da Rota e da Central pelo superadmin (login com Google; API em api/aprovacoes/)
   await copiarPasta(path.join(RAIZ, 'aprovacoes'), path.join(DIST, 'aprovacoes'));
+  // Dashboard de análise e criação de criativos (login com Google; API em api/criacao/, regras em lib/criacao.mjs)
+  await copiarPasta(path.join(RAIZ, 'criacao'), path.join(DIST, 'dashboardscriacao'));
   // Fábrica de Formatos (monta os vídeos no navegador; IA e dados em api/fabrica.mjs)
   await copiarPasta(path.join(RAIZ, 'fabrica'), path.join(DIST, 'fabrica'));
   // Páginas como arquivos estáticos (cliques de anúncio saem do cache; ver scripts/estaticas.mjs).
