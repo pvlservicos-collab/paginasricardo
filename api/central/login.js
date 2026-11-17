@@ -1,15 +1,15 @@
 // Login da Central R1 (interno.grupor1.com). Contas próprias, criadas só pelo admin em /gestao-membros.
 import { lerJson, mesmaOrigem } from '../../lib/servidor.mjs';
-import { entrar, sair, sessao, cookieDeSaida, json, erro, registrar, ipDe, hostDe, hostPermitido } from '../../lib/central.mjs';
+import { entrar, entrarGoogle, sair, sessao, cookieDeSaida, json, erro, registrar, ipDe, hostDe, hostPermitido } from '../../lib/central.mjs';
 
-// Entrar: { usuario, senha }
+// Entrar: { usuario, senha }  ou, pelo Google, { credential } (ID token do botão "Entrar com Google")
 export async function POST(request) {
   if (!hostPermitido(hostDe(request))) return erro('Endereço não permitido.', 403);
   if (!mesmaOrigem(request)) return erro('Origem não permitida.', 403);
   let d;
   try { d = await lerJson(request, 4096); } catch (e) { return erro(e.message, e.status || 400); }
   try {
-    const r = await entrar(d.usuario, d.senha, request);
+    const r = d.credential ? await entrarGoogle(d.credential, request) : await entrar(d.usuario, d.senha, request);
     if (r.erro) {
       await new Promise((ok) => setTimeout(ok, 400 + Math.random() * 400));
       return erro(r.erro, r.status);

@@ -7,6 +7,7 @@ import {
   json, erro, criarToken, hashSenha, senhaConfere, normalizarEmail, emailValido, espera, getConta, setConta,
   usoSobe, usoLer, hoje, ipDe,
 } from '../../lib/rota/base.mjs';
+import { verificarIdToken } from '../../lib/google-login.mjs';
 
 // Limites por dia (contra robô testando senha ou criando conta em massa). Contam só erros no login.
 const MAX_ERROS_IP = 30, MAX_ERROS_EMAIL = 15, MAX_CADASTROS_IP = 10, MAX_ADMIN_IP = 5;
@@ -31,9 +32,31 @@ export const POST = async (request) => {
 
 async function tratar(request) {
   const c = await ler(request);
+  const ip = ipDe(request), dia = hoje();
+
+  if (c.acao === 'google') {
+    // "Entrar com Google": o navegador manda o ID token do Google; conferimos assinatura, aplicativo e e-mail
+    // confirmado (lib/google-login.mjs). Conta nova já nasce com o nome do Google; conta antiga passa a entrar
+    // também pelo Google. Como o Google garante que o e-mail é da pessoa, ninguém assume o e-mail de outro.
+    if (await usoLer(`cad:ip:${ip}:${dia}`) >= MAX_CADASTROS_IP) { log('google_bloqueado', { ip }); return bloqueado(); }
+    let g;
+    try { g = await verificarIdToken(c.credential); }
+    catch (e) { await usoSobe(`cad:ip:${ip}:${dia}`); log('google_negado', { ip, msg: e.message }); return erro(e.message, e.status || 401); }
+    const atual = await getConta(g.email);
+    if (!atual && c.aceite !== true) return erro('Para entrar, aceite a Política de Privacidade.', 400);
+    const conta = {
+      ...(atual || { email: g.email, criado: new Date().toISOString() }),
+      nome: atual?.nome || g.nome, google: { sub: g.sub, em: new Date().toISOString() },
+      ...(!atual?.lgpd && c.aceite === true ? { lgpd: { aceite: new Date().toISOString(), versao: '2026-11-15' } } : {}),
+    };
+    delete conta.via;
+    await setConta(g.email, conta);
+    log(atual ? 'google_entrou' : 'google_cadastro', { email: g.email, ip });
+    return json({ token: criarToken(g.email), perfil: perfilDe(g.email, conta), novo: !atual }, atual ? 200 : 201);
+  }
+
   const email = normalizarEmail(c.email), senha = String(c.senha || '');
   if (!emailValido(email)) return erro('Confira o e-mail.', 400);
-  const ip = ipDe(request), dia = hoje();
 
   if (c.acao === 'cadastrar') {
     if (await usoSobe(`cad:ip:${ip}:${dia}`) > MAX_CADASTROS_IP) { log('cadastro_bloqueado', { ip }); return bloqueado(); }
@@ -43,6 +66,8 @@ async function tratar(request) {
     if (c.aceite !== true) return erro('Para entrar, aceite a Política de Privacidade.', 400);
     const atual = await getConta(email);
     if (atual && atual.hash) return erro('Este e-mail já tem senha. Toque em Entrar.', 409);
+    // conta criada pelo Google (sem senha): ninguém cria uma senha por cima dela — só o dono, entrando com o Google
+    if (atual && atual.google) return erro('Este e-mail entra com o Google. Toque em Entrar com Google.', 409);
     const conta = {
       ...(atual || { email, criado: new Date().toISOString() }),
       nome: atual?.nome || nome, empresa: atual?.empresa || empresa,
