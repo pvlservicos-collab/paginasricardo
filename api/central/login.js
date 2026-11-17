@@ -1,6 +1,7 @@
 // Login da Central R1 (interno.grupor1.com). Contas próprias, criadas só pelo admin em /gestao-membros.
 import { lerJson, mesmaOrigem } from '../../lib/servidor.mjs';
 import { entrar, entrarGoogle, sair, sessao, cookieDeSaida, json, erro, registrar, ipDe, hostDe, hostPermitido } from '../../lib/central.mjs';
+import { GOOGLE_CLIENT_ID } from '../../lib/google-login.mjs';
 
 // Entrar: { usuario, senha }  ou, pelo Google, { credential } (ID token do botão "Entrar com Google")
 export async function POST(request) {
@@ -26,7 +27,8 @@ export async function GET(request) {
   if (!hostPermitido(hostDe(request))) return erro('Endereço não permitido.', 403);
   try {
     const m = await sessao(request);
-    return json({ logado: Boolean(m), membro: m ? { login: m.login, nome: m.nome, papel: m.papel } : null });
+    // google: ID público do cliente do Google (a tela monta o botão "Entrar com Google" quando existe)
+    return json({ logado: Boolean(m), membro: m ? { login: m.login, nome: m.nome, papel: m.papel } : null, google: GOOGLE_CLIENT_ID || null });
   } catch (e) {
     console.error(JSON.stringify({ tipo: 'erro', rota: '/api/central/login', msg: e.message }));
     return erro('Serviço indisponível.', 503);

@@ -51,3 +51,6 @@ td.acoes{text-align:right;white-space:nowrap}td.acoes button{height:32px;padding
   td{border:0;padding:3px 0}td[data-r]::before{content:attr(data-r) ": ";color:var(--sub);font-size:12.5px}
   td.acoes{text-align:left;white-space:normal;padding-top:8px}td.acoes button{margin:4px 4px 0 0}
 }
+
+/* Entrar com Google (tela de login) */
+.ou{display:flex;align-items:center;gap:10px;margin:16px 0 12px;color:var(--sub,#a3a3a3);font-size:12px}.ou:before,.ou:after{content:"";flex:1;height:1px;background:var(--linha,#2a2a2a)}#lGoogle{display:flex;justify-content:center;min-height:44px}
