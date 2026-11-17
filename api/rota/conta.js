@@ -1,6 +1,7 @@
 // POST /api/rota/conta  — contas do app Rota do Bilhão (migrado do Netlify)
-//   { acao:'cadastrar', email, senha, aceite } → 201/200 { token, perfil } | 409 e-mail já tem senha
-//   { acao:'entrar', email, senha }            → 200 { token, perfil } | 401
+//   { acao:'google', credential, aceite }      → 200/201 { token, perfil }  (qualquer conta Google entra direto)
+//   { acao:'cadastrar', email, senha, aceite } → 202 { pendente }  pedido de acesso; o superadmin aprova em /aprovacoes
+//   { acao:'entrar', email, senha }            → 200 { token, perfil } só se aprovado | 403 { pendente } | 401
 //   { acao:'redefinir', email, senha, chave }  → 200 (só a equipe, chave = ROTA_ADMIN_CHAVE)
 import { timingSafeEqual } from 'node:crypto';
 import {
@@ -79,15 +80,18 @@ async function tratar(request) {
     if (atual && atual.hash) return erro('Este e-mail já tem senha. Toque em Entrar.', 409);
     // conta criada pelo Google (sem senha): ninguém cria uma senha por cima dela — só o dono, entrando com o Google
     if (atual && atual.google) return erro('Este e-mail entra com o Google. Toque em Entrar com Google.', 409);
+    // Sem Google, o cadastro vira PEDIDO DE ACESSO: a senha só vale depois que o superadmin aprovar em
+    // interno.grupor1.com/aprovacoes (lib/aprovacao.mjs). Até lá a conta não recebe token.
+    const agora = new Date().toISOString();
     const conta = {
-      ...(atual || { email, criado: new Date().toISOString() }),
-      nome: atual?.nome || nome, empresa: atual?.empresa || empresa,
-      ...hashSenha(senha), lgpd: { aceite: new Date().toISOString(), versao: '2026-11-15' },
+      ...(atual || { email, criado: agora }),
+      nome: atual?.nome || nome, empresa: atual?.empresa || empresa, pedido_em: agora,
+      ...hashSenha(senha), lgpd: { aceite: agora, versao: '2026-11-15' },
     };
-    delete conta.via;
+    delete conta.via; delete conta.aprovado; delete conta.recusado;
     await setConta(email, conta);
-    log('cadastro', { email, ip });
-    return json({ token: criarToken(email), perfil: perfilDe(email, conta) }, atual ? 200 : 201);
+    log('pedido_acesso', { email, ip });
+    return json({ pendente: true, mensagem: 'Pedido enviado! Assim que o Clube R1 aprovar o seu acesso, entre com este e-mail e a senha que você criou. Se tiver conta Google, é só tocar em Continuar com o Google.' }, 202);
   }
 
   if (c.acao === 'entrar') {
@@ -100,6 +104,9 @@ async function tratar(request) {
       await usoSobe(kIp); await usoSobe(kEm);
       await espera(600); return erro('E-mail ou senha incorretos.', 401);
     }
+    // senha certa, mas o acesso por senha depende de aprovação do superadmin
+    if (conta.recusado) return erro('O seu acesso não foi aprovado. Fale com a equipe do Clube R1.', 403);
+    if (!conta.aprovado) return json({ erro: 'Seu acesso está aguardando aprovação do Clube R1. Se tiver conta Google, toque em Continuar com o Google.', pendente: true }, 403);
     if (c.aceite === true && !conta.lgpd) { conta.lgpd = { aceite: new Date().toISOString(), versao: '2026-11-15' }; await setConta(email, conta); }
     return json({ token: criarToken(email), perfil: perfilDe(email, conta) });
   }

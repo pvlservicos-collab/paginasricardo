@@ -1,0 +1,33 @@
+:root{--bg:#0D0D0D;--card:#151515;--linha:#2a2a2a;--txt:#f2f2f2;--sub:#a3a3a3;--red:#FE0026;--red2:#B8001C;--ok:#3ecf8e}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--txt);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+[hidden]{display:none!important}
+.centro{min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:radial-gradient(900px 500px at 50% -10%,rgba(254,0,38,.18),transparent 60%),var(--bg)}
+.caixa{width:100%;max-width:400px;background:var(--card);border:1px solid var(--linha);border-radius:18px;padding:32px 28px;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.tag{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--sub);display:flex;align-items:center;gap:8px}
+.tag i{width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block}
+h1{font-size:28px;line-height:1.1;margin:12px 0 8px;letter-spacing:-.02em}
+h2{font-size:18px;margin:32px 0 12px}h2 small{color:var(--sub);font-weight:400;font-size:13px;margin-left:8px}
+.sub{color:var(--sub);margin:0 0 20px}
+.erro{color:#ff6b7f;font-size:13.5px;min-height:18px;margin:10px 0}
+#gBtn{display:flex;justify-content:center;min-height:44px}
+#telaPedidos{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+.topo{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--linha);padding-bottom:16px;margin-bottom:16px}
+.eu{color:var(--sub);font-size:13px;display:flex;gap:12px;align-items:center}
+.lk{background:none;border:0;color:var(--sub);text-decoration:underline;cursor:pointer;font:inherit;padding:0}
+.lk:hover{color:var(--txt)}
+.lista{display:flex;flex-direction:column;gap:8px}
+.vazio{color:var(--sub);font-size:14px;padding:14px;border:1px dashed var(--linha);border-radius:12px}
+.item{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--card);border:1px solid var(--linha);border-radius:12px;padding:12px 14px}
+.item .quem{min-width:0;flex:1}
+.item .quem b{display:block;overflow-wrap:anywhere}
+.item .quem span{color:var(--sub);font-size:13px;overflow-wrap:anywhere}
+.selo{font-size:12px;border-radius:999px;padding:3px 10px;border:1px solid var(--linha);color:var(--sub);white-space:nowrap}
+.selo.pendente{color:#ffd166;border-color:rgba(255,209,102,.4)}
+.selo.aprovado{color:var(--ok);border-color:rgba(62,207,142,.4)}
+.selo.recusado{color:#ff6b7f;border-color:rgba(255,107,127,.4)}
+.acoes{display:flex;gap:8px}
+.acoes button{border:0;border-radius:10px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer;color:#fff}
+.bt-ok{background:#1f8f5f}.bt-ok:hover{background:#18744d}
+.bt-no{background:#3a2226;color:#ff9aa8!important}.bt-no:hover{background:#4a2a30}
+.acoes button:disabled{opacity:.5;cursor:wait}

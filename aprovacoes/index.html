@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Aprovação de acessos · Grupo R1</title>
+<link rel="stylesheet" href="/aprovacoes/app.css">
+<script src="/aprovacoes/app.js" defer></script>
+</head>
+<body>
+<main id="carregando" class="centro"><p class="sub">Carregando…</p></main>
+
+<main id="telaLogin" class="centro" hidden>
+  <div class="caixa">
+    <div class="tag"><i></i>Grupo R1 · Superadmin</div>
+    <h1>Aprovação de acessos</h1>
+    <p class="sub">Entre com a sua conta Google de superadmin.</p>
+    <div id="gBtn"></div>
+    <div class="erro" id="lErro" role="alert"></div>
+  </div>
+</main>
+
+<main id="telaPedidos" hidden>
+  <header class="topo">
+    <div><div class="tag"><i></i>Grupo R1 · Superadmin</div><h1>Aprovação de acessos</h1></div>
+    <div class="eu"><span id="eu"></span><button type="button" class="lk" id="sair">Sair</button></div>
+  </header>
+  <p class="sub">Quem entra com Google não aparece aqui (entra direto). Aqui ficam os pedidos de quem não usa Google
+    e, na Central, contas Google de fora de @grupor1.com e @ivoxmarketing.com.</p>
+  <div class="erro" id="pErro" role="alert"></div>
+
+  <section>
+    <h2>Rota do Bilhão <small>membros.cluber1.com.br/rotadobilhao</small></h2>
+    <div id="lRota" class="lista"></div>
+  </section>
+  <section>
+    <h2>Central R1 <small>interno.grupor1.com</small></h2>
+    <div id="lCentral" class="lista"></div>
+  </section>
+</main>
+</body>
+</html>

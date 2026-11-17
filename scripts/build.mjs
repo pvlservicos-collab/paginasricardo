@@ -43,6 +43,8 @@ export async function build({ silencioso = false } = {}) {
   await copiarPasta(path.join(RAIZ, 'raiox'), path.join(DIST, 'raioxtributariodash'));
   // Central R1: Gestão de membros (login próprio; API em api/central/, regras em lib/central.mjs)
   await copiarPasta(path.join(RAIZ, 'central'), path.join(DIST, 'gestao-membros'));
+  // Aprovação de acessos da Rota e da Central pelo superadmin (login com Google; API em api/aprovacoes/)
+  await copiarPasta(path.join(RAIZ, 'aprovacoes'), path.join(DIST, 'aprovacoes'));
   // Fábrica de Formatos (monta os vídeos no navegador; IA e dados em api/fabrica.mjs)
   await copiarPasta(path.join(RAIZ, 'fabrica'), path.join(DIST, 'fabrica'));
   // Páginas como arquivos estáticos (cliques de anúncio saem do cache; ver scripts/estaticas.mjs).
