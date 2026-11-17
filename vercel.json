@@ -9,6 +9,12 @@
   "redirects": [
     {
       "source": "/",
+      "missing": [
+        {
+          "type": "host",
+          "value": "interno.grupor1.com"
+        }
+      ],
       "destination": "/painel",
       "permanent": false
     }
@@ -286,6 +292,16 @@
     "gru1"
   ],
   "rewrites": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "interno.grupor1.com"
+        }
+      ],
+      "destination": "/api/servir?caminho=centralr1"
+    },
     {
       "source": "/.well-known/oauth-protected-resource",
       "destination": "/api/oauth/metadados?tipo=recurso"
