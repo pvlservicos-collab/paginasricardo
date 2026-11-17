@@ -1,13 +1,14 @@
 import { json, erro, lerJson, mesmaOrigem } from '../lib/servidor.mjs';
-import { entrar, sair, sessaoAtual, cookieDeSaida, registrar, ipDe } from '../lib/auth.mjs';
+import { entrar, entrarGoogle, sair, sessaoAtual, cookieDeSaida, registrar, ipDe } from '../lib/auth.mjs';
+import { GOOGLE_CLIENT_ID } from '../lib/google-login.mjs';
 
-// Entrar: { usuario (login ou e-mail), senha }
+// Entrar: { usuario (login ou e-mail), senha }  ou, pelo Google, { credential } (ID token do botão do Google)
 export async function POST(request) {
   if (!mesmaOrigem(request)) return erro('Origem não permitida.', 403);
   let d;
   try { d = await lerJson(request, 4096); } catch (e) { return erro(e.message, e.status || 400); }
   try {
-    const r = await entrar(d.usuario, d.senha, request);
+    const r = d.credential ? await entrarGoogle(d.credential, request) : await entrar(d.usuario, d.senha, request);
     if (r.erro) {
       await new Promise((ok) => setTimeout(ok, 400 + Math.random() * 400));
       return erro(r.erro, r.status);
@@ -23,7 +24,8 @@ export async function POST(request) {
 export async function GET(request) {
   try {
     const s = await sessaoAtual(request);
-    const corpo = { logado: Boolean(s), usuario: s ? { nome: s.usuario.nome, login: s.usuario.login, papel: s.usuario.papel } : null };
+    // google: ID público do cliente do Google (a tela de login monta o botão "Entrar com Google" quando existe)
+    const corpo = { logado: Boolean(s), usuario: s ? { nome: s.usuario.nome, login: s.usuario.login, papel: s.usuario.papel } : null, google: s ? undefined : (GOOGLE_CLIENT_ID || null) };
     return json(corpo, 200, s?.cookie ? { 'Set-Cookie': s.cookie } : {});
   } catch (e) {
     console.error(JSON.stringify({ tipo: 'erro', rota: '/api/login', msg: e.message }));
