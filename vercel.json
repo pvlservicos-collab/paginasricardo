@@ -293,7 +293,7 @@
   ],
   "rewrites": [
     {
-      "source": "/google7ed07b9103c95d08(\\.html)?",
+      "source": "/google63d6d6cbd77d13a4(\\.html)?",
       "destination": "/api/google-verificacao"
     },
     {
