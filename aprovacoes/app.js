@@ -74,7 +74,7 @@
     return b;
   }
   function desenha(alvo, sistema, itens) {
-    var c = $(alvo); c.innerHTML = '';
+    var c = $(alvo); if (!c) return; c.innerHTML = '';
     var ordem = { pendente: 0, aprovado: 1, recusado: 2 };
     itens = (itens || []).slice().sort(function (a, b) { return (ordem[a.status] - ordem[b.status]) || String(b.pedido_em || '').localeCompare(String(a.pedido_em || '')); });
     if (!itens.length) { c.appendChild(el('div', 'vazio', 'Nenhum pedido.')); return; }

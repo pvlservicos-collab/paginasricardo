@@ -1,12 +1,13 @@
 // POST /api/rota/conta  — contas do app Rota do Bilhão (migrado do Netlify)
 //   { acao:'google', credential, aceite }      → 200/201 { token, perfil }  (qualquer conta Google entra direto)
-//   { acao:'cadastrar', email, senha, aceite } → 202 { pendente }  pedido de acesso; o superadmin aprova em /aprovacoes
-//   { acao:'entrar', email, senha }            → 200 { token, perfil } só se aprovado | 403 { pendente } | 401
+//   { acao:'cadastrar', email, senha, aceite } → 201/200 { token, perfil } | 409 e-mail já tem senha / entra com Google
+//   { acao:'entrar', email, senha }            → 200 { token, perfil } | 401
+// A Rota é aberta (sem aprovação). A aprovação do superadmin vale só para a Central R1.
 //   { acao:'redefinir', email, senha, chave }  → 200 (só a equipe, chave = ROTA_ADMIN_CHAVE)
 import { timingSafeEqual } from 'node:crypto';
 import {
   json, erro, criarToken, hashSenha, senhaConfere, normalizarEmail, emailValido, espera, getConta, setConta,
-  usoSobe, usoLer, hoje, ipDe, acessoAutomatico,
+  usoSobe, usoLer, hoje, ipDe,
 } from '../../lib/rota/base.mjs';
 import { verificarIdToken, verificarAccessToken } from '../../lib/google-login.mjs';
 
@@ -64,15 +65,8 @@ async function tratar(request) {
     const retomada = Boolean(atual && !atual.google && atual.hash);
     if (retomada) { delete conta.hash; delete conta.sal; conta.desde = agora; }
     await setConta(g.email, conta);
-    // Google @grupor1.com entra direto; Gmail e outros domínios precisam da aprovação do superadmin (/aprovacoes)
-    if (!acessoAutomatico(g.email, conta) && !conta.aprovado) {
-      if (!atual) await usoSobe(`cad:ip:${ip}:${dia}`); // pedido novo conta no limite por IP
-      log(conta.recusado ? 'google_recusado' : 'google_pedido', { email: g.email, ip });
-      if (conta.recusado) return erro('O seu acesso não foi aprovado. Fale com a equipe do Clube R1.', 403);
-      return json(atual
-        ? { pendente: true, erro: 'Seu acesso está aguardando aprovação do Clube R1. Tente de novo mais tarde.' }
-        : { pendente: true, mensagem: 'Pedido enviado! Assim que o Clube R1 aprovar o seu acesso, toque de novo em Continuar com o Google.' }, atual ? 403 : 202);
-    }
+    // A Rota é aberta: qualquer conta Google entra direto (sem aprovação — decisão de 17/11/2026).
+    if (conta.recusado) return erro('O seu acesso foi bloqueado. Fale com a equipe do Clube R1.', 403);
     log(atual ? (retomada ? 'google_retomou_conta' : 'google_entrou') : 'google_cadastro', { email: g.email, ip });
     return json({ token: criarToken(g.email), perfil: perfilDe(g.email, conta), novo: !atual, retomada }, atual ? 200 : 201);
   }
@@ -93,15 +87,16 @@ async function tratar(request) {
     // Sem Google, o cadastro vira PEDIDO DE ACESSO: a senha só vale depois que o superadmin aprovar em
     // interno.grupor1.com/aprovacoes (lib/aprovacao.mjs). Até lá a conta não recebe token.
     const agora = new Date().toISOString();
+    // A Rota é aberta: o primeiro acesso por e-mail e senha já entra (sem aprovação — decisão de 17/11/2026).
     const conta = {
       ...(atual || { email, criado: agora }),
-      nome: atual?.nome || nome, empresa: atual?.empresa || empresa, pedido_em: agora,
+      nome: atual?.nome || nome, empresa: atual?.empresa || empresa,
       ...hashSenha(senha), lgpd: { aceite: agora, versao: '2026-11-15' },
     };
-    delete conta.via; delete conta.aprovado; delete conta.recusado;
+    delete conta.via;
     await setConta(email, conta);
-    log('pedido_acesso', { email, ip });
-    return json({ pendente: true, mensagem: 'Pedido enviado! Assim que o Clube R1 aprovar o seu acesso, entre com este e-mail e a senha que você criou. Com e-mail @grupor1.com ou @ivoxmarketing.com, entre pelo Google sem esperar.' }, 202);
+    log('cadastro', { email, ip });
+    return json({ token: criarToken(email), perfil: perfilDe(email, conta) }, atual ? 200 : 201);
   }
 
   if (c.acao === 'entrar') {
@@ -114,9 +109,7 @@ async function tratar(request) {
       await usoSobe(kIp); await usoSobe(kEm);
       await espera(600); return erro('E-mail ou senha incorretos.', 401);
     }
-    // senha certa, mas o acesso por senha depende de aprovação do superadmin
-    if (conta.recusado) return erro('O seu acesso não foi aprovado. Fale com a equipe do Clube R1.', 403);
-    if (!conta.aprovado) return json({ erro: 'Seu acesso está aguardando aprovação do Clube R1. Com e-mail @grupor1.com ou @ivoxmarketing.com, entre pelo Google sem esperar.', pendente: true }, 403);
+    if (conta.recusado) return erro('O seu acesso foi bloqueado. Fale com a equipe do Clube R1.', 403);
     if (c.aceite === true && !conta.lgpd) { conta.lgpd = { aceite: new Date().toISOString(), versao: '2026-11-15' }; await setConta(email, conta); }
     return json({ token: criarToken(email), perfil: perfilDe(email, conta) });
   }
