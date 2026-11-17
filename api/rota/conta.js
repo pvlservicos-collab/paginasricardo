@@ -8,7 +8,7 @@ import {
   json, erro, criarToken, hashSenha, senhaConfere, normalizarEmail, emailValido, espera, getConta, setConta,
   usoSobe, usoLer, hoje, ipDe, acessoAutomatico,
 } from '../../lib/rota/base.mjs';
-import { verificarIdToken } from '../../lib/google-login.mjs';
+import { verificarIdToken, verificarAccessToken } from '../../lib/google-login.mjs';
 
 // Limites por dia (contra robô testando senha ou criando conta em massa). Contam só erros no login.
 const MAX_ERROS_IP = 30, MAX_ERROS_EMAIL = 15, MAX_CADASTROS_IP = 10, MAX_ADMIN_IP = 5;
@@ -41,7 +41,8 @@ async function tratar(request) {
     // também pelo Google. Como o Google garante que o e-mail é da pessoa, ninguém assume o e-mail de outro.
     if (await usoLer(`cad:ip:${ip}:${dia}`) >= MAX_CADASTROS_IP) { log('google_bloqueado', { ip }); return bloqueado(); }
     let g;
-    try { g = await verificarIdToken(c.credential); }
+    // botão próprio do app manda access_token; o botão oficial do Google manda credential (ID token)
+    try { g = c.access_token ? await verificarAccessToken(c.access_token) : await verificarIdToken(c.credential); }
     catch (e) { await usoSobe(`cad:ip:${ip}:${dia}`); log('google_negado', { ip, msg: e.message }); return erro(e.message, e.status || 401); }
     const atual = await getConta(g.email);
     if (!atual && c.aceite !== true) return erro('Para entrar, aceite a Política de Privacidade.', 400);
