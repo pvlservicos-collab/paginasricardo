@@ -57,7 +57,12 @@ async function entregarCentral(p, cfg, request, url, caminho, apelido, hostAtual
     return privada(new Response(null, { status: 308, headers: { Location: destino.href } }));
   }
   const membro = await sessao(request);
-  if (!membro) return privada(resposta(documentoEntrada(p.titulo)));
+  if (!membro) {
+    // tela de login: o botão do Google confere a origem pelo Referer, então aqui manda só a origem (sem o caminho)
+    const r = privada(resposta(documentoEntrada(p.titulo)));
+    r.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    return r;
+  }
   if (!p.ativa) return privada(resposta(p.redirecionarInativaPara ? documentoRedirecionamento(p.redirecionarInativaPara, p.titulo) : documentoInativo(p.titulo)));
   const h = await html(p.arquivo);
   if (h == null) return privada(resposta(documentoInativo(p.titulo), 404));

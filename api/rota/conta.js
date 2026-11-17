@@ -44,15 +44,26 @@ async function tratar(request) {
     catch (e) { await usoSobe(`cad:ip:${ip}:${dia}`); log('google_negado', { ip, msg: e.message }); return erro(e.message, e.status || 401); }
     const atual = await getConta(g.email);
     if (!atual && c.aceite !== true) return erro('Para entrar, aceite a Política de Privacidade.', 400);
+    // a identidade estável do Google é o `sub`: se a conta já foi ligada a outra Conta Google (e-mail reatribuído), recusa
+    if (atual?.google?.sub && g.sub && atual.google.sub !== g.sub) {
+      log('google_sub_diferente', { email: g.email, ip });
+      return erro('Esta conta está ligada a outra Conta Google. Fale com a equipe do Clube R1.', 403);
+    }
+    const agora = new Date().toISOString();
     const conta = {
-      ...(atual || { email: g.email, criado: new Date().toISOString() }),
-      nome: atual?.nome || g.nome, google: { sub: g.sub, em: new Date().toISOString() },
-      ...(!atual?.lgpd && c.aceite === true ? { lgpd: { aceite: new Date().toISOString(), versao: '2026-11-15' } } : {}),
+      ...(atual || { email: g.email, criado: agora }),
+      nome: atual?.nome || g.nome, google: { sub: g.sub, em: agora },
+      ...(!atual?.lgpd && c.aceite === true ? { lgpd: { aceite: agora, versao: '2026-11-15' } } : {}),
     };
     delete conta.via;
+    // Primeira vez que o dono do e-mail (provado pelo Google) entra numa conta que foi criada por senha: a senha não
+    // provava nada (cadastro sem confirmação de e-mail). Apaga a senha e derruba os tokens antigos (`desde`), para quem
+    // criou a conta com o e-mail de outra pessoa perder o acesso. O dono segue entrando pelo Google.
+    const retomada = Boolean(atual && !atual.google && atual.hash);
+    if (retomada) { delete conta.hash; delete conta.sal; conta.desde = agora; }
     await setConta(g.email, conta);
-    log(atual ? 'google_entrou' : 'google_cadastro', { email: g.email, ip });
-    return json({ token: criarToken(g.email), perfil: perfilDe(g.email, conta), novo: !atual }, atual ? 200 : 201);
+    log(atual ? (retomada ? 'google_retomou_conta' : 'google_entrou') : 'google_cadastro', { email: g.email, ip });
+    return json({ token: criarToken(g.email), perfil: perfilDe(g.email, conta), novo: !atual, retomada }, atual ? 200 : 201);
   }
 
   const email = normalizarEmail(c.email), senha = String(c.senha || '');
@@ -83,6 +94,7 @@ async function tratar(request) {
     const kIp = `err:ip:${ip}:${dia}`, kEm = `err:em:${email}:${dia}`;
     if (await usoLer(kIp) >= MAX_ERROS_IP || await usoLer(kEm) >= MAX_ERROS_EMAIL) { log('login_bloqueado', { email, ip }); return bloqueado(); }
     const conta = await getConta(email);
+    if (conta && !conta.hash && conta.google) { await espera(400); return erro('Este e-mail entra com o Google. Toque em Continuar com o Google.', 401); }
     if (conta && !conta.hash) { await espera(400); return json({ erro: 'Crie a sua senha em Primeiro acesso.', criar: true }, 401); }
     if (!conta || !senhaConfere(senha, conta)) {
       await usoSobe(kIp); await usoSobe(kEm);
@@ -102,7 +114,9 @@ async function tratar(request) {
     const conta = await getConta(email);
     if (!conta) return erro('E-mail sem conta.', 404);
     if (senha.length < 6) return erro('A senha precisa ter pelo menos 6 caracteres.', 400);
-    await setConta(email, { ...conta, ...hashSenha(senha), redefinida: new Date().toISOString() });
+    // senha nova derruba as sessões antigas (desde)
+    const quando = new Date().toISOString();
+    await setConta(email, { ...conta, ...hashSenha(senha), redefinida: quando, desde: quando });
     log('redefinida', { email, ip });
     return json({ ok: true });
   }

@@ -1,6 +1,6 @@
 // POST /api/rota/rica-voz { texto } → audio/mpeg na voz do Ricardo (ElevenLabs). Só logado; cache por texto; limite diário.
 import { createHash } from 'node:crypto';
-import { json, lerToken, usoSobe, vozCacheLer, vozCacheGravar } from '../../lib/rota/base.mjs';
+import { json, sessaoRota, usoSobe, vozCacheLer, vozCacheGravar } from '../../lib/rota/base.mjs';
 
 const VOZ = process.env.ELEVENLABS_VOICE_ID || 'IcqPmVdLTRW5XvqGeAM7'; // clone "Ricardo Nunes"
 const MODELO = process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2';
@@ -9,7 +9,7 @@ const LIMITE_DIA = 25;
 const audio = (buf) => new Response(buf, { headers: { 'content-type': 'audio/mpeg', 'cache-control': 'private, max-age=86400' } });
 
 export const POST = async (request) => {
-  const email = lerToken(request);
+  const email = await sessaoRota(request);
   if (!email) return json({ erro: 'Entre de novo para ouvir o RICA.' }, 401);
   const KEY = process.env.ELEVENLABS_API_KEY;
   if (!KEY) return json({ erro: 'A voz do RICA ainda não foi ligada.' }, 503);

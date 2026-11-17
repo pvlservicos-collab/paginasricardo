@@ -3,7 +3,7 @@
 // A chamada vai ao proxy do Ricardinho IA (r1zinho), que guarda a chave da Anthropic e repassa o corpo.
 import Anthropic from '@anthropic-ai/sdk';
 import { buscar } from '../../lib/rota/busca.js';
-import { json, lerToken, usoSobe, dado } from '../../lib/rota/base.mjs';
+import { json, sessaoRota, usoSobe, dado } from '../../lib/rota/base.mjs';
 
 const PROXY = 'https://r1zinho.netlify.app/.netlify/functions/chat';
 const LIMITE_DIA = 40;
@@ -23,7 +23,7 @@ FONTES: (1) o livro completo do evento, "Rota do Bilhão · Miolo Final", que es
 LIMITES: não invente números, leis ou datas que você não tem certeza; diga para confirmar com o contador ou o advogado quando for imposto ou jurídico. Não dê recomendação de investimento financeiro pessoal. Se perguntarem algo fora de empresa, família e planejamento, traga de volta para a rota com leveza.`;
 
 export const POST = async (request) => {
-  const email = lerToken(request);
+  const email = await sessaoRota(request);
   if (!email) return json({ erro: 'Entre de novo para falar com o RICA.' }, 401);
   let c = {}; try { c = await request.json(); } catch {}
   const msgs = (Array.isArray(c.mensagens) ? c.mensagens : []).slice(-12)

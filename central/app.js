@@ -40,16 +40,16 @@
       .then(function () { $('lBtn').disabled = false; });
   }
   function googleBotao(clientId) {
-    if (!clientId || !$('lGoogle')) return;
+    if (!clientId || !$('lGoogle') || !/^(interno.grupor1.com|membros.cluber1.com.br)$/.test(location.hostname)) return;
     $('lOu').hidden = false; $('lGoogle').hidden = false;
     function monta() {
       if (!(window.google && google.accounts && google.accounts.id)) return;
       if (!gPronto) { google.accounts.id.initialize({ client_id: clientId, callback: googleEntrou, ux_mode: 'popup' }); gPronto = true; }
-      if (!$('lGoogle').childElementCount) google.accounts.id.renderButton($('lGoogle'), { theme: 'filled_black', size: 'large', text: 'signin_with', shape: 'pill', width: 340, locale: 'pt-BR' });
+      if (!$('lGoogle').childElementCount) google.accounts.id.renderButton($('lGoogle'), { theme: 'filled_black', size: 'large', text: 'signin_with', shape: 'pill', width: Math.min(340, $('lGoogle').clientWidth || 340), locale: 'pt-BR' });
     }
     if (document.getElementById('gsi')) { monta(); return; }
     var s = el('script', { id: 'gsi', src: 'https://accounts.google.com/gsi/client', async: '', defer: '' });
-    s.onload = monta; document.head.appendChild(s);
+    s.onload = monta; s.onerror = function () { s.remove(); $('lOu').hidden = true; $('lGoogle').hidden = true; }; document.head.appendChild(s);
   }
 
   function iniciar() {

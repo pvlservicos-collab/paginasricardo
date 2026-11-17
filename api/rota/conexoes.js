@@ -7,14 +7,14 @@
 //
 // Os dados (membros, intenções, e-mails de membros) ficam no banco, tabela rota_dados — não no código, porque o
 // repositório do painel é público.
-import { json, erro, lerToken, normalizarEmail, dado } from '../../lib/rota/base.mjs';
+import { json, erro, sessaoRota, normalizarEmail, dado } from '../../lib/rota/base.mjs';
 
 const LIVRES = new Set(String(process.env.ROTA_LIVRE_EMAILS || process.env.LIVRE_EMAILS || 'acesso.livre@cluber1.com.br')
   .split(',').map((x) => x.trim().toLowerCase()).filter(Boolean));
 const ATUALIZADO = '16/11/2026';
 
 export const GET = async (request) => {
-  const email = lerToken(request);
+  const email = await sessaoRota(request);
   if (!email) return erro('Entre de novo para ver as conexões.', 401);
   const e = normalizarEmail(email);
   let MEMBROS, INTENCOES, EMAILS;

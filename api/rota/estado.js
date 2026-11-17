@@ -1,16 +1,16 @@
 // GET /api/rota/estado → { estado|null }   PUT /api/rota/estado { estado } → { ok }   (Authorization: Bearer <token>)
-import { json, erro, lerToken, getEstado, setEstado } from '../../lib/rota/base.mjs';
+import { json, erro, sessaoRota, getEstado, setEstado } from '../../lib/rota/base.mjs';
 
 const LIMITE = 400 * 1024;
 
 export const GET = async (request) => {
-  const email = lerToken(request);
+  const email = await sessaoRota(request);
   if (!email) return erro('Sessão expirada. Entre de novo.', 401);
   return json({ estado: await getEstado(email) });
 };
 
 export const PUT = async (request) => {
-  const email = lerToken(request);
+  const email = await sessaoRota(request);
   if (!email) return erro('Sessão expirada. Entre de novo.', 401);
   const txt = await request.text();
   if (txt.length > LIMITE) return erro('Dados grandes demais.', 413);
