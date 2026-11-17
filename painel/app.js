@@ -101,39 +101,6 @@ function toast(msg, tipo = '') {
 }
 
 /* ================= login ================= */
-// "Entrar com Google": o botão do Google devolve um ID token; o servidor confere e só abre sessão para usuário ativo
-// do painel com aquele e-mail (api/login.js → lib/auth.mjs entrarGoogle). Só aparece no endereço autorizado no Google.
-let googlePronto = false;
-async function googleNoLogin() {
-  if (location.hostname !== 'interno.grupor1.com') return;
-  let id;
-  try { id = (await api('login')).google; } catch { return; }
-  const el = $('#login-google');
-  if (!id || !el) return;
-  const monta = () => {
-    if (!(window.google && google.accounts && google.accounts.id) || !$('#login-google')) return;
-    if (!googlePronto) {
-      google.accounts.id.initialize({
-        client_id: id, ux_mode: 'popup',
-        callback: async (r) => {
-          $('#login-erro').textContent = '';
-          try { await api('login', { method: 'POST', body: { credential: r.credential } }); iniciar(); }
-          catch (e) { $('#login-erro').textContent = e.message; }
-        },
-      });
-      googlePronto = true;
-    }
-    const alvo = $('#login-google');
-    alvo.hidden = false;
-    if (!alvo.childElementCount) google.accounts.id.renderButton(alvo, { theme: 'filled_black', size: 'large', text: 'signin_with', shape: 'pill', width: Math.min(340, alvo.clientWidth || 340), locale: 'pt-BR' });
-  };
-  if (document.getElementById('gsi')) { monta(); return; }
-  const s = document.createElement('script');
-  s.id = 'gsi'; s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
-  s.onload = monta; s.onerror = () => s.remove();
-  document.head.appendChild(s);
-}
-
 function telaLogin() {
   $('#app').innerHTML = `
   <div class="login"><form id="f-login" autocomplete="on">
@@ -143,9 +110,7 @@ function telaLogin() {
     <label class="campo"><span>Senha</span><input name="senha" type="password" autocomplete="current-password" maxlength="200" required></label>
     <div class="erro-msg" id="login-erro"></div>
     <button class="bt bt-ouro bt-cheio" type="submit">Entrar</button>
-    <div id="login-google" style="display:flex;justify-content:center;min-height:44px;margin-top:14px" hidden></div>
   </form></div>`;
-  googleNoLogin();
   $('#f-login').onsubmit = async (ev) => {
     ev.preventDefault();
     const f = new FormData(ev.target);
