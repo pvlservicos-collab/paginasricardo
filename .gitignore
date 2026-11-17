@@ -7,3 +7,6 @@ dist/
 
 .vercel
 .env*
+
+# Rota do Bilhão: contatos de membros, livro e minutagem ficam no banco (rota_dados), nunca no repositório público
+lib/rota/dados/
