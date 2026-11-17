@@ -11,6 +11,9 @@ import { dominioNoAr } from '../lib/operacoes.mjs';
 import { PASTA_PAGINAS, normalizarUrl, montarDocumento, documentoInativo, documentoRedirecionamento, hostDaPagina, documentoNoAr } from '../lib/core.mjs';
 import { ehCentral, HOST_CENTRAL, protecaoLigada, sessao, documentoEntrada, comBarra } from '../lib/central.mjs';
 
+// Páginas do interno.grupor1.com que nunca pedem login (página inicial do app Grupo R1 no Google, privacidade e termos)
+const PUBLICAS_CENTRAL = new Set(['sobre', 'privacidade', 'termos']);
+
 const VALIDADE = 5000;
 let cfgCache = null;
 const htmlCache = new Map();
@@ -67,7 +70,8 @@ async function entregar(p, cfg, request, url, caminho, apelido = false) {
   // (DNS apontado). Enquanto não estiver, a página continua abrindo aqui. As prévias do painel passam direto.
   const hostAtual = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').toLowerCase().replace(/:\d+$/, '');
   const hostCerto = hostDaPagina(p, cfg, hostAtual);
-  if (ehCentral(hostCerto) && await protecaoLigada()) return entregarCentral(p, cfg, request, url, caminho, apelido, hostAtual);
+  // sobre/privacidade/termos ficam sempre abertas: o Google exige página inicial e política visíveis sem login
+  if (ehCentral(hostCerto) && !PUBLICAS_CENTRAL.has(normalizarUrl(p.url)) && await protecaoLigada()) return entregarCentral(p, cfg, request, url, caminho, apelido, hostAtual);
   const local = /^(localhost|127\.)/.test(hostAtual);
   if (!p.lab && hostCerto && hostAtual && hostCerto !== hostAtual && !local && !url.searchParams.has('r1previa') && await dominioNoAr(hostCerto)) {
     const destino = new URL(`https://${hostCerto}/${caminho}`);
