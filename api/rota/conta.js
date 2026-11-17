@@ -6,7 +6,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import {
   json, erro, criarToken, hashSenha, senhaConfere, normalizarEmail, emailValido, espera, getConta, setConta,
-  usoSobe, usoLer, hoje, ipDe,
+  usoSobe, usoLer, hoje, ipDe, acessoAutomatico,
 } from '../../lib/rota/base.mjs';
 import { verificarIdToken } from '../../lib/google-login.mjs';
 
@@ -52,7 +52,7 @@ async function tratar(request) {
     }
     const agora = new Date().toISOString();
     const conta = {
-      ...(atual || { email: g.email, criado: agora }),
+      ...(atual || { email: g.email, criado: agora, pedido_em: agora }),
       nome: atual?.nome || g.nome, google: { sub: g.sub, em: agora },
       ...(!atual?.lgpd && c.aceite === true ? { lgpd: { aceite: agora, versao: '2026-11-15' } } : {}),
     };
@@ -63,6 +63,15 @@ async function tratar(request) {
     const retomada = Boolean(atual && !atual.google && atual.hash);
     if (retomada) { delete conta.hash; delete conta.sal; conta.desde = agora; }
     await setConta(g.email, conta);
+    // Google @grupor1.com entra direto; Gmail e outros domínios precisam da aprovação do superadmin (/aprovacoes)
+    if (!acessoAutomatico(g.email, conta) && !conta.aprovado) {
+      if (!atual) await usoSobe(`cad:ip:${ip}:${dia}`); // pedido novo conta no limite por IP
+      log(conta.recusado ? 'google_recusado' : 'google_pedido', { email: g.email, ip });
+      if (conta.recusado) return erro('O seu acesso não foi aprovado. Fale com a equipe do Clube R1.', 403);
+      return json(atual
+        ? { pendente: true, erro: 'Seu acesso está aguardando aprovação do Clube R1. Tente de novo mais tarde.' }
+        : { pendente: true, mensagem: 'Pedido enviado! Assim que o Clube R1 aprovar o seu acesso, toque de novo em Continuar com o Google.' }, atual ? 403 : 202);
+    }
     log(atual ? (retomada ? 'google_retomou_conta' : 'google_entrou') : 'google_cadastro', { email: g.email, ip });
     return json({ token: criarToken(g.email), perfil: perfilDe(g.email, conta), novo: !atual, retomada }, atual ? 200 : 201);
   }
@@ -91,7 +100,7 @@ async function tratar(request) {
     delete conta.via; delete conta.aprovado; delete conta.recusado;
     await setConta(email, conta);
     log('pedido_acesso', { email, ip });
-    return json({ pendente: true, mensagem: 'Pedido enviado! Assim que o Clube R1 aprovar o seu acesso, entre com este e-mail e a senha que você criou. Se tiver conta Google, é só tocar em Continuar com o Google.' }, 202);
+    return json({ pendente: true, mensagem: 'Pedido enviado! Assim que o Clube R1 aprovar o seu acesso, entre com este e-mail e a senha que você criou. Com e-mail @grupor1.com, entre pelo Google sem esperar.' }, 202);
   }
 
   if (c.acao === 'entrar') {
@@ -106,7 +115,7 @@ async function tratar(request) {
     }
     // senha certa, mas o acesso por senha depende de aprovação do superadmin
     if (conta.recusado) return erro('O seu acesso não foi aprovado. Fale com a equipe do Clube R1.', 403);
-    if (!conta.aprovado) return json({ erro: 'Seu acesso está aguardando aprovação do Clube R1. Se tiver conta Google, toque em Continuar com o Google.', pendente: true }, 403);
+    if (!conta.aprovado) return json({ erro: 'Seu acesso está aguardando aprovação do Clube R1. Com e-mail @grupor1.com, entre pelo Google sem esperar.', pendente: true }, 403);
     if (c.aceite === true && !conta.lgpd) { conta.lgpd = { aceite: new Date().toISOString(), versao: '2026-11-15' }; await setConta(email, conta); }
     return json({ token: criarToken(email), perfil: perfilDe(email, conta) });
   }
