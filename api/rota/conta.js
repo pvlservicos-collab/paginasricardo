@@ -100,7 +100,7 @@ async function tratar(request) {
     delete conta.via; delete conta.aprovado; delete conta.recusado;
     await setConta(email, conta);
     log('pedido_acesso', { email, ip });
-    return json({ pendente: true, mensagem: 'Pedido enviado! Assim que o Clube R1 aprovar o seu acesso, entre com este e-mail e a senha que você criou. Com e-mail @grupor1.com, entre pelo Google sem esperar.' }, 202);
+    return json({ pendente: true, mensagem: 'Pedido enviado! Assim que o Clube R1 aprovar o seu acesso, entre com este e-mail e a senha que você criou. Com e-mail @grupor1.com ou @ivoxmarketing.com, entre pelo Google sem esperar.' }, 202);
   }
 
   if (c.acao === 'entrar') {
@@ -115,7 +115,7 @@ async function tratar(request) {
     }
     // senha certa, mas o acesso por senha depende de aprovação do superadmin
     if (conta.recusado) return erro('O seu acesso não foi aprovado. Fale com a equipe do Clube R1.', 403);
-    if (!conta.aprovado) return json({ erro: 'Seu acesso está aguardando aprovação do Clube R1. Com e-mail @grupor1.com, entre pelo Google sem esperar.', pendente: true }, 403);
+    if (!conta.aprovado) return json({ erro: 'Seu acesso está aguardando aprovação do Clube R1. Com e-mail @grupor1.com ou @ivoxmarketing.com, entre pelo Google sem esperar.', pendente: true }, 403);
     if (c.aceite === true && !conta.lgpd) { conta.lgpd = { aceite: new Date().toISOString(), versao: '2026-11-15' }; await setConta(email, conta); }
     return json({ token: criarToken(email), perfil: perfilDe(email, conta) });
   }
