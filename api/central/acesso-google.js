@@ -1,13 +1,14 @@
 // POST /api/central/acesso-google { credential } → { chave, exp }
 // "Entrar com Google" na tela "Acesso restrito" de interno.grupor1.com. A página da Central vem criptografada e só abre
 // com a chave (CENTRAL_CONTEUDO_KEY, a mesma CONTEUDO_KEY do backend antigo centralr1-acesso no Netlify, que segue
-// cuidando do login por e-mail e senha). Aqui a regra é a mesma dele: só e-mail @grupor1.com — confirmado pelo Google.
+// cuidando do login por e-mail e senha). Pelo Google entram contas @grupor1.com e, por exceção pedida em 17/11/2026,
+// @ivoxmarketing.com — e-mail confirmado pelo Google.
 import { verificarIdToken } from '../../lib/google-login.mjs';
 import { sql, usandoBanco } from '../../lib/store.mjs';
 import { prepararCentral, ipDe, registrar, json, erro, hostDe } from '../../lib/central.mjs';
 import { mesmaOrigem } from '../../lib/servidor.mjs';
 
-const DOMINIO = '@grupor1.com';
+const DOMINIOS = ['@grupor1.com', '@ivoxmarketing.com'];
 const DURACAO_MS = 7 * 24 * 3600e3; // quanto tempo a chave fica guardada no navegador
 const JANELA_MIN = 15, MAX_IP = 20;
 
@@ -29,10 +30,10 @@ export async function POST(request) {
       await sql`insert into central_tentativas (login, ip) values ('google', ${ip})`;
       return erro(e.message, e.status || 401);
     }
-    if (!g.email.endsWith(DOMINIO)) {
+    if (!DOMINIOS.some((d) => g.email.endsWith(d))) {
       await sql`insert into central_tentativas (login, ip) values (${g.email}, ${ip})`;
       await registrar('central_acesso_google_negado', { usuario: g.email, ip });
-      return erro('Use a sua conta Google @grupor1.com.', 403);
+      return erro('Use a sua conta Google corporativa (@grupor1.com ou @ivoxmarketing.com).', 403);
     }
     await registrar('central_acesso_google', { usuario: g.email, ip });
     return json({ chave, exp: Date.now() + DURACAO_MS, email: g.email });
