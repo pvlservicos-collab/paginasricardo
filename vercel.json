@@ -32,6 +32,10 @@
     "api/backup.mjs": {
       "maxDuration": 300,
       "memory": 1024
+    },
+    "api/criacao/sincronizar.mjs": {
+      "maxDuration": 300,
+      "memory": 1024
     }
   },
   "headers": [
@@ -451,6 +455,10 @@
     {
       "path": "/api/backup",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/criacao/sincronizar",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

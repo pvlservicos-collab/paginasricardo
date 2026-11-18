@@ -97,27 +97,32 @@
       <div class="met">
         <div class="met-cab">
           <div>
-            <div class="tag"><i></i>Métricas que a IA puxa</div>
+            <div class="tag"><i></i>Painel Grupo R1 · Meta + Guru · atualiza sozinho</div>
             <h1>Radar de Criativos</h1>
-            <p class="lead" id="metLead">Aguardando os primeiros dados do webhook.</p>
+            <p class="lead" id="metLead">Carregando os números…</p>
             <p class="mini" id="metQuando"></p>
           </div>
-          <div class="periodo" id="periodo">
-            <button type="button" class="chip ativo" data-d="7">7 dias</button>
-            <button type="button" class="chip" data-d="14">14 dias</button>
-            <button type="button" class="chip" data-d="30">30 dias</button>
+          <div class="met-acoes">
+            <div class="periodo" id="periodo">
+              <button type="button" class="chip ativo" data-d="7">7 dias</button>
+              <button type="button" class="chip" data-d="14">14 dias</button>
+              <button type="button" class="chip" data-d="30">30 dias</button>
+            </div>
+            <button type="button" class="bt p" id="bSync">Atualizar agora</button>
           </div>
         </div>
+        <div class="funis-abas" id="funisAbas"></div>
+        <div class="ia-linha" id="iaLinha"></div>
         <div class="kpis" id="kpis"></div>
         <div class="met-grade">
           <section class="cartao">
-            <h2>Gasto e leads por dia</h2>
+            <h2 id="gDiaTit">Investimento e vendas por dia</h2>
             <div id="gDia" class="graf"></div>
           </section>
           <section class="cartao">
-            <h2>Hook × hold por criativo</h2>
-            <p class="mini">Hook = % das impressões que viram 3 s. Hold = % dos que viram 3 s e chegaram ao ThruPlay.</p>
-            <div id="gHook" class="graf"></div>
+            <h2>Por funil</h2>
+            <p class="mini">Clique num funil para filtrar a tela. Connect = visitantes da página ÷ cliques no link.</p>
+            <div class="tabela-rol"><table class="tab" id="tFunis"><thead><tr><th>Funil</th><th class="n">Invest.</th><th class="n">CTR</th><th class="n">Connect</th><th class="n">Compras px</th><th class="n">Vendas</th><th class="n">CPA</th><th class="n">ROAS</th></tr></thead><tbody></tbody></table></div>
           </section>
         </div>
         <section class="cartao">
@@ -125,13 +130,19 @@
           <div class="filtros">
             <label>Tipo <select id="fTipo"><option value="">Todos</option><option value="vencedor">Vencedor</option><option value="variacao">Variação</option><option value="trafego">Tráfego</option><option value="alerta">Alerta</option><option value="analise">Análise</option></select></label>
             <label>Prioridade <select id="fPrio"><option value="">Todas</option><option value="urgente">Urgente</option><option value="alta">Alta</option><option value="normal">Normal</option></select></label>
-            <label>Frente <select id="fFrente"><option value="">Todas as frentes</option></select></label>
+            <label>Funil <select id="fFrente"><option value="">Todos os funis</option></select></label>
           </div>
           <div class="tabela-rol"><table class="tab" id="tFazer"><thead><tr><th>Prioridade</th><th>Ação</th><th>Criativo ou página</th><th>Por quê</th><th></th></tr></thead><tbody></tbody></table></div>
         </section>
         <section class="cartao">
-          <div class="cartao-cab"><h2>Criativos ativos</h2><p class="mini">Ordenados por gasto no período. Passe o mouse nos números para ver o nome inteiro.</p></div>
-          <div class="tabela-rol"><table class="tab" id="tCriativos"><thead><tr><th>Criativo</th><th>Frente / praça</th><th class="n">Gasto</th><th class="n">Impr.</th><th class="n">CTR</th><th class="n">CPM</th><th class="n">Hook</th><th class="n">Hold</th><th class="n">Leads</th><th class="n">CPL</th><th class="n">Vendas</th><th class="n">CPA</th><th class="n">ROAS</th><th>Gasto/dia</th></tr></thead><tbody></tbody></table></div>
+          <div class="cartao-cab"><h2>Campanhas</h2><p class="mini">As 80 com maior investimento no período.</p></div>
+          <div class="tabela-rol"><table class="tab" id="tCampanhas"><thead><tr><th>Campanha</th><th>Funil / praça</th><th class="n">Invest.</th><th class="n">CTR</th><th class="n">CPM</th><th class="n">Visitantes</th><th class="n">Connect</th><th class="n">Compras px</th><th class="n">Vendas</th><th class="n">CPA</th><th class="n">ROAS</th></tr></thead><tbody></tbody></table></div>
+          <button type="button" class="bt p mais" id="bMaisCamp" hidden>ver todas</button>
+        </section>
+        <section class="cartao">
+          <div class="cartao-cab"><h2>Criativos</h2><p class="mini">Mesmo anúncio em vários conjuntos conta como um criativo. Ordenados por investimento; a seta indica o CTR dos últimos 3 dias contra o período (fadiga). O nome abre o post.</p></div>
+          <div class="tabela-rol"><table class="tab" id="tCriativos"><thead><tr><th>Criativo</th><th>Funil / praça</th><th class="n">Invest.</th><th class="n">Impr.</th><th class="n">CTR</th><th class="n">CPM</th><th class="n">Visitantes</th><th class="n">Connect</th><th class="n">Compras px</th><th class="n">Vendas</th><th class="n">CPA</th><th class="n">ROAS</th><th>Invest./dia</th></tr></thead><tbody></tbody></table></div>
+          <button type="button" class="bt p mais" id="bMaisCri" hidden>ver todos</button>
         </section>
       </div>
     </div>
@@ -169,6 +180,9 @@
   "texto": "CPL R$ 14,80 contra R$ 31 da média; hook 33%.",
   "criativo_id": "120210000000"
 } ] }</pre>
+            <h2>Leitura para a IA da VPS</h2>
+            <p class="mini">A IA lê os mesmos números desta tela (já resumidos para o prompt) e devolve as ideias como <code>insights</code> acima, com o cabeçalho <code>x-origem: vps</code>:</p>
+            <pre class="cod" id="whLeitura"></pre>
             <h2>Resposta na conversa</h2>
             <pre class="cod">{ "tipo": "resposta", "projeto_id": "ID do projeto", "texto": "…" }</pre>
             <p class="mini">Vários de uma vez: <code>{ "lotes": [ {…}, {…} ] }</code>. Teste rápido no terminal:</p>

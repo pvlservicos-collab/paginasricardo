@@ -3,13 +3,15 @@
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
-  var S = { eu: null, dados: null, dias: 7, projeto: null, vista: 'canvas', filtro: '', exemplo: false, zoom: 0.8, pan: { x: 30, y: 30 }, salvarT: null, arr: null };
+  var S = { eu: null, dados: null, dias: 7, visao: '', maisCamp: false, maisCri: false, projeto: null, vista: 'canvas', filtro: '', exemplo: false, zoom: 0.8, pan: { x: 30, y: 30 }, salvarT: null, arr: null };
   var gPronto = false;
   var ESTILOS = [['hardcopy', 'HardCopy'], ['ugc', 'UGC (celular na mão)'], ['depoimento', 'Depoimento'], ['flagra', 'Flagra (cena do dia a dia)'], ['noticia', 'Notícia'], ['tela', 'Tela gravada'], ['palco', 'Palco / evento'], ['dialogo', 'Diálogo']];
   var VOZES = [['eleven', 'ElevenLabs (voz clonada)'], ['gratis', 'grátis (voz do computador)'], ['propria', 'gravação própria']];
   var ETAPAS = ['copy', 'voz', 'edição', 'revisão', 'vídeo'];
   var NOMES_TIPO = { vencedor: 'Vencedor', variacao: 'Variação', trafego: 'Tráfego', alerta: 'Alerta', analise: 'Análise' };
-  try { S.exemplo = localStorage.getItem('dsc-exemplo') === '1'; } catch (e) {}
+  var NOMES_FUNIL = { maquina_de_vendas: 'Máquina de Vendas', rgv: 'RGV', distribuicao: 'Distribuição', netflix: 'Netflix', xeque: 'Xeque-Mate', caixa: 'Caixa Forte', ctrl: 'CTRL', op27: 'Operação 2027', rgvprocessos: 'RGV Processos', black: 'Black', outros: 'Outros' };
+  function funil(v) { return NOMES_FUNIL[v] || v || '—'; }
+  try { S.exemplo = localStorage.getItem('dsc-exemplo') === '1'; S.visao = localStorage.getItem('dsc-visao') || ''; } catch (e) {}
 
   /* ---------- utilidades ---------- */
   function api(metodo, caminho, corpo) {
@@ -49,6 +51,8 @@
     o.cpl = c.leads ? c.gasto / c.leads : 0;
     o.cpa = c.vendas ? c.gasto / c.vendas : 0;
     o.roas = c.gasto ? c.receita / c.gasto : 0;
+    o.connect = c.cliques_link ? 100 * (c.visitantes || 0) / c.cliques_link : 0;
+    o.cpaPx = c.compras ? c.gasto / c.compras : 0;
     return o;
   }
   function criativoDe(id) { return (S.dados && S.dados.criativos || []).filter(function (c) { return c.id === id; })[0]; }
@@ -87,7 +91,7 @@
 
   /* ---------- dados ---------- */
   function carregar(primeira) {
-    var q = '?dias=' + S.dias + (S.projeto ? '&projeto=' + encodeURIComponent(S.projeto.id) : '');
+    var q = '?dias=' + S.dias + (S.visao ? '&visao=' + encodeURIComponent(S.visao) : '') + (S.projeto ? '&projeto=' + encodeURIComponent(S.projeto.id) : '');
     return api('GET', '/api/criacao/dados' + q).then(function (d) {
       S.dados = d;
       if (S.exemplo) aplicarExemplo();
@@ -431,60 +435,82 @@
   }
 
   /* ---------- métricas ---------- */
+  function somar(lista) {
+    return lista.reduce(function (a, c) { ['gasto', 'impressoes', 'alcance', 'cliques_link', 'visitantes', 'compras', 'vendas', 'ingressos', 'receita', 'leads'].forEach(function (k) { a[k] = (a[k] || 0) + Number(c[k] || 0); }); return a; }, {});
+  }
+  function haQuanto(v) { if (!v) return ''; var m = Math.round((Date.now() - new Date(v)) / 60000); return m < 1 ? 'agora' : m < 60 ? 'há ' + m + ' min' : m < 1440 ? 'há ' + Math.round(m / 60) + ' h' : 'há ' + Math.round(m / 1440) + ' d'; }
   function desenharMetricas() {
     var cr = S.dados.criativos || [], ins = S.dados.insights || [], novos = ins.filter(function (i) { return i.status === 'novo'; });
-    var tot = cr.reduce(function (a, c) { ['gasto', 'impressoes', 'cliques_link', 'views_3s', 'thruplays', 'leads', 'vendas', 'receita'].forEach(function (k) { a[k] = (a[k] || 0) + Number(c[k] || 0); }); return a; }, {});
-    var t = calc(tot), urg = novos.filter(function (i) { return i.prioridade === 'urgente'; }), trocar = novos.filter(function (i) { return i.tipo === 'variacao' || i.tipo === 'vencedor'; });
+    var fonte = S.dados.fonte || {}, dia = S.dados.diario || [];
+    var tot = dia.length ? somar(dia) : somar(cr), t = calc(tot);
+    // connect só onde há página de destino (Distribuição impulsiona posts: cliques sem visita contam como 0%)
+    var comPagina = somar((S.dados.funis || []).filter(function (f) { return f.visitantes > 0.05 * f.cliques_link && (!S.visao || f.visao === S.visao); }));
+    if (comPagina.cliques_link) t.connect = 100 * comPagina.visitantes / comPagina.cliques_link;
+    var urg = novos.filter(function (i) { return i.prioridade === 'urgente'; }), trocar = novos.filter(function (i) { return i.tipo === 'variacao' || i.tipo === 'vencedor'; });
     var temDados = cr.some(function (c) { return c.gasto > 0 || c.impressoes > 0; });
-    // frase-resumo
-    var pracas = []; urg.forEach(function (i) { var c = i.criativo_id ? criativoDe(i.criativo_id) : null; var p = c && c.praca; if (p && pracas.indexOf(p) < 0) pracas.push(p); });
+    var rotulo = S.visao ? funil(S.visao) : 'Todos os funis';
     var lead = temDados
-      ? '<b>' + urg.length + '</b> ' + (urg.length === 1 ? 'ação urgente' : 'ações urgentes') + ' hoje.' + (pracas.length ? ' ' + pracas.slice(0, 4).join(', ') + (pracas.length === 1 ? ' está' : ' estão') + ' com alerta.' : '') + ' Gasto de <b>' + brl(tot.gasto, 0) + '</b> nos últimos ' + S.dias + ' dias, <b>' + num(tot.leads) + '</b> leads a ' + brl(t.cpl) + ' e <b>' + num(tot.vendas) + '</b> vendas' + (tot.vendas ? ' a ' + brl(t.cpa) : '') + '.' + (trocar.length ? ' Há <b>' + trocar.length + '</b> ' + (trocar.length === 1 ? 'criativo pedindo' : 'criativos pedindo') + ' variação ou escala.' : '')
-      : 'Aguardando os primeiros dados do webhook. Veja em <b>Conexão</b> como a IA da VPS manda as métricas.';
+      ? '<b>' + esc(rotulo) + '</b>: ' + brl(tot.gasto, 0) + ' investidos nos últimos ' + S.dias + ' dias, ' + num(tot.visitantes) + ' visitantes (connect ' + pct(t.connect, 0) + ')' +
+        (tot.vendas ? ', <b>' + num(tot.vendas) + '</b> vendas na Guru a ' + brl(t.cpa, 0) : '') + (tot.compras ? ', ' + num(tot.compras) + ' compras no pixel a ' + brl(t.cpaPx, 0) : '') + '.' +
+        (urg.length ? ' <b>' + urg.length + '</b> ' + (urg.length === 1 ? 'ação urgente' : 'ações urgentes') + '.' : '') + (trocar.length ? ' ' + trocar.length + ' ' + (trocar.length === 1 ? 'criativo pede' : 'criativos pedem') + ' variação ou escala.' : '')
+      : fonte.temR1 === false ? 'Falta ligar o Painel Grupo R1: defina <b>R1_CONSULTA_TOKEN</b> na Vercel.' : 'Sem investimento neste filtro no período.';
     $('metLead').innerHTML = lead;
-    $('metQuando').textContent = temDados ? 'Dados de ' + quando(S.dados.geradoEm) + ' · criativos ativos = tiveram gasto ou impressão no período.' : '';
+    var sy = fonte.sincronizado || {};
+    $('metQuando').textContent = (fonte.dadosAte ? 'Dados até ' + fonte.dadosAte.split('-').reverse().join('/') : 'Ainda sem dados') + (sy.em ? ' · buscado no Painel R1 ' + haQuanto(sy.em) + ' (a cada 15 min)' : '') + (sy.erro ? ' · erro: ' + sy.erro : '') + ' · a tela se atualiza sozinha a cada minuto.';
+    // abas de funil
+    var funis = (S.dados.funis || []).filter(function (f) { return f.gasto > 0; });
+    $('funisAbas').innerHTML = '<button type="button" class="chip' + (S.visao ? '' : ' ativo') + '" data-v="">Todos</button>' + funis.map(function (f) { return '<button type="button" class="chip' + (S.visao === f.visao ? ' ativo' : '') + '" data-v="' + esc(f.visao) + '">' + esc(funil(f.visao)) + '<em>' + brl(f.gasto / 1000, 0) + 'k</em></button>'; }).join('');
+    // quem está acompanhando
+    var au = fonte.analiseAuto || {}, vpsOn = fonte.ultimoVps && Date.now() - new Date(fonte.ultimoVps) < 24 * 3600e3;
+    $('iaLinha').innerHTML = '<span class="ponto' + (vpsOn ? ' on' : '') + '"></span><span><b>IA da VPS</b> ' + (fonte.ultimoVps ? 'mandou ideias ' + haQuanto(fonte.ultimoVps) : 'ainda não mandou ideias (o endereço de leitura está em Conexão)') + '</span>' +
+      '<span class="ponto' + (S.dados.maquina ? ' on' : '') + '"></span><span><b>Claude</b> ' + (S.dados.maquina ? (au.ultima_em ? 'analisou ' + haQuanto(au.ultima_em) + ' (' + (au.ultima_n || 0) + ' ideias)' : 'analisa sozinho a cada 6 h') + ' · cobre enquanto a VPS não manda' : 'desligado') + '</span>' +
+      (S.dados.maquina ? '<button type="button" class="bt p" id="bAnalisar">Pedir ideias agora</button>' : '');
     // KPIs
-    var k = [['Urgentes', urg.length, urg.length ? 'vermelho' : '', 'ações com dinheiro saindo sem resultado'], ['Criativos para fazer ou trocar', trocar.length, 'lime', 'sugestões de variação e escala'],
-      ['Gasto', brl(tot.gasto, 0), '', S.dias + ' dias'], ['Leads', num(tot.leads), '', 'CPL ' + brl(t.cpl)], ['Vendas', num(tot.vendas), '', 'CPA ' + (tot.vendas ? brl(t.cpa) : '—')],
-      ['ROAS', tot.gasto ? num(t.roas, 2) + 'x' : '—', t.roas >= 2 ? 'lime' : '', 'receita ' + brl(tot.receita, 0)], ['CTR do link', pct(t.ctr, 2), '', 'CPM ' + brl(t.cpm)], ['Hook / hold', pct(t.hook, 0) + ' / ' + pct(t.hold, 0), '', '3 s / ThruPlay']];
+    var k = [['Urgentes', urg.length, urg.length ? 'vermelho' : '', 'dinheiro saindo sem resultado'], ['Para fazer ou trocar', trocar.length, 'lime', 'sugestões de variação e escala'],
+      ['Investimento', brl(tot.gasto, 0), '', S.dias + ' dias · CPM ' + brl(t.cpm)], ['Visitantes', num(tot.visitantes), t.connect >= 70 ? 'lime' : t.connect && t.connect < 50 ? 'vermelho' : '', 'connect ' + pct(t.connect, 0) + ' · ' + num(tot.cliques_link) + ' cliques'],
+      ['CTR do link', pct(t.ctr, 2), '', 'CPC ' + brl(t.cpc)], ['Compras no pixel', num(tot.compras), '', 'CPA ' + (tot.compras ? brl(t.cpaPx, 0) : '—')],
+      ['Vendas Guru', num(tot.vendas), '', 'CPA ' + (tot.vendas ? brl(t.cpa, 0) : '—') + (tot.ingressos ? ' · ' + num(tot.ingressos) + ' ingressos' : '')], ['Receita', brl(tot.receita, 0), t.roas >= 1 ? 'lime' : '', 'ROAS ' + (tot.gasto && tot.receita ? num(t.roas, 2) + 'x' : '—')]];
     $('kpis').innerHTML = k.map(function (x) { return '<div class="kpi"><small>' + x[0] + '</small><b class="' + x[2] + '">' + x[1] + '</b><span>' + x[3] + '</span></div>'; }).join('');
-    graficoDia(); graficoHook();
-    // frentes no filtro
+    graficoDia(); tabelaFunis(); tabelaCampanhas();
     var fs = $('fFrente'), atual = fs.value; var frentes = []; cr.forEach(function (c) { if (c.frente && frentes.indexOf(c.frente) < 0) frentes.push(c.frente); });
-    fs.innerHTML = '<option value="">Todas as frentes</option>' + frentes.map(function (f) { return '<option' + (f === atual ? ' selected' : '') + '>' + esc(f) + '</option>'; }).join('');
+    fs.innerHTML = '<option value="">Todos os funis</option>' + frentes.map(function (f) { return '<option value="' + esc(f) + '"' + (f === atual ? ' selected' : '') + '>' + esc(funil(f)) + '</option>'; }).join('');
     tabelaFazer(); tabelaCriativos();
   }
   function graficoDia() {
-    var porDia = {}; (S.dados.serie || []).forEach(function (m) { var d = porDia[m.dia] || (porDia[m.dia] = { gasto: 0, leads: 0 }); d.gasto += Number(m.gasto); d.leads += Number(m.leads); });
-    var dias = Object.keys(porDia).sort(), g = $('gDia');
+    var dias = (S.dados.diario || []).slice(), g = $('gDia');
     if (!dias.length) { g.innerHTML = '<svg viewBox="0 0 600 200"><text x="300" y="100" text-anchor="middle" class="vazio">sem dados no período</text></svg>'; return; }
+    var tot = somar(dias), k2 = tot.vendas ? 'vendas' : tot.compras ? 'compras' : 'visitantes', nome2 = { vendas: 'Vendas Guru', compras: 'Compras no pixel', visitantes: 'Visitantes' }[k2];
+    $('gDiaTit').textContent = 'Investimento e ' + { vendas: 'vendas na Guru', compras: 'compras no pixel', visitantes: 'visitantes' }[k2] + ' por dia';
     var W = 600, H = 110, P = 34, bw = Math.max(4, (W - P - 10) / dias.length - 4);
     function bloco(k, rotulo, cls, fmt, y0) {
-      var max = Math.max.apply(null, dias.map(function (d) { return porDia[d][k]; })) || 1, s = '';
+      var max = Math.max.apply(null, dias.map(function (d) { return Number(d[k]) || 0; })) || 1, s = '';
       s += '<text x="0" y="' + (y0 + 10) + '" font-weight="600">' + rotulo + '</text>';
       s += '<line x1="' + P + '" y1="' + (y0 + H) + '" x2="' + W + '" y2="' + (y0 + H) + '" class="eixo"/>';
       dias.forEach(function (d, i) {
-        var v = porDia[d][k], h = Math.round((H - 18) * v / max), x = P + i * (bw + 4);
-        s += '<rect class="' + cls + '" x="' + x + '" y="' + (y0 + H - h) + '" width="' + bw + '" height="' + h + '"><title>' + d.split('-').reverse().join('/') + ': ' + fmt(v) + '</title></rect>';
-        if (i === dias.length - 1 || i % Math.ceil(dias.length / 8) === 0) s += '<text x="' + (x + bw / 2) + '" y="' + (y0 + H + 13) + '" text-anchor="middle">' + d.slice(8) + '/' + d.slice(5, 7) + '</text>';
+        var v = Number(d[k]) || 0, h = Math.round((H - 18) * v / max), x = P + i * (bw + 4);
+        s += '<rect class="' + cls + '" x="' + x + '" y="' + (y0 + H - h) + '" width="' + bw + '" height="' + h + '"><title>' + d.dia.split('-').reverse().join('/') + ': ' + fmt(v) + '</title></rect>';
+        if (i === dias.length - 1 || i % Math.ceil(dias.length / 8) === 0) s += '<text x="' + (x + bw / 2) + '" y="' + (y0 + H + 13) + '" text-anchor="middle">' + d.dia.slice(8) + '/' + d.dia.slice(5, 7) + '</text>';
         if (v === max) s += '<text x="' + (x + bw / 2) + '" y="' + (y0 + H - h - 4) + '" text-anchor="middle" font-weight="600" fill="#e6e9e3">' + fmt(v) + '</text>';
       });
       return s;
     }
-    g.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + (2 * H + 60) + '">' + bloco('gasto', 'Gasto', 'barra', function (v) { return brl(v, 0); }, 14) + bloco('leads', 'Leads', 'barra2', function (v) { return num(v); }, H + 44) + '</svg>';
+    g.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + (2 * H + 60) + '">' + bloco('gasto', 'Investimento', 'barra', function (v) { return brl(v, 0); }, 14) + bloco(k2, nome2, 'barra2', function (v) { return num(v); }, H + 44) + '</svg>';
   }
-  function graficoHook() {
-    var cr = (S.dados.criativos || []).filter(function (c) { return c.impressoes > 0; }).slice(0, 10), g = $('gHook');
-    if (!cr.length) { g.innerHTML = '<svg viewBox="0 0 600 200"><text x="300" y="100" text-anchor="middle" class="vazio">sem dados no período</text></svg>'; return; }
-    var W = 600, lh = 26, L = 230, s = '';
-    cr.forEach(function (c, i) {
-      var m = calc(c), y = i * lh + 10, wH = (W - L - 40) * Math.min(100, m.hook) / 100, wD = (W - L - 40) * Math.min(100, m.hold) / 100;
-      s += '<text x="' + (L - 8) + '" y="' + (y + 11) + '" text-anchor="end"><title>' + esc(c.nome) + '</title>' + esc(c.nome.length > 32 ? c.nome.slice(0, 31) + '…' : c.nome) + '</text>';
-      s += '<rect x="' + L + '" y="' + y + '" width="' + wH + '" height="7" rx="2" fill="#c8f03c"><title>hook ' + pct(m.hook) + '</title></rect>';
-      s += '<rect x="' + L + '" y="' + (y + 9) + '" width="' + wD + '" height="7" rx="2" fill="#6aa9ff"><title>hold ' + pct(m.hold) + '</title></rect>';
-      s += '<text x="' + (L + Math.max(wH, wD) + 6) + '" y="' + (y + 13) + '" font-size="10">' + pct(m.hook, 0) + ' · ' + pct(m.hold, 0) + '</text>';
-    });
-    g.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + (cr.length * lh + 16) + '">' + s + '</svg><div class="legenda"><span><i style="background:#c8f03c"></i>Hook (3 s / impressões)</span><span><i style="background:#6aa9ff"></i>Hold (ThruPlay / 3 s)</span></div>';
+  function resultado(c, m) {
+    return '<td class="n">' + num(c.visitantes) + '</td><td class="n' + (c.cliques_link > 30 ? (m.connect >= 70 ? ' bom' : m.connect < 45 ? ' ruim' : '') : '') + '">' + (c.cliques_link ? pct(m.connect, 0) : '—') + '</td><td class="n">' + num(c.compras) + '</td><td class="n">' + num(c.vendas) + '</td>' +
+      '<td class="n">' + (c.vendas ? brl(m.cpa, 0) : c.compras ? brl(m.cpaPx, 0) + '<span class="tend" title="CPA do pixel">px</span>' : '—') + '</td><td class="n">' + (c.gasto && c.receita ? num(m.roas, 2) + 'x' : '—') + '</td>';
+  }
+  function tabelaFunis() {
+    var tb = $('tFunis').querySelector('tbody'), fs = (S.dados.funis || []).filter(function (f) { return f.gasto > 0 || f.impressoes > 0; });
+    if (!fs.length) { tb.innerHTML = '<tr class="vazio"><td colspan="8">Sem dados no período.</td></tr>'; return; }
+    tb.innerHTML = fs.map(function (f) { var m = calc(f); return '<tr data-v="' + esc(f.visao) + '" class="' + (S.visao === f.visao ? 'on' : '') + '"><td>' + esc(funil(f.visao)) + '</td><td class="n">' + brl(f.gasto, 0) + '</td><td class="n">' + pct(m.ctr, 2) + '</td><td class="n">' + (f.cliques_link ? pct(m.connect, 0) : '—') + '</td><td class="n">' + num(f.compras) + '</td><td class="n">' + num(f.vendas) + '</td><td class="n">' + (f.vendas ? brl(m.cpa, 0) : f.compras ? brl(m.cpaPx, 0) : '—') + '</td><td class="n">' + (f.receita ? num(m.roas, 2) + 'x' : '—') + '</td></tr>'; }).join('');
+  }
+  function tabelaCampanhas() {
+    var tb = $('tCampanhas').querySelector('tbody'), cs = S.dados.campanhas || [];
+    $('bMaisCamp').hidden = cs.length <= 15;
+    $('bMaisCamp').textContent = S.maisCamp ? 'mostrar menos' : 'ver todas (' + cs.length + ')';
+    if (!cs.length) { tb.innerHTML = '<tr class="vazio"><td colspan="11">Sem campanhas no período.</td></tr>'; return; }
+    tb.innerHTML = (S.maisCamp ? cs : cs.slice(0, 15)).map(function (c) { var m = calc(c); return '<tr><td><div class="nome" title="' + esc(c.campanha) + '">' + esc(c.campanha || '(sem nome)') + '</div><span style="color:var(--sub);font-size:11px">' + num(c.anuncios) + ' anúncios</span></td><td>' + esc([funil(c.visao), c.praca].filter(Boolean).join(' · ')) + '</td><td class="n">' + brl(c.gasto, 0) + '</td><td class="n">' + pct(m.ctr, 2) + '</td><td class="n">' + brl(m.cpm) + '</td>' + resultado(c, m) + '</tr>'; }).join('');
   }
   function tabelaFazer() {
     var tb = $('tFazer').querySelector('tbody'); tb.innerHTML = '';
@@ -505,25 +531,46 @@
   ['fTipo', 'fPrio', 'fFrente'].forEach(function (id) { $(id).addEventListener('change', tabelaFazer); });
   function tabelaCriativos() {
     var tb = $('tCriativos').querySelector('tbody'); tb.innerHTML = '';
-    var cr = (S.dados.criativos || []).filter(function (c) { return c.gasto > 0 || c.impressoes > 0; });
-    if (!cr.length) { tb.innerHTML = '<tr class="vazio"><td colspan="14">Nenhum criativo com dados no período.</td></tr>'; return; }
+    var todos = (S.dados.criativos || []).filter(function (c) { return c.gasto > 0 || c.impressoes > 0; });
+    $('bMaisCri').hidden = todos.length <= 30;
+    $('bMaisCri').textContent = S.maisCri ? 'mostrar menos' : 'ver todos (' + todos.length + ')';
+    var cr = S.maisCri ? todos : todos.slice(0, 30);
+    if (!cr.length) { tb.innerHTML = '<tr class="vazio"><td colspan="13">Nenhum criativo com dados no período.</td></tr>'; return; }
     var porC = {}; (S.dados.serie || []).forEach(function (m) { (porC[m.criativo_id] = porC[m.criativo_id] || []).push(m); });
-    var medCpl = (function () { var g = 0, l = 0; cr.forEach(function (c) { g += c.gasto; l += c.leads; }); return l ? g / l : 0; })();
     cr.forEach(function (c) {
       var m = calc(c), tr = el('tr'), serie = porC[c.id] || [], max = Math.max.apply(null, serie.map(function (x) { return x.gasto; }).concat([1]));
       var sp = '<svg class="spark" viewBox="0 0 90 22">' + serie.map(function (x, i) { var h = Math.max(1, 20 * x.gasto / max), w = Math.max(2, 90 / Math.max(7, serie.length) - 2); return '<rect x="' + (i * (w + 2)) + '" y="' + (22 - h) + '" width="' + w + '" height="' + h + '" rx="1"><title>' + x.dia + ': ' + brl(x.gasto) + '</title></rect>'; }).join('') + '</svg>';
-      var clsCpl = c.leads && medCpl ? (m.cpl < medCpl * 0.8 ? 'bom' : m.cpl > medCpl * 1.3 ? 'ruim' : '') : '';
-      tr.innerHTML = '<td><div class="nome" title="' + esc(c.nome) + '">' + esc(c.nome) + '</div><span style="color:var(--sub);font-size:11px">' + esc(c.tipo) + (c.status && c.status !== 'ativo' ? ' · ' + esc(c.status) : '') + '</span></td><td>' + esc([c.frente, c.praca].filter(Boolean).join(' · ') || '—') + '</td>' +
-        '<td class="n">' + brl(c.gasto, 0) + '</td><td class="n">' + num(c.impressoes) + '</td><td class="n">' + pct(m.ctr, 2) + '</td><td class="n">' + brl(m.cpm) + '</td><td class="n">' + pct(m.hook, 0) + '</td><td class="n">' + pct(m.hold, 0) + '</td><td class="n">' + num(c.leads) + '</td><td class="n ' + clsCpl + '">' + (c.leads ? brl(m.cpl) : '—') + '</td><td class="n">' + num(c.vendas) + '</td><td class="n">' + (c.vendas ? brl(m.cpa) : '—') + '</td><td class="n">' + (c.gasto && c.receita ? num(m.roas, 2) + 'x' : '—') + '</td><td>' + sp + '</td>';
+      var u = serie.slice(-3).reduce(function (a, x) { return { im: a.im + Number(x.impressoes || 0), cl: a.cl + Number(x.cliques_link || 0) }; }, { im: 0, cl: 0 });
+      var ctr3 = u.im > 500 ? 100 * u.cl / u.im : null, tend = ctr3 == null || !m.ctr ? '' : ctr3 > m.ctr * 1.1 ? '<span class="tend sobe" title="CTR dos últimos 3 dias: ' + pct(ctr3, 2) + '">▲</span>' : ctr3 < m.ctr * 0.85 ? '<span class="tend cai" title="CTR dos últimos 3 dias: ' + pct(ctr3, 2) + ' (fadiga?)">▼</span>' : '';
+      var nome = c.previa && /^https:\/\//.test(c.previa) ? '<a href="' + esc(c.previa) + '" target="_blank" rel="noopener">' + esc(c.nome) + '</a>' : esc(c.nome);
+      tr.innerHTML = '<td><div class="nome" title="' + esc(c.nome) + '">' + nome + '</div><span style="color:var(--sub);font-size:11px">' + esc(c.tipo || '') + (c.anuncios > 1 ? ' · ' + c.anuncios + ' anúncios' : '') + '</span></td><td>' + esc([funil(c.frente), c.praca].filter(Boolean).join(' · ') || '—') + '</td>' +
+        '<td class="n">' + brl(c.gasto, 0) + '</td><td class="n">' + num(c.impressoes) + '</td><td class="n">' + pct(m.ctr, 2) + tend + '</td><td class="n">' + brl(m.cpm) + '</td>' + resultado(c, m) + '<td>' + sp + '</td>';
       tb.appendChild(tr);
     });
   }
+  $('bMaisCamp').addEventListener('click', function () { S.maisCamp = !S.maisCamp; tabelaCampanhas(); });
+  $('bMaisCri').addEventListener('click', function () { S.maisCri = !S.maisCri; tabelaCriativos(); });
+  function mudarFunil(v) { S.visao = v || ''; try { localStorage.setItem('dsc-visao', S.visao); } catch (e) {} carregar(false); }
+  $('funisAbas').addEventListener('click', function (ev) { var b = ev.target.closest('.chip'); if (b) mudarFunil(b.dataset.v); });
+  $('tFunis').addEventListener('click', function (ev) { var r = ev.target.closest('tr[data-v]'); if (r) mudarFunil(S.visao === r.dataset.v ? '' : r.dataset.v); });
+  $('bSync').addEventListener('click', function () {
+    var b = $('bSync'); b.disabled = true; b.textContent = 'Buscando no Painel R1…';
+    api('POST', '/api/criacao/dados', { acao: 'sincronizar' }).then(function (r) { toast(r.recente ? 'Já estava atualizado.' : num(r.linhas) + ' linhas atualizadas.'); return carregar(false); })
+      .catch(function (e) { toast(e.message, true); }).then(function () { b.disabled = false; b.textContent = 'Atualizar agora'; });
+  });
+  $('iaLinha').addEventListener('click', function (ev) {
+    var b = ev.target.closest('#bAnalisar'); if (!b) return;
+    b.disabled = true; b.textContent = 'A máquina está lendo…';
+    api('POST', '/api/criacao/dados', { acao: 'analisar', dias: S.dias, visao: S.visao }).then(function (r) { toast(r.sugestoes + ' ideias novas.'); return carregar(false); })
+      .catch(function (e) { toast(e.message, true); b.disabled = false; b.textContent = 'Pedir ideias agora'; });
+  });
   $('periodo').addEventListener('click', function (ev) { var b = ev.target.closest('.chip'); if (!b) return; S.dias = Number(b.dataset.d); $('periodo').querySelectorAll('.chip').forEach(function (c) { c.classList.toggle('ativo', c === b); }); carregar(false); });
 
   /* ---------- conexão ---------- */
   function desenharConexao() {
     var url = location.origin + '/api/criacao/webhook';
     $('whUrl').textContent = 'POST ' + url;
+    $('whLeitura').textContent = "curl '" + url + "?resumo=1&dias=7' -H 'Authorization: Bearer SUA_CHAVE'\n# filtrar um funil: &visao=xeque | rgv | maquina_de_vendas | caixa | ctrl | op27 | …";
     $('whCurl').textContent = "curl -X POST '" + url + "' \\\n  -H 'Authorization: Bearer SUA_CHAVE' -H 'Content-Type: application/json' \\\n  -d '{\"tipo\":\"insights\",\"itens\":[{\"tipo\":\"analise\",\"prioridade\":\"normal\",\"titulo\":\"Teste do webhook\",\"texto\":\"Chegou.\"}]}'";
     var ev = $('whEventos'); ev.innerHTML = '';
     var lista = (S.dados.eventos || []);

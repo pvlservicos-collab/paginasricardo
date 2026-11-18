@@ -10,7 +10,7 @@
 //   GET (sem chave) → só diz se o webhook está configurado. A chave fica na variável CRIACAO_WEBHOOK_CHAVE da Vercel.
 import crypto from 'node:crypto';
 import { json, erro, lerJson } from '../../lib/servidor.mjs';
-import { receberMetricas, receberInsights, receberResposta, registrarEvento } from '../../lib/criacao.mjs';
+import { receberMetricas, receberInsights, receberResposta, registrarEvento, carregarTudo, resumoTexto } from '../../lib/criacao.mjs';
 
 const chaveOk = (request) => {
   const esperada = (process.env.CRIACAO_WEBHOOK_CHAVE || '').trim();
@@ -21,8 +21,26 @@ const chaveOk = (request) => {
   return crypto.timingSafeEqual(Buffer.from(dada), Buffer.from(esperada));
 };
 
-export async function GET() {
-  return json({ webhook: '/api/criacao/webhook', configurado: Boolean((process.env.CRIACAO_WEBHOOK_CHAVE || '').trim()), tipos: ['metricas', 'insights', 'resposta'] });
+// GET com a chave e ?resumo=1 → o que a IA da VPS precisa para gerar ideias (mesmos números da tela):
+//   ?dias=7|14|30  ?visao=xeque|rgv|maquina_de_vendas|…   → { texto (resumo pronto para o prompt), funis, campanhas, criativos, diario, sugestoes_abertas, como_responder }
+export async function GET(request) {
+  const url = new URL(request.url);
+  if (url.searchParams.get('resumo')) {
+    if (!chaveOk(request)) return erro('Chave do webhook inválida.', 401);
+    try {
+      const tudo = await carregarTudo(url.searchParams.get('dias') || 7, url.searchParams.get('visao') || '');
+      return json({
+        periodo_dias: tudo.dias, visao: tudo.visao || 'todas', dados_ate: tudo.fonte.dadosAte, sincronizado: tudo.fonte.sincronizado,
+        texto: resumoTexto(tudo), funis: tudo.funis, campanhas: tudo.campanhas, criativos: tudo.criativos.slice(0, 150), diario: tudo.diario,
+        sugestoes_abertas: tudo.insights.filter((i) => i.status === 'novo').map((i) => ({ id: i.id, tipo: i.tipo, prioridade: i.prioridade, titulo: i.titulo, origem: i.origem })),
+        como_responder: 'POST neste endereço com {"tipo":"insights","itens":[{"tipo":"vencedor|variacao|trafego|alerta|analise","prioridade":"urgente|alta|normal","titulo","texto","acao","criativo_id"}]} e o cabeçalho x-origem: vps',
+      });
+    } catch (e) {
+      console.error(JSON.stringify({ tipo: 'erro', rota: '/api/criacao/webhook?resumo', msg: e.message }));
+      return erro('Não consegui montar o resumo agora.', 503);
+    }
+  }
+  return json({ webhook: '/api/criacao/webhook', configurado: Boolean((process.env.CRIACAO_WEBHOOK_CHAVE || '').trim()), tipos: ['metricas', 'insights', 'resposta'], leitura: '/api/criacao/webhook?resumo=1&dias=7' });
 }
 
 export async function POST(request) {
