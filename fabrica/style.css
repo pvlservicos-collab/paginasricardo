@@ -254,3 +254,15 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
 .bib-item .linha { margin-top: 6px; gap: 6px; flex-wrap: wrap; }
 .bib-play { position: absolute; inset: 0; margin: auto; width: 54px; height: 54px; border-radius: 50%; border: 0; background: rgba(0,0,0,.55); color: #fff; font-size: 20px; cursor: pointer; }
 .bib-play:hover { background: var(--ouro); color: #1a1405; }
+/* biblioteca mais leve: sem moldura no cartão, botões sem caixa (18/11) */
+.bib { gap: 22px 18px; }
+.bib-item { padding: 0; background: none; border: 0; gap: 2px; }
+.bib-item .tela { outline: 1px solid rgba(255,255,255,.07); outline-offset: -1px; transition: outline-color .15s, transform .15s; }
+.bib-item:hover .tela { outline-color: rgba(255,255,255,.18); transform: translateY(-2px); }
+.bib-item b { margin-top: 10px; }
+.bib-item .linha { margin-top: 4px; gap: 2px; flex-wrap: nowrap; margin-left: -8px; }
+.bib-item .btn.sec { background: none; border-color: transparent; color: var(--txt2); padding: 5px 8px; font-weight: 500; }
+.bib-item .btn.sec:hover { background: var(--painel2); color: var(--txt); }
+.bib-item .btn.perigo { color: var(--txt3); margin-left: auto; }
+.bib-item .btn.perigo:hover { color: var(--vermelho); }
+.bib-play { width: 46px; height: 46px; font-size: 16px; background: rgba(0,0,0,.35); backdrop-filter: blur(6px); }
