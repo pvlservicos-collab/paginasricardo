@@ -11,9 +11,11 @@ import {
 } from '../../lib/rota/base.mjs';
 import { verificarIdToken, verificarAccessToken } from '../../lib/google-login.mjs';
 
-// Limites por dia (contra robô testando senha ou criando conta em massa). Contam só erros no login.
-const MAX_ERROS_IP = 30, MAX_ERROS_EMAIL = 15, MAX_CADASTROS_IP = 10, MAX_ADMIN_IP = 5;
-const bloqueado = () => erro('Muitas tentativas. Tente de novo amanhã ou fale com a equipe do Clube R1.', 429);
+// Limite só contra quem testa senha: conta SÓ senha errada, POR E-MAIL, em janelas de 15 min (nada por IP).
+// Nos eventos a sala inteira usa o mesmo Wi-Fi (mesmo IP): o limite por IP de cadastro travou todo mundo em 20/11/2026.
+// Cadastro e Google não têm limite (cadastro por cima de e-mail com senha dá 409; o Google prova o e-mail).
+const MAX_ERROS_EMAIL = 10, JANELA_ERROS_MS = 15 * 60e3, MAX_ADMIN_IP = 5;
+const bloqueado = (msg = 'Muitas tentativas. Tente de novo amanhã ou fale com a equipe do Clube R1.') => erro(msg, 429);
 const log = (acao, d) => console.log(JSON.stringify({ tipo: 'evento', rota: '/api/rota/conta', acao, ...d, em: new Date().toISOString() }));
 
 // e-mails com acesso livre (equipe), para conferir o app inteiro
@@ -40,11 +42,10 @@ async function tratar(request) {
     // "Entrar com Google": o navegador manda o ID token do Google; conferimos assinatura, aplicativo e e-mail
     // confirmado (lib/google-login.mjs). Conta nova já nasce com o nome do Google; conta antiga passa a entrar
     // também pelo Google. Como o Google garante que o e-mail é da pessoa, ninguém assume o e-mail de outro.
-    if (await usoLer(`cad:ip:${ip}:${dia}`) >= MAX_CADASTROS_IP) { log('google_bloqueado', { ip }); return bloqueado(); }
     let g;
     // botão próprio do app manda access_token; o botão oficial do Google manda credential (ID token)
     try { g = c.access_token ? await verificarAccessToken(c.access_token) : await verificarIdToken(c.credential); }
-    catch (e) { await usoSobe(`cad:ip:${ip}:${dia}`); log('google_negado', { ip, msg: e.message }); return erro(e.message, e.status || 401); }
+    catch (e) { log('google_negado', { ip, msg: e.message }); return erro(e.message, e.status || 401); }
     const atual = await getConta(g.email);
     if (!atual && c.aceite !== true) return erro('Para entrar, aceite a Política de Privacidade.', 400);
     // a identidade estável do Google é o `sub`: se a conta já foi ligada a outra Conta Google (e-mail reatribuído), recusa
@@ -75,7 +76,6 @@ async function tratar(request) {
   if (!emailValido(email)) return erro('Confira o e-mail.', 400);
 
   if (c.acao === 'cadastrar') {
-    if (await usoSobe(`cad:ip:${ip}:${dia}`) > MAX_CADASTROS_IP) { log('cadastro_bloqueado', { ip }); return bloqueado(); }
     // primeiro acesso: a pessoa cria a própria senha. Conta antiga (migrada sem senha própria) é assumida e mantém os dados.
     const nome = String(c.nome || '').trim().slice(0, 80), empresa = String(c.empresa || '').trim().slice(0, 80);
     if (senha.length < 6) return erro('A senha precisa ter pelo menos 6 caracteres.', 400);
@@ -100,13 +100,16 @@ async function tratar(request) {
   }
 
   if (c.acao === 'entrar') {
-    const kIp = `err:ip:${ip}:${dia}`, kEm = `err:em:${email}:${dia}`;
-    if (await usoLer(kIp) >= MAX_ERROS_IP || await usoLer(kEm) >= MAX_ERROS_EMAIL) { log('login_bloqueado', { email, ip }); return bloqueado(); }
+    const kEm = `err:em:${email}:${Math.floor(Date.now() / JANELA_ERROS_MS)}`;
+    if (await usoLer(kEm) >= MAX_ERROS_EMAIL) {
+      log('login_bloqueado', { email, ip });
+      return bloqueado('Muitas senhas erradas para este e-mail. Espere 15 minutos ou entre com o Google.');
+    }
     const conta = await getConta(email);
     if (conta && !conta.hash && conta.google) { await espera(400); return erro('Este e-mail entra com o Google. Toque em Continuar com o Google.', 401); }
     if (conta && !conta.hash) { await espera(400); return json({ erro: 'Crie a sua senha em Primeiro acesso.', criar: true }, 401); }
     if (!conta || !senhaConfere(senha, conta)) {
-      await usoSobe(kIp); await usoSobe(kEm);
+      await usoSobe(kEm);
       await espera(600); return erro('E-mail ou senha incorretos.', 401);
     }
     if (conta.recusado) return erro('O seu acesso foi bloqueado. Fale com a equipe do Clube R1.', 403);
