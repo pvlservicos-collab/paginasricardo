@@ -1,41 +1,37 @@
-// Barra lateral do terminal de otimização, para a Central (interno.grupor1.com/central, aba LPs).
+// Barra lateral do Marquinhos (terminal de otimização) na Central (interno.grupor1.com/central, aba LPs).
 // Pedido do Lucas (20/11/2026). A Central carrega este arquivo com <script src="/otimizar/barra.js" defer>.
-//  - botão "Otimizar com Claude" na barra de ações da aba LPs + "⚡ Otimizar" em cada cartão de página;
-//  - a barra abre à direita com o terminal (/otimizar/terminal.html) num iframe;
+//  - botão "Otimizar com o Marquinhos" na barra de ações da aba LPs + "⚡ Otimizar" em cada cartão de página;
+//  - a barra ocupa a altura toda à direita e empurra a Central para o lado (no celular, cobre a tela);
 //  - /otimizar redireciona para /central?otimizar=1#lps → abre a aba LPs com a barra aberta.
 (function () {
   'use strict';
   if (window.__otimizarBarra) return; window.__otimizarBarra = true;
-  var LARG = 'min(520px, 100vw)', aberta = false, frame = null, pendente = null;
+  var LARG = 'min(460px, 100vw)', aberta = false, frame = null, pendente = null;
 
   var css = document.createElement('style');
   css.textContent = [
-    '#otz-barra{position:fixed;top:0;right:0;height:100vh;height:100dvh;width:' + LARG + ';z-index:2147482000;background:#0d1117;border-left:1px solid #262c36;',
-    'box-shadow:-18px 0 50px rgba(0,0,0,.45);transform:translateX(105%);transition:transform .22s ease;display:flex;flex-direction:column}',
+    '#otz-barra{position:fixed;top:0;right:0;bottom:0;width:' + LARG + ';z-index:2147482000;background:#040a1c;',
+    'border-left:1px solid rgba(140,172,255,.22);box-shadow:-24px 0 60px rgba(2,6,20,.55);transform:translateX(105%);',
+    'transition:transform .28s cubic-bezier(.2,.8,.2,1);display:flex}',
     '#otz-barra.aberta{transform:none}',
-    '#otz-barra .otz-top{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid #262c36;background:#161b22;color:#d7dde5;font:600 13px/1.2 ui-monospace,Menlo,Consolas,monospace}',
-    '#otz-barra .otz-top b{color:#57d39b}#otz-barra .otz-top span{flex:1}',
-    '#otz-barra .otz-top button,#otz-barra .otz-top a{background:transparent;border:1px solid #262c36;color:#8b949e;border-radius:7px;padding:4px 9px;cursor:pointer;font:inherit;font-weight:400;text-decoration:none}',
-    '#otz-barra .otz-top button:hover,#otz-barra .otz-top a:hover{color:#d7dde5;border-color:#8b949e}',
-    '#otz-barra iframe{flex:1;width:100%;border:0;background:#0d1117}',
-    'body.otz-com-barra{margin-right:' + LARG + '}',
-    '@media (max-width:900px){body.otz-com-barra{margin-right:0}}',
-    '.otz-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(87,211,155,.55);background:rgba(87,211,155,.12);color:#57d39b;border-radius:10px;',
-    'padding:8px 12px;font:600 13px/1 inherit;font-family:inherit;cursor:pointer;white-space:nowrap}',
-    '.otz-btn:hover{background:rgba(87,211,155,.22)}',
-    '.otz-mini{position:absolute;top:8px;right:8px;z-index:3;border:1px solid rgba(87,211,155,.6);background:rgba(13,17,23,.88);color:#57d39b;border-radius:8px;',
-    'padding:4px 8px;font:600 11px/1 inherit;font-family:inherit;cursor:pointer;opacity:.92}',
-    '.otz-mini:hover{opacity:1;background:#0d1117}',
+    '#otz-barra iframe{flex:1;width:100%;height:100%;border:0;background:#040a1c}',
+    'html.otz-com-barra body{margin-right:' + LARG + ';transition:margin-right .28s cubic-bezier(.2,.8,.2,1)}',
+    'html.otz-com-barra{overflow-x:hidden}',
+    '@media (max-width:900px){html.otz-com-barra body{margin-right:0}}',
+    '.otz-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(140,172,255,.4);background:linear-gradient(135deg,rgba(63,111,240,.35),rgba(106,162,255,.2));',
+    'color:#e8eeff;border-radius:999px;padding:7px 14px 7px 7px;font:600 13px/1 inherit;font-family:inherit;cursor:pointer;white-space:nowrap;',
+    'backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 4px 16px rgba(63,111,240,.25)}',
+    '.otz-btn:hover{border-color:#6aa2ff;box-shadow:0 0 0 3px rgba(91,140,255,.2),0 4px 16px rgba(63,111,240,.35)}',
+    '.otz-btn img{width:24px;height:24px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 2px rgba(106,162,255,.6)}',
+    '.otz-mini{position:absolute;top:8px;right:8px;z-index:3;border:1px solid rgba(140,172,255,.5);background:rgba(10,24,56,.82);color:#e8eeff;border-radius:999px;',
+    'padding:5px 10px;font:600 11px/1 inherit;font-family:inherit;cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}',
+    '.otz-mini:hover{background:#3f6ff0;border-color:#6aa2ff}',
   ].join('');
   document.head.appendChild(css);
 
   var barra = document.createElement('aside');
-  barra.id = 'otz-barra'; barra.setAttribute('aria-label', 'Terminal de otimização');
-  barra.innerHTML = '<div class="otz-top"><b>&gt;_</b><span>Otimizar · Claude na VPS</span>' +
-    '<a href="/otimizar/terminal.html" target="_blank" rel="noopener" title="Abrir em tela cheia">⤢</a>' +
-    '<button type="button" data-otz="fechar" title="Fechar">✕</button></div>';
+  barra.id = 'otz-barra'; barra.setAttribute('aria-label', 'Marquinhos · otimização de páginas');
   document.body.appendChild(barra);
-  barra.querySelector('[data-otz="fechar"]').addEventListener('click', function () { fechar(); });
 
   function mandar(texto) {
     if (!texto) return;
@@ -44,27 +40,28 @@
   function abrir(texto) {
     if (!frame) {
       frame = document.createElement('iframe');
-      frame.title = 'Terminal de otimização'; frame.src = '/otimizar/terminal.html?barra=1';
+      frame.title = 'Marquinhos'; frame.src = '/otimizar/terminal.html?barra=1';
       frame.addEventListener('load', function () { if (pendente) { mandar(pendente); pendente = null; } });
       barra.appendChild(frame);
       if (texto) pendente = texto;
     } else if (texto) mandar(texto);
-    aberta = true; barra.classList.add('aberta'); document.body.classList.add('otz-com-barra');
+    aberta = true; barra.classList.add('aberta'); document.documentElement.classList.add('otz-com-barra');
     try { sessionStorage.setItem('otz-aberta', '1'); } catch (e) {}
   }
   function fechar() {
-    aberta = false; barra.classList.remove('aberta'); document.body.classList.remove('otz-com-barra');
+    aberta = false; barra.classList.remove('aberta'); document.documentElement.classList.remove('otz-com-barra');
     try { sessionStorage.removeItem('otz-aberta'); } catch (e) {}
   }
   window.otimizarAbrir = abrir;
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && aberta && document.activeElement !== frame) fechar(); });
+  window.addEventListener('message', function (e) { if (e.origin === location.origin && e.data && e.data.tipo === 'otimizar-fechar') fechar(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && aberta) fechar(); });
 
   // botão na barra de ações da aba LPs
   function botaoPrincipal() {
     var alvo = document.querySelector('#tLps .barra-acoes');
     if (!alvo || alvo.querySelector('.otz-btn')) return;
     var b = document.createElement('button'); b.type = 'button'; b.className = 'otz-btn';
-    b.innerHTML = '<span aria-hidden="true">⚡</span> Otimizar com Claude';
+    b.innerHTML = '<img src="/otimizar/marquinhos.webp" alt="" width="24" height="24">Otimizar com o Marquinhos';
     b.addEventListener('click', function () { aberta ? fechar() : abrir(); });
     alvo.appendChild(b);
   }
@@ -75,8 +72,8 @@
       var a = c.querySelector('a.tel[href^="http"]'); if (!a) return;
       if (getComputedStyle(c).position === 'static') c.style.position = 'relative';
       var b = document.createElement('button'); b.type = 'button'; b.className = 'otz-mini'; b.textContent = '⚡ Otimizar';
-      b.title = 'Otimizar esta página com o Claude';
-      b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); abrir('Otimiza a página ' + a.href); });
+      b.title = 'Otimizar esta página com o Marquinhos';
+      b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); abrir('Otimiza isso aqui: ' + a.href); });
       c.appendChild(b);
     });
   }

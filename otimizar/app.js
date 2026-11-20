@@ -1,17 +1,21 @@
-// /otimizar — conversa com o Claude Code da VPS pela fila do banco (api/otimizar.js). Login do painel.
+// Marquinhos (/otimizar) — conversa com o Claude Code da VPS pela fila do banco (api/otimizar.js). Login do painel.
+// Em tela cheia (/otimizar/terminal.html) ou dentro da barra da Central (?barra=1, ver otimizar/barra.js).
 (function () {
   'use strict';
   var API = '/api/otimizar';
-  var tela = document.getElementById('tela'), form = document.getElementById('form'), entrada = document.getElementById('entrada');
-  var bEnviar = document.getElementById('b-enviar'), bParar = document.getElementById('b-parar'), bNova = document.getElementById('b-nova');
-  var stEl = document.getElementById('status'), atalhos = document.getElementById('atalhos');
-  var atual = null; // { id, cursor, pensando }
-  // dentro da barra lateral da Central (otimizar/barra.js): layout compacto e pedido vindo do cartão da página
-  if (/[?&]barra=1/.test(location.search)) document.body.classList.add('barra');
+  var $ = function (id) { return document.getElementById(id); };
+  var tela = $('tela'), form = $('form'), entrada = $('entrada'), bEnviar = $('b-enviar'), bParar = $('b-parar'), bNova = $('b-nova');
+  var stEl = $('status'), atalhos = $('atalhos');
+  var barra = /[?&]barra=1/.test(location.search);
+  var atual = null; // pedido em andamento: { id, digitando, grupo }
+  if (barra) document.body.classList.add('barra');
+
+  // a Central manda o pedido pronto (botão "⚡ Otimizar" do cartão)
   window.addEventListener('message', function (e) {
     if (e.origin !== location.origin || !e.data || e.data.tipo !== 'otimizar-texto') return;
-    entrada.value = String(e.data.texto || ''); entrada.dispatchEvent(new Event('input')); entrada.focus();
+    entrada.value = String(e.data.texto || ''); ajustar(); entrada.focus();
   });
+  $('b-fechar').addEventListener('click', function () { try { parent.postMessage({ tipo: 'otimizar-fechar' }, location.origin); } catch (e) {} });
 
   function chamar(metodo, corpo, qs) {
     return fetch(API + (qs || ''), {
@@ -25,86 +29,123 @@
       });
     });
   }
-  function semLogin() {
-    tela.innerHTML = '<p class="l vazio">Entre no painel primeiro. O terminal usa o mesmo login do Painel de Páginas.</p>' +
-      '<p class="l"><a href="/painel" target="_blank" rel="noopener">Entrar no painel (abre outra aba) →</a></p><p class="l"><button class="btn" type="button" id="b-recarregar">Já entrei</button></p>';
-    document.getElementById('b-recarregar').addEventListener('click', function () { location.reload(); });
-    form.hidden = true; atalhos.hidden = true;
+
+  /* ---------- desenho ---------- */
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  // markdown mínimo e seguro: escapa tudo e só então liga **negrito**, `código` e links
+  function md(s) {
+    return esc(s)
+      .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')
+      .replace(/(https?:\/\/[^\s<>"')]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
   }
   function rolar() { tela.scrollTop = tela.scrollHeight; }
-  function linha(classe, texto) {
-    var p = document.createElement('p'); p.className = 'l ' + classe;
-    // links clicáveis, o resto como texto
-    String(texto).split(/(https?:\/\/[^\s<>"')]+)/).forEach(function (pedaco, i) {
-      if (i % 2) { var a = document.createElement('a'); a.href = pedaco; a.target = '_blank'; a.rel = 'noopener'; a.textContent = pedaco; p.appendChild(a); }
-      else p.appendChild(document.createTextNode(pedaco));
-    });
-    tela.appendChild(p); rolar(); return p;
+  function por(el) { tela.insertBefore(el, atual && atual.digitando && atual.digitando.parentNode === tela ? atual.digitando : null); rolar(); return el; }
+  function bolha(classe, texto) { var d = document.createElement('div'); d.className = 'msg ' + classe; d.innerHTML = md(texto); return por(d); }
+  function meta(texto) { var d = document.createElement('div'); d.className = 'meta'; d.textContent = texto; return por(d); }
+  function novoGrupo() {
+    var d = document.createElement('details'); d.className = 'passos';
+    d.innerHTML = '<summary><span class="seta">›</span><span class="n">trabalhando</span><span class="ult"></span></summary><div class="lista"></div>';
+    d.n = 0; por(d); return d;
   }
-  function saida(texto) {
-    var d = document.createElement('details'); d.className = 'saida';
-    var s = document.createElement('summary'), linhas = String(texto).split('\n');
-    s.textContent = linhas[0].slice(0, 140) + (linhas.length > 1 ? '  (+' + (linhas.length - 1) + ' linhas)' : '');
-    var pre = document.createElement('pre'); pre.textContent = texto;
-    d.appendChild(s); d.appendChild(pre); tela.appendChild(d); rolar();
+  function passo(ctx, c) {
+    if (!ctx.grupo) ctx.grupo = novoGrupo();
+    var g = ctx.grupo, lista = g.querySelector('.lista');
+    if (c.t === 'cmd') {
+      g.n++; g.querySelector('.n').textContent = g.n + (g.n === 1 ? ' passo' : ' passos');
+      g.querySelector('.ult').textContent = c.v.split('\n')[0];
+      var p = document.createElement('div'); p.className = 'passo'; p.textContent = c.v; lista.appendChild(p);
+    } else {
+      var d = document.createElement('details'); d.className = 'saida';
+      var linhas = String(c.v).split('\n');
+      d.innerHTML = '<summary></summary><pre></pre>';
+      d.querySelector('summary').textContent = (c.t === 'erro' ? '✕ ' : '↳ ') + linhas[0].slice(0, 120) + (linhas.length > 1 ? '  (+' + (linhas.length - 1) + ')' : '');
+      d.querySelector('pre').textContent = c.v;
+      if (c.t === 'erro') d.querySelector('summary').style.color = 'var(--erro)';
+      lista.appendChild(d);
+    }
+    rolar();
   }
-  function pedaco(c) {
-    if (c.t === 'texto') linha('texto', c.v);
-    else if (c.t === 'cmd') linha('cmd', c.v);
-    else if (c.t === 'saida') saida(c.v);
-    else if (c.t === 'erro') linha('erro', c.v);
-    else if (c.t === 'fim') linha('fim', c.v);
+  // ctx guarda o grupo de passos aberto do pedido; texto do Marquinhos fecha o grupo
+  function pedaco(ctx, c) {
+    if (c.t === 'texto') { ctx.grupo = null; bolha('ele', c.v); }
+    else if (c.t === 'cmd' || c.t === 'saida') passo(ctx, c);
+    else if (c.t === 'erro') { if (ctx.grupo && ctx.grupo.n) passo(ctx, c); else bolha('erro', c.v); }
+    else if (c.t === 'fim') { ctx.grupo = null; meta(c.v.replace(/^—\s*/, '')); }
+  }
+  function digitando(texto) {
+    var d = document.createElement('div'); d.className = 'digitando';
+    d.innerHTML = '<span class="p"><i></i><i></i><i></i></span><span class="t"></span>'; d.querySelector('.t').textContent = texto;
+    tela.appendChild(d); rolar(); return d;
   }
 
-  function ocupado(sim) {
-    bEnviar.disabled = sim; bParar.hidden = !sim; bNova.disabled = sim;
-  }
+  function ocupado(sim) { bEnviar.disabled = sim; bParar.hidden = !sim; bNova.disabled = sim; atalhos.querySelectorAll('button').forEach(function (b) { b.disabled = sim; }); }
   function acompanhar(id, cursor) {
     if (!atual || atual.id !== id) return;
     chamar('GET', null, '?id=' + encodeURIComponent(id) + '&cursor=' + cursor).then(function (j) {
       if (!atual || atual.id !== id) return;
-      if (j.chunks && j.chunks.length) { atual.pensando.remove(); j.chunks.forEach(pedaco); tela.appendChild(atual.pensando); rolar(); }
-      if (j.estado === 'pendente') atual.pensando.textContent = 'na fila…';
-      else if (j.estado === 'rodando') atual.pensando.textContent = 'trabalhando';
-      else if (j.estado === 'parar') atual.pensando.textContent = 'parando…';
-      if (j.estado === 'pronto') { atual.pensando.remove(); atual = null; ocupado(false); entrada.focus(); return; }
+      (j.chunks || []).forEach(function (c) { pedaco(atual, c); });
+      var t = atual.digitando.querySelector('.t');
+      t.textContent = j.estado === 'pendente' ? 'na fila…' : j.estado === 'parar' ? 'parando…' : 'trabalhando…';
+      if (j.estado === 'pronto') { atual.digitando.remove(); atual = null; ocupado(false); entrada.focus(); return; }
       setTimeout(function () { acompanhar(id, j.total); }, 1500);
     }).catch(function (e) { if (e.message !== 'login') setTimeout(function () { acompanhar(id, cursor); }, 3000); });
   }
   function enviar(texto) {
-    linha('eu', texto); ocupado(true);
-    var p = document.createElement('p'); p.className = 'l pensando'; p.textContent = 'enviando'; tela.appendChild(p); rolar();
-    chamar('POST', { texto: texto }).then(function (j) {
-      atual = { id: j.id, pensando: p }; acompanhar(j.id, 0);
-    }).catch(function (e) { p.remove(); if (e.message !== 'login') linha('erro', 'Não consegui enviar: ' + e.message); ocupado(false); });
+    var ola = tela.querySelector('.ola'); if (ola) ola.remove();
+    bolha('eu', texto); ocupado(true);
+    var dg = digitando('enviando…');
+    atual = { id: null, digitando: dg, grupo: null };
+    chamar('POST', { texto: texto }).then(function (j) { atual.id = j.id; acompanhar(j.id, 0); })
+      .catch(function (e) { dg.remove(); atual = null; if (e.message !== 'login') bolha('erro', 'Não consegui enviar: ' + e.message); ocupado(false); });
   }
 
+  /* ---------- entrada ---------- */
+  function ajustar() { entrada.style.height = 'auto'; entrada.style.height = Math.min(260, Math.max(92, entrada.scrollHeight)) + 'px'; }
   form.addEventListener('submit', function (ev) {
     ev.preventDefault(); var t = entrada.value.trim(); if (!t || atual) return;
-    entrada.value = ''; entrada.style.height = 'auto'; enviar(t);
+    entrada.value = ''; ajustar(); enviar(t);
   });
   entrada.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); } });
-  entrada.addEventListener('input', function () { entrada.style.height = 'auto'; entrada.style.height = Math.min(200, entrada.scrollHeight) + 'px'; });
-  bParar.addEventListener('click', function () { if (atual) { chamar('POST', { acao: 'parar', id: atual.id }).catch(function () {}); atual.pensando.textContent = 'parando…'; } });
+  entrada.addEventListener('input', ajustar);
+  bParar.addEventListener('click', function () { if (atual && atual.id) { chamar('POST', { acao: 'parar', id: atual.id }).catch(function () {}); atual.digitando.querySelector('.t').textContent = 'parando…'; } });
   bNova.addEventListener('click', function () {
-    if (atual || !confirm('Começar uma conversa nova? O Claude esquece o que foi falado nesta.')) return;
-    chamar('POST', { acao: 'nova' }).then(function () { tela.innerHTML = ''; boasVindas(); }).catch(function (e) { linha('erro', e.message); });
+    if (atual || !confirm('Começar uma conversa nova? O Marquinhos esquece o que foi falado nesta.')) return;
+    chamar('POST', { acao: 'nova' }).then(function () { tela.innerHTML = ''; boasVindas(); }).catch(function (e) { bolha('erro', e.message); });
   });
-  [['Otimizar uma página', 'Otimiza a página '], ['Só medir a nota', 'Mede a nota do PageSpeed (3 rodadas, celular) da página '], ['Desfazer a última otimização', 'Desfaz a última otimização da página ']]
-    .forEach(function (a) { var b = document.createElement('button'); b.type = 'button'; b.textContent = a[0]; b.addEventListener('click', function () { entrada.value = a[1]; entrada.focus(); }); atalhos.appendChild(b); });
+  // mensagens rápidas: um clique já manda (o que estiver escrito na caixa vai junto)
+  [['⚡ Otimiza isso aqui:', 'Otimiza isso aqui:'], ['📊 Mede a nota', 'Mede a nota do PageSpeed (celular, mediana de 3) desta página:'],
+   ['↩︎ Desfaz a última', 'Desfaz a última otimização desta página:'], ['🧠 O que você já aprendeu?', 'Resume em tópicos curtos o que você já aprendeu otimizando as nossas páginas (o que funciona e o que não funciona).']]
+    .forEach(function (a) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = a[0];
+      b.addEventListener('click', function () {
+        if (atual) return;
+        var extra = entrada.value.trim(); entrada.value = ''; ajustar();
+        enviar(a[1] + (extra ? ' ' + extra : ''));
+      });
+      atalhos.appendChild(b);
+    });
 
+  /* ---------- estados ---------- */
   function boasVindas() {
-    var d = document.createElement('div'); d.className = 'l vazio';
-    d.innerHTML = '<b>Terminal de otimização.</b> Mande o link ou o slug da página e o que você quer. O Claude roda na VPS com as técnicas de PageSpeed que já deram certo aqui:\n' +
-      '• mede antes (3 rodadas, celular), otimiza, guarda backup, publica e mede depois;\n• GTM e Pixel continuam carregando na abertura (rastreamento vem antes da nota);\n• mudança que altera o visual, ele pergunta antes.';
+    var d = document.createElement('div'); d.className = 'ola';
+    d.innerHTML = '<img src="/otimizar/marquinhos.webp" alt="" width="88" height="88"><h2>Oi! Eu sou o Marquinhos.</h2>' +
+      '<p>Me manda o link da página que eu meço, otimizo, publico com backup e meço de novo. GTM e Pixel continuam na abertura, e mudança no visual eu pergunto antes.</p>';
     tela.appendChild(d);
+  }
+  function semLogin() {
+    tela.innerHTML = '<div class="ola"><img src="/otimizar/marquinhos.webp" alt="" width="88" height="88"><h2>Entre no painel primeiro</h2>' +
+      '<p>Eu uso o mesmo login do Painel de Páginas.</p><p style="margin-top:14px"><a class="ic" style="display:inline-flex;width:auto;padding:0 16px;color:var(--texto)" href="/painel" target="_blank" rel="noopener">Entrar no painel ↗</a> ' +
+      '<button class="ic" style="display:inline-flex;width:auto;padding:0 16px" type="button" id="b-recarregar">Já entrei</button></p></div>';
+    $('b-recarregar').addEventListener('click', function () { location.reload(); });
+    form.parentNode.hidden = true;
   }
   function status() {
     chamar('GET').then(function (j) {
-      if (!j.pode) { tela.innerHTML = '<p class="l erro">Sem acesso ao terminal (' + (j.voce || '') + '). Peça para um admin do painel.</p>'; form.hidden = true; atalhos.hidden = true; return; }
-      var v = j.vps || {}, s = stEl.querySelector('span');
-      stEl.className = 'status ' + (!v.online ? 'erro' : !v.logado ? 'erro' : v.ocupado ? 'ocupado' : 'ok');
-      s.textContent = !v.online ? 'VPS desligada' : !v.logado ? 'Claude sem login na VPS' : v.ocupado ? 'trabalhando' + (v.fila ? ' · ' + v.fila + ' na fila' : '') : 'pronto';
+      if (!j.pode) { tela.innerHTML = '<div class="ola"><h2>Sem acesso</h2><p>' + esc(j.voce || '') + ' ainda não pode usar o Marquinhos. Peça para um admin do painel.</p></div>'; form.parentNode.hidden = true; return; }
+      var v = j.vps || {}, s = stEl.querySelector('em');
+      stEl.className = 'status ' + (!v.online || !v.logado ? 'erro' : v.ocupado ? 'ocupado' : 'ok');
+      s.textContent = !v.online ? 'fora do ar' : !v.logado ? 'sem login do Claude' : v.ocupado ? 'trabalhando' + (v.fila ? ' · ' + v.fila + ' na fila' : '') : 'online · otimizador de páginas';
       setTimeout(status, 15000);
     }).catch(function (e) { if (e.message !== 'login') setTimeout(status, 15000); });
   }
@@ -113,12 +154,11 @@
     var itens = j.itens || [];
     if (!itens.length) boasVindas();
     itens.forEach(function (it) {
-      linha('eu', it.texto); (it.chunks || []).forEach(pedaco);
+      bolha('eu', it.texto);
+      var ctx = { grupo: null }; (it.chunks || []).forEach(function (c) { pedaco(ctx, c); });
       if (it.estado !== 'pronto') {
         ocupado(true);
-        var p = document.createElement('p'); p.className = 'l pensando'; p.textContent = 'trabalhando'; tela.appendChild(p);
-        atual = { id: it.id, pensando: p };
-        // os pedaços já mostrados não se repetem
+        atual = { id: it.id, digitando: digitando('trabalhando…'), grupo: ctx.grupo };
         var mostrados = (it.chunks || []).length; setTimeout(function () { acompanhar(it.id, mostrados); }, 500);
       }
     });
