@@ -6,18 +6,20 @@
 (function () {
   'use strict';
   if (window.__otimizarBarra) return; window.__otimizarBarra = true;
-  var LARG = 'min(460px, 100vw)', aberta = false, frame = null, pendente = null;
+  var LARG = 'min(460px, calc(100vw - 24px))', aberta = false, frame = null, pendente = null;
 
   var css = document.createElement('style');
   css.textContent = [
-    '#otz-barra{position:fixed;top:0;right:0;bottom:0;width:' + LARG + ';z-index:2147482000;background:#040a1c;',
-    'border-left:1px solid rgba(140,172,255,.22);box-shadow:-24px 0 60px rgba(2,6,20,.55);transform:translateX(105%);',
-    'transition:transform .28s cubic-bezier(.2,.8,.2,1);display:flex}',
+    // cartão azul no estilo dos alertas da Central: flutua a 12 px das bordas, com borda luminosa e brilho
+    '#otz-barra{position:fixed;top:12px;right:12px;bottom:12px;width:' + LARG + ';z-index:2147482000;border-radius:26px;overflow:hidden;background:#071233;',
+    'border:1px solid rgba(120,160,255,.45);box-shadow:0 0 0 1px rgba(91,140,255,.15),0 24px 70px rgba(10,40,160,.45),0 0 90px rgba(59,130,246,.28);',
+    'transform:translateX(calc(100% + 24px));transition:transform .3s cubic-bezier(.2,.8,.2,1);display:flex}',
     '#otz-barra.aberta{transform:none}',
-    '#otz-barra iframe{flex:1;width:100%;height:100%;border:0;background:#040a1c}',
-    'html.otz-com-barra body{margin-right:' + LARG + ';transition:margin-right .28s cubic-bezier(.2,.8,.2,1)}',
+    '#otz-barra iframe{flex:1;width:100%;height:100%;border:0;background:#071233}',
+    'html.otz-com-barra body{margin-right:calc(' + LARG + ' + 24px);transition:margin-right .3s cubic-bezier(.2,.8,.2,1)}',
     'html.otz-com-barra{overflow-x:hidden}',
-    '@media (max-width:900px){html.otz-com-barra body{margin-right:0}}',
+    '[data-otz-empurrado]{transition:translate .3s cubic-bezier(.2,.8,.2,1),right .3s cubic-bezier(.2,.8,.2,1)}',
+    '@media (max-width:900px){html.otz-com-barra body{margin-right:0}#otz-barra{top:0;right:0;bottom:0;width:100vw;border-radius:0}}',
     '.otz-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(140,172,255,.4);background:linear-gradient(135deg,rgba(63,111,240,.35),rgba(106,162,255,.2));',
     'color:#e8eeff;border-radius:999px;padding:7px 14px 7px 7px;font:600 13px/1 inherit;font-family:inherit;cursor:pointer;white-space:nowrap;',
     'backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 4px 16px rgba(63,111,240,.25)}',
@@ -40,18 +42,51 @@
   function abrir(texto) {
     if (!frame) {
       frame = document.createElement('iframe');
-      frame.title = 'Marquinhos'; frame.src = '/otimizar/terminal.html?barra=1';
+      frame.title = 'Marquinhos'; frame.src = '/otimizar/terminal.html?barra=1&v=3';
       frame.addEventListener('load', function () { if (pendente) { mandar(pendente); pendente = null; } });
       barra.appendChild(frame);
       if (texto) pendente = texto;
     } else if (texto) mandar(texto);
-    aberta = true; barra.classList.add('aberta'); document.documentElement.classList.add('otz-com-barra');
+    aberta = true; barra.classList.add('aberta'); document.documentElement.classList.add('otz-com-barra'); empurrar();
     try { sessionStorage.setItem('otz-aberta', '1'); } catch (e) {}
   }
   function fechar() {
-    aberta = false; barra.classList.remove('aberta'); document.documentElement.classList.remove('otz-com-barra');
+    aberta = false; barra.classList.remove('aberta'); document.documentElement.classList.remove('otz-com-barra'); soltar();
     try { sessionStorage.removeItem('otz-aberta'); } catch (e) {}
   }
+  // A margem do body não move o que é position:fixed (popup de alerta, widget do Monge Auro, fundos de modal).
+  // Esses são deslocados à parte: o que está centralizado recentraliza no espaço que sobra, o que encosta à direita
+  // vai para a esquerda da barra e o que ocupa a largura toda encolhe.
+  function soltar() {
+    document.querySelectorAll('[data-otz-empurrado]').forEach(function (el) {
+      el.style.translate = el.getAttribute('data-otz-tr') || ''; el.style.right = el.getAttribute('data-otz-r') || '';
+      el.removeAttribute('data-otz-empurrado'); el.removeAttribute('data-otz-tr'); el.removeAttribute('data-otz-r');
+    });
+  }
+  function empurrar() {
+    if (!aberta) return;
+    if (innerWidth <= 900) { soltar(); return; }
+    var w = barra.offsetWidth + 24, vw = innerWidth;
+    document.body.querySelectorAll(':scope > *, :scope > * > *, :scope > * > * > *').forEach(function (el) {
+      if (el === barra || barra.contains(el) || el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
+      var cs = getComputedStyle(el);
+      if (cs.position !== 'fixed' || cs.display === 'none') return;
+      if (!el.hasAttribute('data-otz-empurrado')) {
+        el.setAttribute('data-otz-empurrado', ''); el.setAttribute('data-otz-tr', el.style.translate || ''); el.setAttribute('data-otz-r', el.style.right || '');
+      }
+      el.style.translate = el.getAttribute('data-otz-tr'); el.style.right = el.getAttribute('data-otz-r');
+      var r = el.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      if (r.left <= 2 && r.width < vw * 0.5) return; // menu da esquerda: fica onde está
+      if (r.width >= vw * 0.9) { el.style.right = w + 'px'; return; }
+      var meio = (r.left + r.right) / 2;
+      if (Math.abs(meio - vw / 2) < 40) el.style.translate = (-w / 2) + 'px 0';
+      else if (r.right > vw - w) el.style.translate = (-w) + 'px 0';
+    });
+  }
+  setInterval(empurrar, 700); // alertas e widgets aparecem depois
+  window.addEventListener('resize', empurrar);
+
   window.otimizarAbrir = abrir;
   window.addEventListener('message', function (e) { if (e.origin === location.origin && e.data && e.data.tipo === 'otimizar-fechar') fechar(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && aberta) fechar(); });
