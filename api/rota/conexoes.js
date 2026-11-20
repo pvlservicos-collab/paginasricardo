@@ -18,7 +18,7 @@ export const GET = async (request) => {
   if (!email) return erro('Entre de novo para ver as conexões.', 401);
   const e = normalizarEmail(email);
   let MEMBROS, INTENCOES, EMAILS;
-  try { [MEMBROS, INTENCOES, EMAILS] = await Promise.all([dado('membros'), dado('intencoes'), dado('emails-membros')]); }
+  try { [MEMBROS, INTENCOES, EMAILS] = await Promise.all([dado('membros', { fresco: true }), dado('intencoes'), dado('emails-membros')]); }
   catch (x) { console.error(JSON.stringify({ tipo: 'erro', rota: '/api/rota/conexoes', msg: x.message })); return erro('Conexões indisponíveis agora. Tente de novo.', 503); }
   const membro = EMAILS.some((x) => String(x).trim().toLowerCase() === e) || LIVRES.has(e);
   // não-membro: devolve só o nome de cada contato (sem telefone `t` e sem e-mail `e`)
