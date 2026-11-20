@@ -133,12 +133,32 @@
       '<p>Me manda o link da página que eu meço, otimizo, publico com backup e meço de novo. GTM e Pixel continuam na abertura, e mudança no visual eu pergunto antes.</p>';
     tela.appendChild(d);
   }
+  var mostrouLogin = false;
   function semLogin() {
-    tela.innerHTML = '<div class="ola"><img src="/otimizar/marquinhos.webp" alt="" width="88" height="88"><h2>Entre no painel primeiro</h2>' +
-      '<p>Eu uso o mesmo login do Painel de Páginas.</p><p style="margin-top:14px"><a class="ic" style="display:inline-flex;width:auto;padding:0 16px;color:var(--texto)" href="/painel" target="_blank" rel="noopener">Entrar no painel ↗</a> ' +
-      '<button class="ic" style="display:inline-flex;width:auto;padding:0 16px" type="button" id="b-recarregar">Já entrei</button></p></div>';
-    $('b-recarregar').addEventListener('click', function () { location.reload(); });
+    if (mostrouLogin) return; mostrouLogin = true;
     form.parentNode.hidden = true;
+    tela.innerHTML = '<div class="ola"><img src="/otimizar/marquinhos.webp" alt="" width="84" height="84"><h2>Entre para falar comigo</h2>' +
+      '<p id="login-msg">Use a sua conta Google do Grupo R1.</p><div id="g-botao" style="display:flex;justify-content:center;margin-top:16px;min-height:44px"></div>' +
+      '<p style="margin-top:18px;font-size:13px">Admin do painel? <a href="/painel" target="_blank" rel="noopener" style="color:var(--ciano)">Entrar no painel ↗</a> e depois ' +
+      '<button class="ic" type="button" id="b-recarregar" style="display:inline-flex;width:auto;height:30px;padding:0 12px;vertical-align:middle">recarregar</button></p></div>';
+    $('b-recarregar').addEventListener('click', function () { location.reload(); });
+    var msg = $('login-msg');
+    fetch('/api/criacao/login', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j.logado && j.email) msg.textContent = j.email + ' ainda não está liberado para usar o Marquinhos. Peça para o Pedro liberar.';
+      if (!j.google) { msg.textContent = 'Login com Google indisponível agora.'; return; }
+      var s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+      s.onload = function () {
+        google.accounts.id.initialize({ client_id: j.google, callback: function (resp) {
+          msg.textContent = 'Entrando…';
+          fetch('/api/criacao/login', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential: resp.credential }) })
+            .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.erro || 'Não deu para entrar.'); }); })
+            .then(function () { location.reload(); })
+            .catch(function (e) { msg.textContent = e.message; });
+        } });
+        google.accounts.id.renderButton($('g-botao'), { theme: 'filled_blue', shape: 'pill', size: 'large', text: 'signin_with', locale: 'pt-BR' });
+      };
+      document.head.appendChild(s);
+    }).catch(function () { msg.textContent = 'Não consegui carregar o login agora.'; });
   }
   function status() {
     chamar('GET').then(function (j) {

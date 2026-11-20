@@ -1,18 +1,30 @@
 // /otimizar — terminal do Claude Code na VPS (substitui o Marquinhos, 20/11/2026).
 // O painel só grava o pedido numa fila do banco e lê o que o Claude vai escrevendo; quem trabalha é o serviço
 // "otimizar" na VPS (usuário Linux sem root, Claude Code com as técnicas de PageSpeed no CLAUDE.md). Sem porta exposta.
-// Acesso: login do painel + papel admin, ou o Lucas.
+// Acesso (20/11/2026): (1) login Google do interno.grupor1.com (cookie do /dashboardscriacao, lib/criacao.mjs) com e-mail
+// liberado em OTIMIZAR_EMAILS (padrão: o Lucas, que não tem usuário no painel); ou (2) login do painel com papel admin.
 //   GET  /api/otimizar                    → { pode, voce, vps: { online, logado, ocupado, fila } }
 //   GET  /api/otimizar?historico=1        → { itens: [{ id, texto, estado, chunks, criado }] }  (conversa atual)
 //   GET  /api/otimizar?id=&cursor=        → { chunks, total, estado }
 //   POST /api/otimizar { texto }          → { id }
 //   POST /api/otimizar { acao: 'parar', id } · { acao: 'nova' }  (para o pedido / começa conversa nova)
-import { protegido, json, erro, lerJson } from '../lib/servidor.mjs';
+import { protegido, json, erro, lerJson, mesmaOrigem } from '../lib/servidor.mjs';
 import { sql } from '../lib/store.mjs';
+import { sessaoDe as sessaoGoogle } from '../lib/criacao.mjs';
 
-const LUCAS = 'lucas.figueiredo@grupor1.com';
+const LIBERADOS = new Set(String(process.env.OTIMIZAR_EMAILS || 'lucas.figueiredo@grupor1.com').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean));
 const emailDe = (u) => String(u.email || u.login || '').toLowerCase();
-const pode = (u) => u.papel === 'admin' || emailDe(u) === LUCAS;
+const pode = (u) => u.papel === 'admin' || LIBERADOS.has(emailDe(u));
+// Google liberado primeiro; senão, o login do painel (protegido cuida do cookie, da renovação e da origem)
+const comAcesso = (fn) => async (request) => {
+  const g = await sessaoGoogle(request).catch(() => null);
+  const email = String(g?.email || '').toLowerCase();
+  if (email && LIBERADOS.has(email)) {
+    if (!['GET', 'HEAD'].includes(request.method) && !mesmaOrigem(request)) return erro('Origem não permitida.', 403);
+    return fn(request, new URL(request.url), { email, papel: 'google' });
+  }
+  return protegido(fn)(request);
+};
 
 let pronto = null;
 export const prepararOtimizar = () => (pronto ||= (async () => {
@@ -29,7 +41,7 @@ async function conversaDe(email) {
   return c ? c.conversa : 1;
 }
 
-export const GET = protegido(async (request, url, u) => {
+export const GET = comAcesso(async (request, url, u) => {
   const email = emailDe(u);
   if (!pode(u)) return json({ pode: false, voce: email });
   await prepararOtimizar();
@@ -57,7 +69,7 @@ export const GET = protegido(async (request, url, u) => {
   });
 });
 
-export const POST = protegido(async (request, url, u) => {
+export const POST = comAcesso(async (request, url, u) => {
   const email = emailDe(u);
   if (!pode(u)) return erro('Sem acesso ao terminal de otimização.', 403);
   await prepararOtimizar();
