@@ -17,10 +17,16 @@
   });
   $('b-fechar').addEventListener('click', function () { try { parent.postMessage({ tipo: 'otimizar-fechar' }, location.origin); } catch (e) {} });
 
+  // chave da Central (quem já abriu interno.grupor1.com): entra sem login
+  function chaveCentral() {
+    try { var c = JSON.parse(localStorage.getItem('r1int') || 'null'); return c && c.chave && (!c.exp || c.exp > Date.now()) ? String(c.chave) : ''; } catch (e) { return ''; }
+  }
   function chamar(metodo, corpo, qs) {
+    var h = corpo ? { 'Content-Type': 'application/json' } : {}, k = chaveCentral();
+    if (k) h['X-Central-Chave'] = k;
     return fetch(API + (qs || ''), {
       method: metodo, credentials: 'same-origin',
-      headers: corpo ? { 'Content-Type': 'application/json' } : {}, body: corpo ? JSON.stringify(corpo) : undefined,
+      headers: h, body: corpo ? JSON.stringify(corpo) : undefined,
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
         if (r.status === 401) { semLogin(); throw new Error('login'); }
@@ -138,7 +144,7 @@
     if (mostrouLogin) return; mostrouLogin = true;
     form.parentNode.hidden = true;
     tela.innerHTML = '<div class="ola"><img src="/otimizar/marquinhos.webp" alt="" width="84" height="84"><h2>Entre para falar comigo</h2>' +
-      '<p id="login-msg">Use a sua conta Google do Grupo R1.</p><div id="g-botao" style="display:flex;justify-content:center;margin-top:16px;min-height:44px"></div>' +
+      '<p id="login-msg">Abra a Central (interno.grupor1.com) uma vez neste navegador e eu libero sozinho. Ou entre com a conta Google do Grupo R1:</p><div id="g-botao" style="display:flex;justify-content:center;margin-top:16px;min-height:44px"></div>' +
       '<p style="margin-top:18px;font-size:13px">Admin do painel? <a href="/painel" target="_blank" rel="noopener" style="color:var(--ciano)">Entrar no painel ↗</a> e depois ' +
       '<button class="ic" type="button" id="b-recarregar" style="display:inline-flex;width:auto;height:30px;padding:0 12px;vertical-align:middle">recarregar</button></p></div>';
     $('b-recarregar').addEventListener('click', function () { location.reload(); });

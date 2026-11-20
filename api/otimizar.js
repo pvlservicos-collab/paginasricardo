@@ -11,12 +11,26 @@
 import { protegido, json, erro, lerJson, mesmaOrigem } from '../lib/servidor.mjs';
 import { sql } from '../lib/store.mjs';
 import { sessaoDe as sessaoGoogle } from '../lib/criacao.mjs';
+import { createHash, timingSafeEqual } from 'node:crypto';
+
+// Sem login (pedido do Pedro, 20/11/2026): quem já abriu a Central (interno.grupor1.com) tem a chave dela guardada no
+// navegador (localStorage r1int.chave = CENTRAL_CONTEUDO_KEY) e o chat manda essa chave no cabeçalho X-Central-Chave.
+// A conversa fica como "equipe" (uma só para todos que entram assim).
+function chaveDaCentral(request) {
+  const chave = (process.env.CENTRAL_CONTEUDO_KEY || '').trim(), veio = (request.headers.get('x-central-chave') || '').trim();
+  if (chave.length < 16 || !veio) return false;
+  return timingSafeEqual(createHash('sha256').update(chave).digest(), createHash('sha256').update(veio).digest());
+}
 
 const LIBERADOS = new Set(String(process.env.OTIMIZAR_EMAILS || 'lucas.figueiredo@grupor1.com').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean));
 const emailDe = (u) => String(u.email || u.login || '').toLowerCase();
-const pode = (u) => u.papel === 'admin' || LIBERADOS.has(emailDe(u));
+const pode = (u) => u.papel === 'admin' || u.papel === 'central' || LIBERADOS.has(emailDe(u));
 // Google liberado primeiro; senão, o login do painel (protegido cuida do cookie, da renovação e da origem)
 const comAcesso = (fn) => async (request) => {
+  if (chaveDaCentral(request)) {
+    if (!['GET', 'HEAD'].includes(request.method) && !mesmaOrigem(request)) return erro('Origem não permitida.', 403);
+    return fn(request, new URL(request.url), { email: 'equipe@central', papel: 'central' });
+  }
   const g = await sessaoGoogle(request).catch(() => null);
   const email = String(g?.email || '').toLowerCase();
   if (email && LIBERADOS.has(email)) {

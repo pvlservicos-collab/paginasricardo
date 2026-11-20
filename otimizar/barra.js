@@ -42,7 +42,7 @@
   function abrir(texto) {
     if (!frame) {
       frame = document.createElement('iframe');
-      frame.title = 'Marquinhos'; frame.src = '/otimizar/terminal.html?barra=1&v=4';
+      frame.title = 'Marquinhos'; frame.src = '/otimizar/terminal.html?barra=1&v=5';
       frame.addEventListener('load', function () { if (pendente) { mandar(pendente); pendente = null; } });
       barra.appendChild(frame);
       if (texto) pendente = texto;
