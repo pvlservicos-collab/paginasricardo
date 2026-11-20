@@ -6,6 +6,12 @@
   var bEnviar = document.getElementById('b-enviar'), bParar = document.getElementById('b-parar'), bNova = document.getElementById('b-nova');
   var stEl = document.getElementById('status'), atalhos = document.getElementById('atalhos');
   var atual = null; // { id, cursor, pensando }
+  // dentro da barra lateral da Central (otimizar/barra.js): layout compacto e pedido vindo do cartão da página
+  if (/[?&]barra=1/.test(location.search)) document.body.classList.add('barra');
+  window.addEventListener('message', function (e) {
+    if (e.origin !== location.origin || !e.data || e.data.tipo !== 'otimizar-texto') return;
+    entrada.value = String(e.data.texto || ''); entrada.dispatchEvent(new Event('input')); entrada.focus();
+  });
 
   function chamar(metodo, corpo, qs) {
     return fetch(API + (qs || ''), {
@@ -20,7 +26,9 @@
     });
   }
   function semLogin() {
-    tela.innerHTML = '<p class="l vazio">Entre no painel primeiro. O terminal usa o mesmo login do Painel de Páginas.</p><p class="l"><a href="/painel">Entrar no painel →</a></p>';
+    tela.innerHTML = '<p class="l vazio">Entre no painel primeiro. O terminal usa o mesmo login do Painel de Páginas.</p>' +
+      '<p class="l"><a href="/painel" target="_blank" rel="noopener">Entrar no painel (abre outra aba) →</a></p><p class="l"><button class="btn" type="button" id="b-recarregar">Já entrei</button></p>';
+    document.getElementById('b-recarregar').addEventListener('click', function () { location.reload(); });
     form.hidden = true; atalhos.hidden = true;
   }
   function rolar() { tela.scrollTop = tela.scrollHeight; }

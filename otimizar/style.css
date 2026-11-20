@@ -39,3 +39,11 @@ details.saida pre{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;max
 .baixo textarea{flex:1;resize:none;max-height:200px;background:var(--fundo);color:var(--texto);border:1px solid var(--borda);border-radius:8px;padding:10px 12px;font:inherit;outline:none}
 .baixo textarea:focus{border-color:var(--verde)}
 @media (max-width:640px){.cab{padding:10px 12px}.status{margin-left:0;order:3;width:100%}.tela{padding:12px}.baixo{padding:10px 12px 12px}.marca small{display:none}}
+
+/* dentro da barra lateral da Central */
+body.barra .marca,body.barra .acoes a{display:none}
+body.barra .cab{padding:8px 12px;gap:10px}
+body.barra .status{margin-left:0;flex:1}
+body.barra .tela{padding:12px}
+body.barra .atalhos{padding:0 12px 8px}
+body.barra .baixo{padding:10px 12px 12px}

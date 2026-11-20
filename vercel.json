@@ -8,6 +8,16 @@
   "trailingSlash": false,
   "redirects": [
     {
+      "source": "/otimizar",
+      "destination": "https://interno.grupor1.com/central?otimizar=1#lps",
+      "permanent": false
+    },
+    {
+      "source": "/otimizar/",
+      "destination": "https://interno.grupor1.com/central?otimizar=1#lps",
+      "permanent": false
+    },
+    {
       "source": "/",
       "missing": [
         {
@@ -318,8 +328,8 @@
     {
       "source": "/otimizar(/.*)?",
       "headers": [
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'" },
-        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
         { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
         { "key": "Referrer-Policy", "value": "no-referrer" },
         { "key": "Cache-Control", "value": "no-cache" }
