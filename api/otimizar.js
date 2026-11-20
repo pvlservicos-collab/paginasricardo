@@ -11,6 +11,8 @@
 import { protegido, json, erro, lerJson, mesmaOrigem } from '../lib/servidor.mjs';
 import { sql } from '../lib/store.mjs';
 import { sessaoDe as sessaoGoogle } from '../lib/criacao.mjs';
+import { carregarConfig } from '../lib/servidor.mjs';
+import { linkDaPagina } from '../lib/core.mjs';
 import { createHash, timingSafeEqual } from 'node:crypto';
 
 // Sem login (pedido do Pedro, 20/11/2026): quem já abriu a Central (interno.grupor1.com) tem a chave dela guardada no
@@ -55,9 +57,26 @@ async function conversaDe(email) {
   return c ? c.conversa : 1;
 }
 
+// Última nota do PageSpeed (celular) de cada página, por endereço sem https:// (ex.: "ricardonunes.grupor1.com/x").
+// Usado pelo selo redondo nos cartões da aba LPs da Central (otimizar/barra.js). Cópia em memória por 2 min.
+let NOTAS = null;
+async function notas() {
+  if (NOTAS && Date.now() - NOTAS.em < 120e3) return NOTAS.v;
+  const [cfg, linhas] = await Promise.all([carregarConfig(), sql`select slug, nota, medido_em from pagespeed where estrategia = 'mobile' and nota is not null`]);
+  const porSlug = new Map(linhas.map((l) => [l.slug, l]));
+  const v = {};
+  for (const p of cfg.paginas) {
+    const l = porSlug.get(p.slug); if (!l || p.lab) continue;
+    v[linkDaPagina(p, cfg).replace(/^https?:\/\//, '').replace(/\/+$/, '').toLowerCase()] = { nota: l.nota, em: l.medido_em };
+  }
+  NOTAS = { v, em: Date.now() };
+  return v;
+}
+
 export const GET = comAcesso(async (request, url, u) => {
   const email = emailDe(u);
   if (!pode(u)) return json({ pode: false, voce: email });
+  if (url.searchParams.get('notas')) return json({ notas: await notas() });
   await prepararOtimizar();
   const id = url.searchParams.get('id');
   if (id) {

@@ -28,6 +28,11 @@
     '.otz-mini{position:absolute;top:8px;right:8px;z-index:3;border:1px solid rgba(140,172,255,.5);background:rgba(10,24,56,.82);color:#e8eeff;border-radius:999px;',
     'padding:5px 10px;font:600 11px/1 inherit;font-family:inherit;cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}',
     '.otz-mini:hover{background:#3f6ff0;border-color:#6aa2ff}',
+    // selo redondo com a última nota do PageSpeed no canto do celular do cartão
+    '.otz-selo{position:absolute;top:10px;right:10px;z-index:4;width:54px;height:54px;border-radius:50%;display:grid;place-items:center;',
+    'background:conic-gradient(var(--c) calc(var(--n) * 1%),rgba(255,255,255,.14) 0);box-shadow:0 6px 18px rgba(0,0,0,.55),0 0 0 2px rgba(11,11,15,.9);pointer-events:auto}',
+    '.otz-selo::before{content:"";position:absolute;inset:5px;border-radius:50%;background:#0b0b0f}',
+    '.otz-selo b{position:relative;font:800 18px/1 inherit;font-family:inherit;color:var(--c);letter-spacing:-.02em}',
   ].join('');
   document.head.appendChild(css);
 
@@ -112,8 +117,37 @@
       c.appendChild(b);
     });
   }
+  // notas do PageSpeed (api/otimizar?notas=1, com a chave da Central guardada no navegador)
+  var NOTAS = null;
+  function chaveCentral() {
+    try { var c = JSON.parse(localStorage.getItem('r1int') || 'null'); return c && c.chave && (!c.exp || c.exp > Date.now()) ? String(c.chave) : ''; } catch (e) { return ''; }
+  }
+  function lerNotas() {
+    var k = chaveCentral(); if (!k) return;
+    fetch('/api/otimizar?notas=1', { credentials: 'same-origin', headers: { 'X-Central-Chave': k } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j && j.notas) { NOTAS = j.notas; document.querySelectorAll('.otz-selo').forEach(function (s) { s.remove(); }); selos(); } })
+      .catch(function () {});
+  }
+  var chaveDe = function (href) { return String(href).replace(/^https?:\/\//, '').split(/[?#]/)[0].replace(/\/+$/, '').toLowerCase(); };
+  function selos() {
+    if (!NOTAS) return;
+    document.querySelectorAll('#lpsBox article.lpc a.tel[href^="http"]').forEach(function (a) {
+      if (a.querySelector('.otz-selo')) return;
+      var n = NOTAS[chaveDe(a.href)]; if (!n || n.nota == null) return;
+      if (getComputedStyle(a).position === 'static') a.style.position = 'relative';
+      var cor = n.nota >= 90 ? '#22c55e' : n.nota >= 50 ? '#f59e0b' : '#ef4444';
+      var s = document.createElement('span'); s.className = 'otz-selo';
+      s.style.setProperty('--n', n.nota); s.style.setProperty('--c', cor);
+      s.title = 'PageSpeed (celular): ' + n.nota + (n.em ? ' · medido em ' + new Date(n.em).toLocaleDateString('pt-BR') : '');
+      s.innerHTML = '<b>' + n.nota + '</b>';
+      a.appendChild(s);
+    });
+  }
+  lerNotas(); setInterval(lerNotas, 10 * 60e3);
+
   botaoPrincipal(); botoesCartoes();
-  new MutationObserver(function () { botaoPrincipal(); botoesCartoes(); })
+  new MutationObserver(function () { botaoPrincipal(); botoesCartoes(); selos(); })
     .observe(document.getElementById('tLps') || document.body, { childList: true, subtree: true });
 
   // /otimizar → /central?otimizar=1#lps : abre já com a barra
