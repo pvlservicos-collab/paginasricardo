@@ -49,6 +49,8 @@ export async function build({ silencioso = false } = {}) {
   await copiarPasta(path.join(RAIZ, 'criacao'), path.join(DIST, 'dashboardscriacao'));
   // Fábrica de Formatos (monta os vídeos no navegador; IA e dados em api/fabrica.mjs)
   await copiarPasta(path.join(RAIZ, 'fabrica'), path.join(DIST, 'fabrica'));
+  // Terminal de otimização (Claude Code na VPS; fila em api/otimizar.js)
+  await copiarPasta(path.join(RAIZ, 'otimizar'), path.join(DIST, 'otimizar'));
   // Páginas como arquivos estáticos (cliques de anúncio saem do cache; ver scripts/estaticas.mjs).
   // Na Vercel, se falhar, o build falha: sem elas os domínios do site dariam 404, então é melhor manter a versão anterior.
   if (process.env.VERCEL || process.env.GERAR_ESTATICAS) {

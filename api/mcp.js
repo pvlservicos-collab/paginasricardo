@@ -9,6 +9,20 @@ import { sql, usandoBanco } from '../lib/store.mjs';
 import { linkDaPagina, hostDaPagina, hostPadrao, rastreioDaPagina, detectarRastreio, limparHost, padraoDoDominio } from '../lib/core.mjs';
 import { criarPagina, atualizarPagina, excluirPagina, acharPagina, htmlDaPagina, dominioNoAr, caminhoGrupo } from '../lib/operacoes.mjs';
 import { relatorioImagens, migrarImagens, salvarImagem, listarImagens, baixarImagem } from '../lib/imagens.mjs';
+import { guardarBackup } from '../lib/otimizar.mjs';
+import { createHash, timingSafeEqual } from 'node:crypto';
+
+// Robô do /otimizar (Claude Code na VPS, 20/11/2026): entra com a chave fixa OTIMIZAR_MCP_CHAVE no lugar do OAuth
+// (token de 1 h não serve para um serviço sem navegador) e age como o usuário "otimizar" do painel (papel editor).
+// Toda troca de HTML feita por ele guarda backup antes (menu ⋯ → "Desfazer última otimização").
+async function usuarioDaChave(token) {
+  const chave = process.env.OTIMIZAR_MCP_CHAVE || '';
+  if (chave.length < 32 || !token) return null;
+  const a = createHash('sha256').update(chave).digest(), b = createHash('sha256').update(token).digest();
+  if (!timingSafeEqual(a, b)) return null;
+  const [u] = await sql`select id, login, email, nome, papel from usuarios where login = 'otimizar' and ativo limit 1`;
+  return u ? { ...u, robo: true } : null;
+}
 
 const VERSOES = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const MAX_ALTERACOES_HORA = 300;
@@ -163,7 +177,8 @@ async function executar(nome, a, ctx) {
     }
     case 'atualizar_pagina': {
       await limiteAlteracoes(usuario);
-      acharPagina(ctx.cfg, a.pagina); // só páginas reais (nunca o laboratório)
+      const atual = acharPagina(ctx.cfg, a.pagina); // só páginas reais (nunca o laboratório)
+      if (usuario.robo && typeof a.html === 'string') await guardarBackup(atual, await htmlDaPagina(atual));
       const { cfg, pagina, html, mudancas } = await atualizarPagina(a.pagina, {
         html: a.html, titulo: a.titulo, url: a.nova_url, dominio: a.dominio, ativa: a.ativa, pixel: a.pixel, clarity: a.clarity, gtm: a.gtm, grupo: a.grupo,
       }, quem);
@@ -275,7 +290,7 @@ function naoAutorizado(request, msg = 'Conecte-se pelo Claude para usar.') {
 
 export async function POST(request) {
   const m = /^Bearer\s+(\S+)$/i.exec(request.headers.get('authorization') || '');
-  const usuario = m ? await usuarioDoToken(m[1]).catch(() => null) : null;
+  const usuario = m ? (await usuarioDoToken(m[1]).catch(() => null)) || (await usuarioDaChave(m[1]).catch(() => null)) : null;
   if (!usuario || usuario.papel === 'trafego') return naoAutorizado(request);
   const texto = await request.text();
   if (texto.length > 4.4 * 1024 * 1024) return new Response(JSON.stringify(rpcErro(null, -32600, 'Pedido grande demais (máx. ~4 MB).')), { status: 413, headers: { 'Content-Type': 'application/json' } });

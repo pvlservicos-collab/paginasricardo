@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%230d1117%27/%3E%3Cpath d=%27M8 11l5 5-5 5M16 22h8%27 stroke=%27%2357d39b%27 stroke-width=%273%27 fill=%27none%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E">
+<title>Otimizar · Terminal</title>
+<link rel="stylesheet" href="/otimizar/style.css">
+</head>
+<body>
+<header class="cab">
+  <div class="marca"><span class="prompt">&gt;_</span><div><b>Otimizar</b><small>Claude Code na VPS · técnicas de PageSpeed do Grupo R1</small></div></div>
+  <div class="status" id="status"><i></i><span>conectando…</span></div>
+  <div class="acoes"><button class="btn" id="b-nova" title="Começar uma conversa nova (o Claude esquece a anterior)">Nova conversa</button><a class="btn" href="/painel">← Painel</a></div>
+</header>
+<main id="tela" class="tela" aria-live="polite"></main>
+<div class="atalhos" id="atalhos"></div>
+<form class="baixo" id="form">
+  <textarea id="entrada" rows="1" placeholder="Mande a página (link ou slug) e o que quer. Ex.: otimiza ricardonunes.grupor1.com/xequemate-v6" autocomplete="off"></textarea>
+  <button class="btn pri" id="b-enviar" type="submit">Enviar</button>
+  <button class="btn perigo" id="b-parar" type="button" hidden>Parar</button>
+</form>
+<script src="/otimizar/app.js"></script>
+</body>
+</html>
