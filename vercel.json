@@ -328,11 +328,26 @@
     {
       "source": "/otimizar(/.*)?",
       "headers": [
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: https:; connect-src 'self' https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; form-action 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
-        { "key": "Referrer-Policy", "value": "strict-origin" },
-        { "key": "Cache-Control", "value": "no-cache" }
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: https:; connect-src 'self' https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; form-action 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
       ]
     },
     {
@@ -453,7 +468,25 @@
       "destination": "/raioxtributariodash"
     },
     {
-      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|raioxmaquinadevendasdash|fabrica|gestao-membros|aprovacoes|dashboardscriacao|otimizar|trackeamento$|wp-content|_vercel|_p/|zz-lab|\\.well-known).+)",
+      "source": "/criadordechat",
+      "destination": "https://srv2157937.hstgr.cloud/criadordechat"
+    },
+    {
+      "source": "/criadordechat/:path*",
+      "destination": "https://srv2157937.hstgr.cloud/criadordechat/:path*"
+    },
+    {
+      "source": "/chat/:slug",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?<host>ricardonunes\\.grupor1\\.com|ricardonunes\\.convocacaonacional\\.com\\.br|ricardonunes\\.metodorgv\\.com\\.br|ricardonunes\\.turnemaquinadevendas\\.com\\.br)"
+        }
+      ],
+      "destination": "https://srv2157937.hstgr.cloud/criadordechat/c/:host/:slug"
+    },
+    {
+      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|raioxmaquinadevendasdash|fabrica|gestao-membros|aprovacoes|dashboardscriacao|otimizar|criadordechat|chat/|trackeamento$|wp-content|_vercel|_p/|zz-lab|\\.well-known).+)",
       "has": [
         {
           "type": "host",
@@ -463,7 +496,7 @@
       "destination": "/_p/:host/:caminho"
     },
     {
-      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|raioxmaquinadevendasdash|fabrica|gestao-membros|aprovacoes|dashboardscriacao|otimizar|trackeamento$|wp-content|_vercel|_p/|\\.well-known).+)",
+      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|raioxmaquinadevendasdash|fabrica|gestao-membros|aprovacoes|dashboardscriacao|otimizar|criadordechat|chat/|trackeamento$|wp-content|_vercel|_p/|\\.well-known).+)",
       "destination": "/api/servir?caminho=:caminho"
     }
   ],
