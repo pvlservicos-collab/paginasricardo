@@ -43,12 +43,66 @@
   const PERGUNTAS = [['regime', 'Regime'], ['setor', 'O que faz'], ['uf', 'Estado'], ['funcionarios', 'Funcionários'], ['margem', 'Lucro de cada R$ 100'],
     ['folha', 'Folha + pró-labore'], ['cnpjs', 'CNPJs'], ['cliente', 'Vende para'], ['revisao', 'Última revisão do regime'], ['dono', 'Se o dono sumir 15 dias'], ['faturamento', 'Faturamento']];
 
+  // ---------- Raio-X Máquina de Vendas (/raioxmaquinadevendas): 7 engrenagens, nota de 0 a 100% em cada ----------
+  // Iguais ao quiz: id, nome, raio e posição no desenho, 4 perguntas (respostas 0 a 3). O quiz manda perfil.g1..g7 (nota),
+  // media, travadas, rangendo, pior (id), cargo e "respostas" (7 grupos de 4 dígitos, na ordem dos ids).
+  const ENG = [
+    {id: 1, nome: 'Mentalidade', r: 58, x: -90.6, y: -119.4, qs: ['Sei, em números, onde quero que a empresa esteja no fim de 2027.', 'Separo tempo toda semana para pensar a empresa, não só para apagar incêndio.', 'Invisto todo ano, em tempo e dinheiro, para aprender a tocar a empresa.', 'Minha família sabe o que eu estou construindo e por quê.']},
+    {id: 2, nome: 'Dono × Empresário', r: 46, x: -145.4, y: 22.7, qs: ['Se eu sumir por 30 dias, a empresa continua vendendo igual.', 'As decisões do dia a dia são tomadas sem passar por mim.', 'Olho as vendas e já sei como vai ficar o caixa do mês.', 'Tenho pró-labore definido e não misturo o dinheiro da empresa com o meu.']},
+    {id: 3, nome: 'Gente', r: 92, x: 0, y: 10, qs: ['Contrato pelo perfil e pelos valores, não só pela pressa de preencher a vaga.', 'Meu time sabe dizer o que é inegociável aqui dentro.', 'Tenho líderes que resolvem problemas sem me chamar.', 'Meu time é treinado com frequência em produto e em venda.']},
+    {id: 4, nome: 'Gestão', r: 56, x: -53.4, y: 156.6, qs: ['Tenho planejamento do ano com metas por mês e por vendedor.', 'Os processos estão escritos e qualquer pessoa nova consegue seguir.', 'Um sistema me mostra venda, margem e estoque sem eu pedir planilha.', 'Acompanho os números toda semana e cobro o time com dado, não com achismo.']},
+    {id: 5, nome: 'Tributário', r: 40, x: 36.6, y: 208.6, qs: ['Revisei meu regime tributário nos últimos 12 meses.', 'Sei quanto do meu faturamento vai para imposto, em porcentagem.', 'Já sei como a reforma tributária de 2027 mexe na minha margem.', 'Meu contador me traz economia, não só a guia para pagar.']},
+    {id: 6, nome: 'Marketing', r: 60, x: 150.4, y: 64.7, qs: ['Meu cliente sabe dizer em uma frase por que comprar de mim e não do concorrente.', 'Tenho um calendário de campanhas para os 12 meses do ano.', 'Faço ações que enchem a loja ou a agenda, não só post nas redes.', 'Sei quanto custa trazer um cliente e quanto ele me deixa de lucro.']},
+    {id: 7, nome: 'Proibido perder venda', r: 54, x: 88.3, y: -116.1, qs: ['Fiz o raio-x da minha empresa e do concorrente: sei onde ganho e onde perco.', 'Meu vendedor tem autonomia para negociar até um limite sem me chamar.', 'Meu vendedor passa a maior parte do tempo vendendo, não cobrando boleto ou fazendo relatório.', 'Anoto toda venda perdida e o motivo, e o time discute isso toda semana.']}];
+  const ORDEM_ENG = [5, 7, 6, 4, 3, 2, 1]; // ordem em que o quiz pergunta (Tributário é a 01)
+  const ENG_ORD = ORDEM_ENG.map(id => ENG.find(g => g.id === id));
+  const numEng = g => String(ORDEM_ENG.indexOf(g.id) + 1).padStart(2, '0');
+  const CARGOS = {'Sócio ou Fundador': 'Sócio ou fundador', 'Presidente ou CEO': 'Presidente ou CEO', 'Diretor': 'Diretor', 'VP Ou C-Level': 'VP ou C-Level', 'Gerente': 'Gerente'};
+  const cargoTxt = v => CARGOS[v] || v || '';
+  const stEng = p => p < 40 ? 'jam' : p < 70 ? 'mid' : 'okk'; // mesma régua do quiz
+  const ST_TXT = {jam: 'Travada', mid: 'Rangendo', okk: 'Girando'};
+  const RES_TXT = {jam: 'Travando', mid: 'Rangendo', okk: 'Girando'};
+  const notaEng = (e, id) => +e.perfil['g' + id] || 0;
+  const notaMaq = e => +e.res.total || 0;
+  // resultado da máquina, como o título do resultado no quiz: média < 40% ou 3+ travadas = travando
+  const resMaq = e => notaMaq(e) < 40 || (+e.perfil.travadas || 0) >= 3 ? 'jam' : notaMaq(e) < 70 ? 'mid' : 'okk';
+  const respostasDe = e => String(e.perfil.respostas || '').split('-'); // índice = id - 1
+  const media = arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+  // desenho da máquina (o mesmo do quiz): sc = {id: nota} ou null (sem dados / tela de login)
+  function gearPath(r, n){
+    const th = Math.max(6, r * .15), ri = r - th, step = Math.PI * 2 / n, p = [];
+    for(let i = 0; i < n; i++){ const a = i * step;
+      [[ri, a], [ri, a + step * .18], [r, a + step * .30], [r, a + step * .62], [ri, a + step * .74]].forEach(([rr, aa], k) => p.push((i === 0 && k === 0 ? 'M' : 'L') + (rr * Math.cos(aa)).toFixed(2) + ' ' + (rr * Math.sin(aa)).toFixed(2))); }
+    return p.join('') + 'Z';
+  }
+  function gearSVG(g, cls, pct){
+    const r = g.r, n = Math.max(9, Math.round(r / 5.2)), ri = r - Math.max(6, r * .15), hub = pct != null ? .46 : .30, sp = [];
+    for(let i = 0; i < (r > 44 ? 5 : 4); i++){ const a = i * Math.PI * 2 / (r > 44 ? 5 : 4);
+      sp.push(`<line x1="${(r * hub * Math.cos(a)).toFixed(1)}" y1="${(r * hub * Math.sin(a)).toFixed(1)}" x2="${(ri * .72 * Math.cos(a)).toFixed(1)}" y2="${(ri * .72 * Math.sin(a)).toFixed(1)}"/>`); }
+    const fs = pct != null ? Math.max(11, r * .30) : Math.max(13, r * .34);
+    return `<g class="g ${cls}" transform="translate(${g.x} ${g.y})"><title>${g.nome}${pct != null ? ': ' + pct + '%' : ''}</title>
+      <g class="rot" style="--t:${(r / 92 * 24).toFixed(1)}s;--dir:${g.id === 3 || g.id === 5 ? 'normal' : 'reverse'}"><path class="body" d="${gearPath(r, n)}"/><circle r="${(ri * .78).toFixed(1)}"/>${sp.join('')}<circle class="hub" r="${(r * hub).toFixed(1)}"/></g>
+      <text y="${pct != null ? -(r * .11).toFixed(1) : 0}" style="font-size:${fs.toFixed(0)}px">${numEng(g)}</text>
+      ${pct != null ? `<text class="pct" y="${(r * .21).toFixed(1)}" style="font-size:${Math.max(8.5, r * .16).toFixed(1)}px">${pct}%</text>` : ''}</g>`;
+  }
+  // atributos no próprio SVG: na tela de login o CSS do .maq-svg não vale
+  const TXT = 'text-anchor="middle" fill="rgba(255,255,255,.45)" font-family="Geist Mono,JetBrains Mono,monospace" font-size="10" letter-spacing="2.4"';
+  function maquinaSVG(sc, med){
+    const R = 284, C = 2 * Math.PI * R, len = C * .75, cor = med == null ? '#D9B54F' : {jam: 'var(--jam)', mid: 'var(--mid)', okk: 'var(--okk)'}[stEng(med)];
+    const arco = med == null ? `<circle r="${R}" fill="none" stroke="${cor}" stroke-opacity=".45" stroke-width="3"/>`
+      : `<circle class="anel" r="${R}" fill="none" stroke-dasharray="${len.toFixed(1)} ${C}" transform="rotate(135)"/><circle class="anel-v" r="${R}" fill="none" stroke="${cor}" stroke-dasharray="${(len * med / 100).toFixed(1)} ${C}" transform="rotate(135)"/>`;
+    return `<svg viewBox="-310 -310 620 620" role="img" aria-label="Máquina de vendas com 7 engrenagens">${arco}
+      <text class="t" y="-232" ${TXT}>MÁQUINA DE VENDAS</text>${med != null ? `<text class="t" y="250" ${TXT} style="font-size:13px;fill:#fff">MÉDIA ${med}%</text>` : `<text class="t" y="244" ${TXT}>07 ENGRENAGENS</text>`}
+      <g transform="translate(-10 -33) scale(.94)">${ENG.map(g => gearSVG(g, sc ? stEng(sc[g.id]) : '', sc ? sc[g.id] : null)).join('')}</g></svg>`;
+  }
+
   // ---------- projeto (cada quiz tem o seu dashboard; o menu do canto direito troca) ----------
   // cada dashboard tem o seu endereço, no padrão do quiz + "dash"
   let PROJS = [
     {id: 'tributario', nome: 'Raio-X Tributário', pagina: '/raioxtributario', dash: '/raioxtributariodash', formato: 'completo', n: 0},
     {id: 'xequemate', nome: 'Raio-X Xeque-Mate', pagina: '/raiox-xequemate2', dash: '/raiox-xequemate2dash', formato: 'curto', n: 0},
-    {id: 'tributario-raiox', nome: 'Tributário Raio-X', pagina: '/tributario-raiox', dash: '/tributario-raioxdash', formato: 'curto', n: 0}];
+    {id: 'tributario-raiox', nome: 'Tributário Raio-X', pagina: '/tributario-raiox', dash: '/tributario-raioxdash', formato: 'curto', n: 0},
+    {id: 'maquinadevendas', nome: 'Raio-X Máquina de Vendas', pagina: '/raioxmaquinadevendas', dash: '/raioxmaquinadevendasdash', formato: 'engrenagens', n: 0}];
   const aqui = location.pathname.replace(/\/+$/, '').toLowerCase();
   let projeto = (PROJS.find(p => p.dash === aqui) || {}).id || (new URLSearchParams(location.search).get('p') || 'tributario').replace(/[^a-z-]/g, '');
   const proj = () => PROJS.find(p => p.id === projeto) || PROJS[0];
@@ -58,6 +112,9 @@
       tit: 'Resultômetro do <em>Xeque-Mate</em>', sub: 'Diagnósticos e leads do Raio-X do Xeque-Mate Tributário, ao vivo.'},
     'tributario-raiox': {faixa: '', logo: '/raioxtributariodash/r1-logo.webp', alt: 'Grupo R1', tag: 'Raio-X Tributário',
       tit: 'Resultômetro do <em>Raio-X Tributário</em>', sub: 'Diagnósticos e leads do Raio-X Tributário, ao vivo.'},
+    maquinadevendas: {faixa: '', logo: '/raioxtributariodash/cne-logo.png', alt: 'Convocação Nacional dos Empresários', tag: 'Raio-X Máquina de Vendas',
+      tit: 'Resultômetro da <em>Máquina de Vendas</em>', sub: 'Diagnósticos e leads do Raio-X das 7 engrenagens, ao vivo.', maquina: true,
+      fontes: 'https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=DM+Serif+Display:ital@1&display=swap'},
   };
   (function visualDoLogin(){
     document.body.classList.add('p-' + projeto); // BRG só aparece no Raio-X Tributário
@@ -69,9 +126,14 @@
     $('#lgTag').textContent = t.tag;
     $('#lgTit').innerHTML = t.tit;
     $('#lgSub').textContent = t.sub;
-    $('#lgLeao').src = '/raioxtributariodash/leao.webp';
+    if(t.fontes){ const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = t.fontes; document.head.appendChild(l); }
+    if(t.maquina) $('#lgLeao').insertAdjacentHTML('afterend', maquinaSVG(null, null)); // no lugar do leão, a máquina do quiz
+    else $('#lgLeao').src = '/raioxtributariodash/leao.webp';
   })();
   const ehCurto = () => proj().formato === 'curto';
+  const ehEngr = () => proj().formato === 'engrenagens';
+  // texto do valor somado de um grupo: R$ nos tributários, nota média nas engrenagens (res.total = nota da máquina)
+  const somaTxt = (soma, q) => ehEngr() ? 'nota média ' + (q ? Math.round(soma / q) : 0) + '%' : curto(soma) + ' identificados';
   const linhaFat = f => FAT2.find(x => x[0] === f);
   // faturamento por mês em número: o quiz completo manda o valor; os curtos, a faixa (piso ou meio dela)
   const fatNum = (e, meio) => { const f = e.perfil.faturamento; if(typeof f === 'number' || /^\d+(\.\d+)?$/.test(f || '')) return +f;
@@ -130,10 +192,11 @@
     tip.style.left = x + 'px'; tip.style.top = y + 'px'; };
   const someTip = () => tip.classList.remove('on');
 
-  function barras(el, linhas, {fmt = v => v, tipFn, neutra} = {}){
+  // l.cls = cor de status (jam/mid/okk) por barra; topo = valor da barra cheia (padrão: a maior)
+  function barras(el, linhas, {fmt = v => v, tipFn, neutra, topo} = {}){
     if(!linhas.length){ el.innerHTML = '<div class="vazio">Sem dados ainda.</div>'; return; }
-    const max = Math.max(...linhas.map(l => l.v)) || 1;
-    el.innerHTML = linhas.map((l, i) => `<div class="barra${neutra ? ' neutra' : ''}" data-i="${i}"><span class="n">${esc(l.n)}</span><span class="q">${fmt(l.v, l)}</span><span class="t"><i style="width:${Math.max(l.v / max * 100, 1.5)}%"></i></span></div>`).join('');
+    const max = topo || Math.max(...linhas.map(l => l.v)) || 1;
+    el.innerHTML = linhas.map((l, i) => `<div class="barra${neutra ? ' neutra' : ''}${l.cls ? ' ' + l.cls : ''}" data-i="${i}"><span class="n">${esc(l.n)}</span><span class="q">${fmt(l.v, l)}</span><span class="t"><i style="width:${Math.max(l.v / max * 100, 1.5)}%"></i></span></div>`).join('');
     if(tipFn) $$('.barra', el).forEach(b => { b.onmousemove = ev => mostraTip(ev, tipFn(linhas[b.dataset.i])); b.onmouseleave = someTip; });
   }
   const conta = (lista, chave) => { const m = new Map(); lista.forEach(e => { const k = chave(e); if(k != null && k !== '') m.set(k, (m.get(k) || 0) + 1); }); return m; };
@@ -165,7 +228,7 @@
       const i = Math.max(0, Math.min(n - 1, Math.round((x - pl) / ((W - pl - pr) / Math.max(n - 1, 1)))));
       cruz.setAttribute('x1', X(i)); cruz.setAttribute('x2', X(i)); cruz.style.display = '';
       ponto.setAttribute('cx', X(i)); ponto.setAttribute('cy', Y(serie[i].q)); ponto.style.display = '';
-      mostraTip(ev, `<b>${serie[i].d.toLocaleDateString('pt-BR', {weekday: 'short', day: '2-digit', month: 'short'})}</b><br>${serie[i].q} diagnóstico${serie[i].q === 1 ? '' : 's'}<br>${curto(serie[i].v)} identificados`); };
+      mostraTip(ev, `<b>${serie[i].d.toLocaleDateString('pt-BR', {weekday: 'short', day: '2-digit', month: 'short'})}</b><br>${serie[i].q} diagnóstico${serie[i].q === 1 ? '' : 's'}<br>${somaTxt(serie[i].v, serie[i].q)}`); };
     svg.onmouseleave = () => { cruz.style.display = 'none'; ponto.style.display = 'none'; someTip(); };
   }
 
@@ -187,8 +250,11 @@
     const semT = semTeste ? ativos().filter(e => !ehTeste(e)) : ativos();
     const hoje = semT.filter(e => diaBR(e.ts) === hojeBR()).length;
     $('#hojeTxt').textContent = '+' + hoje + ' hoje';
-    $('#mediaTxt').textContent = curto(N ? total / N : 0);
-    $('#maiorTxt').textContent = curto(Math.max(0, ...L.map(e => e.res.total || 0)));
+    const E = ehEngr();
+    $('#mediaTxt').textContent = E ? media(L.map(notaMaq)) + '%' : curto(N ? total / N : 0);
+    $('#mediaRot').textContent = E ? 'nota média da máquina' : 'em média por empresa';
+    $('#maiorTxt').textContent = E ? pct(L.filter(e => resMaq(e) === 'jam').length, N) + '%' : curto(Math.max(0, ...L.map(e => e.res.total || 0)));
+    $('#maiorRot').textContent = E ? 'das máquinas travando' : 'maior diagnóstico';
 
     $('#kRec').textContent = curto(L.reduce((s, e) => s + e.res.recuperacao, 0));
     $('#kBen').textContent = curto(L.reduce((s, e) => s + e.res.beneficios, 0));
@@ -207,20 +273,23 @@
     linha($('#gLinha'), L, dias);
     $('#linhaLeg').textContent = 'últimos ' + dias + ' dias';
 
-    const tipQ = l => `<b>${esc(l.n)}</b><br>${l.v} empresa${l.v === 1 ? '' : 's'} · ${pct(l.v, N)}%<br>${curto(l.soma)} identificados`;
+    const tipQ = l => `<b>${esc(l.n)}</b><br>${l.v} empresa${l.v === 1 ? '' : 's'} · ${pct(l.v, N)}%<br>${somaTxt(l.soma, l.v)}`;
     const agrupa = (fn, ordem) => { const m = new Map(); L.forEach(e => { const k = fn(e); if(!k) return; const o = m.get(k) || {n: k, v: 0, soma: 0}; o.v++; o.soma += e.res.total; m.set(k, o); });
       const arr = [...m.values()]; return ordem ? ordem.map(k => m.get(k)).filter(Boolean) : arr.sort((a, b) => b.v - a.v); };
     const C = ehCurto();
-    barras($('#bFat'), C ? agrupa(e => faixaDe(e.perfil.faturamento), FAT2.map(f => f[1])) : agrupa(e => (FAIXAS.find(([lim]) => +e.perfil.faturamento <= lim) || [])[1], FAIXAS.map(f => f[1])), {tipFn: tipQ});
+    barras($('#bFat'), C || E ? agrupa(e => faixaDe(e.perfil.faturamento), FAT2.map(f => f[1])) : agrupa(e => (FAIXAS.find(([lim]) => +e.perfil.faturamento <= lim) || [])[1], FAIXAS.map(f => f[1])), {tipFn: tipQ});
     barras($('#bReg'), agrupa(e => REG2[e.perfil.regime] || e.perfil.regime, Object.values(REG2)), {tipFn: tipQ});
     barras($('#bSet'), agrupa(e => setorDe(e.perfil)).slice(0, 8), {tipFn: tipQ});
     barras($('#bUf'), agrupa(e => e.perfil.estado || e.perfil.uf).slice(0, 8), {tipFn: tipQ});
-    if(C){
+    if(C || E){
       barras($('#bFunc'), agrupa(e => funcTxt(e.perfil.funcionarios), FUNC2.map(f => f[1])), {tipFn: tipQ});
-      for(const [el, k] of [['#bCnpj', 'cnpjs'], ['#bCli', 'cliente'], ['#bRev', 'revisao'], ['#bDono', 'dono'], ['#bMargem', 'margem'], ['#bFolha', 'folha']])
-        barras($(el), agrupa(e => respTxt(k, e.perfil[k]), Object.values(CURTO[k])), {neutra: true, tipFn: tipQ});
       barras($('#bPag'), agrupa(e => e.pagina || '—'), {neutra: true, tipFn: tipQ});
     }
+    if(C){
+      for(const [el, k] of [['#bCnpj', 'cnpjs'], ['#bCli', 'cliente'], ['#bRev', 'revisao'], ['#bDono', 'dono'], ['#bMargem', 'margem'], ['#bFolha', 'folha']])
+        barras($(el), agrupa(e => respTxt(k, e.perfil[k]), Object.values(CURTO[k])), {neutra: true, tipFn: tipQ});
+    }
+    if(E) desenhaEngr(L, agrupa, tipQ);
 
     const opp = new Map(); L.forEach(e => (e.res.top || []).forEach(o => { const x = opp.get(o.nome) || {n: o.nome, v: 0, q: 0}; x.v += o.val; x.q++; opp.set(o.nome, x); }));
     barras($('#bOpp'), [...opp.values()].sort((a, b) => b.v - a.v).slice(0, 8), {fmt: curto, tipFn: l => `<b>${esc(l.n)}</b><br>apareceu em ${l.q} diagnóstico${l.q === 1 ? '' : 's'}<br>${curto(l.v)} somados`});
@@ -233,6 +302,70 @@
 
     $('#nLeadsAba').textContent = L.length;
     if(papel === 'admin'){ if(!editando()) tabela(); metricas(L); }
+  }
+
+  // ---------- Resultômetro da Máquina de Vendas (formato engrenagens) ----------
+  const tipNota = l => `<b>${esc(l.n)}</b><br>${l.q} empresa${l.q === 1 ? '' : 's'} · nota média ${l.v}%`;
+  function desenhaEngr(L, agrupa, tipQ){
+    const N = L.length, sc = {};
+    ENG.forEach(g => { sc[g.id] = media(L.map(e => notaEng(e, g.id))); });
+    const med = media(L.map(notaMaq));
+    $('#maqSvg').innerHTML = maquinaSVG(N ? sc : null, N ? med : null);
+    $('#maqLista').innerHTML = ENG_ORD.map(g => { const p = sc[g.id], s = N ? stEng(p) : '';
+      return `<div class="eng"><i>${numEng(g)}</i><b>${esc(g.nome)}</b><span class="p c-${s}">${N ? p + '%' : '—'}</span>
+        <div class="s"><span class="c-${s}">${N ? ST_TXT[s] : 'Sem dados'}</span><em><u class="b-${s}" style="width:${N ? Math.max(p, 2) : 0}%"></u></em></div></div>`; }).join('');
+
+    $('#kMed').textContent = med + '%';
+    const trav = L.filter(e => resMaq(e) === 'jam').length;
+    $('#kTrav').textContent = pct(trav, N) + '%';
+    $('#kTravN').textContent = trav.toLocaleString('pt-BR');
+    const pior = N ? ENG_ORD.slice().sort((a, b) => sc[a.id] - sc[b.id])[0] : null;
+    $('#kPior').textContent = pior ? pior.nome : '—';
+    $('#kPiorP').textContent = pior ? sc[pior.id] + '%' : '0%';
+    $('#kQ3').textContent = L.filter(ehQualif).length.toLocaleString('pt-BR');
+    $('#kQp3').textContent = pct(L.filter(ehQualif).length, N) + '%';
+
+    // situação de cada engrenagem: quantas empresas com ela travada, rangendo ou girando
+    const sit = ENG_ORD.map(g => { const c = {jam: 0, mid: 0, okk: 0}; L.forEach(e => c[stEng(notaEng(e, g.id))]++); return {g, c}; });
+    barras($('#bEngr'), N ? ENG_ORD.map((g, i) => ({n: numEng(g) + ' · ' + g.nome, v: sc[g.id], cls: stEng(sc[g.id]), c: sit[i].c})) : [],
+      {fmt: v => v + '%', topo: 100, tipFn: l => `<b>${esc(l.n)}</b><br>nota média ${l.v}% · ${ST_TXT[l.cls].toLowerCase()}<br>travada em ${l.c.jam} de ${N} empresa${N === 1 ? '' : 's'}`});
+    const el = $('#bSit');
+    el.innerHTML = N ? sit.map(({g, c}) => `<div class="pilha"><span class="n">${numEng(g)} · ${esc(g.nome)}</span><span class="q">${pct(c.jam, N)}% travada</span>
+      <span class="t">${['jam', 'mid', 'okk'].map(k => c[k] ? `<i class="b-${k}" style="width:${(c[k] / N * 100).toFixed(2)}%"></i>` : '').join('')}</span></div>`).join('')
+      : '<div class="vazio">Sem dados ainda.</div>';
+    $$('.pilha', el).forEach((p, i) => { const {g, c} = sit[i];
+      p.onmousemove = ev => mostraTip(ev, `<b>${esc(g.nome)}</b><br>${['jam', 'mid', 'okk'].map(k => `${ST_TXT[k]}: ${c[k]} (${pct(c[k], N)}%)`).join('<br>')}`);
+      p.onmouseleave = someTip; });
+
+    barras($('#bRes'), N ? ['jam', 'mid', 'okk'].map(k => { const x = L.filter(e => resMaq(e) === k); return {n: RES_TXT[k], v: x.length, soma: x.reduce((s, e) => s + notaMaq(e), 0), cls: k}; }) : [], {tipFn: tipQ});
+    barras($('#bPior'), agrupa(e => (ENG.find(g => g.id === +e.perfil.pior) || {}).nome, ENG_ORD.map(g => g.nome)).map(l => ({...l, cls: 'jam'})), {tipFn: tipQ});
+    barras($('#bCargo'), agrupa(e => cargoTxt(e.perfil.cargo), Object.values(CARGOS)), {tipFn: tipQ});
+
+    // as 28 perguntas pela média das respostas (0 a 3 → 0 a 100%), das mais fracas
+    const perg = [];
+    ENG.forEach(g => g.qs.forEach((q, i) => {
+      const v = L.map(e => respostasDe(e)[g.id - 1]).filter(r => r && r.length > i).map(r => +r[i]);
+      if(v.length) perg.push({n: q, g: g.nome, v: Math.round(v.reduce((a, b) => a + b, 0) / (v.length * 3) * 100), q: v.length, z: v.filter(x => x === 0).length});
+    }));
+    perg.sort((a, b) => a.v - b.v);
+    barras($('#bPerg'), perg.slice(0, 8).map(l => ({...l, cls: stEng(l.v)})), {fmt: v => v + '%', topo: 100,
+      tipFn: l => `<b>${esc(l.n)}</b><br>${esc(l.g)} · nota média ${l.v}%<br>${l.z} de ${l.q} responderam "Não é a minha empresa"`});
+  }
+  function metricasEngr(L){
+    const N = L.length, Q = L.filter(ehQualif);
+    $('#cQn').textContent = media(Q.map(notaMaq)) + '%';
+    $('#cQo').textContent = media(L.filter(e => !ehQualif(e)).map(notaMaq)) + '%';
+    $('#cGir').textContent = pct(L.filter(e => resMaq(e) === 'okk').length, N) + '%';
+    $('#cJam').textContent = (N ? L.reduce((s, e) => s + (+e.perfil.travadas || 0), 0) / N : 0).toFixed(1).replace('.', ',');
+    $('#cDono').textContent = pct(L.filter(e => /^(Sócio|Presidente)/.test(e.perfil.cargo || '')).length, N) + '%';
+    const comFat = L.filter(e => fatNum(e, true) > 0);
+    $('#cFat3').textContent = curto(comFat.length ? comFat.reduce((s, e) => s + fatNum(e, true), 0) / comFat.length : 0);
+    const faixas = [[0, 19, '0 a 19%'], [20, 39, '20 a 39%'], [40, 54, '40 a 54%'], [55, 69, '55 a 69%'], [70, 84, '70 a 84%'], [85, 100, '85 a 100%']];
+    barras($('#bNota'), N ? faixas.map(([a, b, n]) => ({n, v: L.filter(e => notaMaq(e) >= a && notaMaq(e) <= b).length, cls: stEng(a)})) : [], {tipFn: tipQtd(N)});
+    const porGrupo = (lista, chave) => lista.map(([k, n]) => { const x = L.filter(e => e.perfil[chave] === k); return {n, q: x.length, v: media(x.map(notaMaq))}; })
+      .filter(l => l.q).map(l => ({...l, cls: stEng(l.v)}));
+    barras($('#bNotaFat'), porGrupo(FAT2, 'faturamento'), {fmt: v => v + '%', topo: 100, tipFn: tipNota});
+    barras($('#bNotaCargo'), porGrupo(Object.entries(CARGOS), 'cargo'), {fmt: v => v + '%', topo: 100, tipFn: tipNota});
   }
 
   // ---------- métricas (admin) ----------
@@ -274,11 +407,12 @@
     const hora = ts => +new Date(ts).toLocaleString('en-GB', {timeZone: 'America/Sao_Paulo', hour: '2-digit', hour12: false}) % 24;
     const faixas = [[0, 6, 'Madrugada (0h–6h)'], [6, 9, 'Manhã cedo (6h–9h)'], [9, 12, 'Manhã (9h–12h)'], [12, 14, 'Almoço (12h–14h)'], [14, 18, 'Tarde (14h–18h)'], [18, 21, 'Noite (18h–21h)'], [21, 24, 'Noite tarde (21h–24h)']];
     barras($('#bHora'), N ? faixas.map(([a, b, n]) => { const x = L.filter(e => { const h = hora(e.ts); return h >= a && h < b; }); return {n, v: x.length, soma: x.reduce((s, e) => s + e.res.total, 0)}; }) : [],
-      {neutra: true, tipFn: l => `<b>${esc(l.n)}</b><br>${l.v} diagnóstico${l.v === 1 ? '' : 's'} · ${pct(l.v, N)}%<br>${curto(l.soma)} identificados`});
+      {neutra: true, tipFn: l => `<b>${esc(l.n)}</b><br>${l.v} diagnóstico${l.v === 1 ? '' : 's'} · ${pct(l.v, N)}%<br>${somaTxt(l.soma, l.v)}`});
     const DS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
     const dia = ts => new Date(diaBR(ts) + 'T12:00:00').getDay();
     barras($('#bDia'), N ? DS.map((n, i) => { const x = L.filter(e => dia(e.ts) === i); return {n, v: x.length, soma: x.reduce((s, e) => s + e.res.total, 0)}; }) : [],
-      {neutra: true, tipFn: l => `<b>${esc(l.n)}</b><br>${l.v} diagnóstico${l.v === 1 ? '' : 's'} · ${pct(l.v, N)}%<br>${curto(l.soma)} identificados`});
+      {neutra: true, tipFn: l => `<b>${esc(l.n)}</b><br>${l.v} diagnóstico${l.v === 1 ? '' : 's'} · ${pct(l.v, N)}%<br>${somaTxt(l.soma, l.v)}`});
+    if(ehEngr()) metricasEngr(L);
   }
 
   // ---------- usuários (admin) ----------
@@ -325,8 +459,10 @@
   const ETAPAS = {novo: 'Novo', contato: 'Em contato', reuniao: 'Reunião marcada', cliente: 'Cliente', perdido: 'Perdido'};
   const opcoesEtapa = atual => Object.entries(ETAPAS).map(([k, n]) => `<option value="${k}"${k === atual ? ' selected' : ''}>${n}</option>`).join('');
   $('#mEtapa').insertAdjacentHTML('beforeend', opcoesEtapa(''));
-  const msgWhats = e => `Olá, ${((e.lead.nome || '').trim().split(/\s+/)[0]) || 'tudo bem'}! Aqui é do time do Ricardo Nunes. ` +
-    `Vi que você fez o ${proj().nome} e ele apontou ${brl(e.res.total)} em oportunidades para a sua empresa. Posso te mostrar os próximos passos?`;
+  const piorDe = e => ENG.find(g => g.id === +e.perfil.pior);
+  const msgWhats = e => `Olá, ${((e.lead.nome || '').trim().split(/\s+/)[0]) || 'tudo bem'}! Aqui é do time do Ricardo Nunes. ` + (ehEngr()
+    ? `Vi que você fez o ${proj().nome}${piorDe(e) ? ` e a engrenagem que mais trava na sua empresa é ${piorDe(e).nome}` : ''}. Posso te mostrar como destravar?`
+    : `Vi que você fez o ${proj().nome} e ele apontou ${brl(e.res.total)} em oportunidades para a sua empresa. Posso te mostrar os próximos passos?`);
 
   let etapa = 'todos', ordem = 'recente', soQualif = false, soWhats = false, limite = 100;
   const sel = new Set(), rascunho = {};
@@ -339,13 +475,14 @@
     if(soQualif) L = L.filter(ehQualif);
     if(soWhats) L = L.filter(temWhats);
     if(q) L = L.filter(e => [e.lead.nome, e.lead.email, e.lead.telefone, soDig(e.lead.telefone), e.perfil.nome, setorDe(e.perfil), e.perfil.estado, e.perfil.uf, faixaDe(e.perfil.faturamento), funcTxt(e.perfil.funcionarios),
-      REGIMES[e.perfil.regime], ETAPAS[e.status], ...(e.notas || []).map(n => n.texto)].join(' ').toLowerCase().includes(q));
+      REGIMES[e.perfil.regime], cargoTxt(e.perfil.cargo), ETAPAS[e.status], ...(e.notas || []).map(n => n.texto)].join(' ').toLowerCase().includes(q));
     return L;
   }
   function listaLeads(){
     let L = etapa === 'lixeira' ? baseLeads(true) : baseLeads(false).filter(e => etapa === 'todos' || e.status === etapa);
     const f = {recente: (a, b) => +new Date(b.ts) - +new Date(a.ts), antigo: (a, b) => +new Date(a.ts) - +new Date(b.ts),
-      valor: (a, b) => (b.res.total || 0) - (a.res.total || 0), fat: (a, b) => (+b.perfil.faturamento || 0) - (+a.perfil.faturamento || 0),
+      valor: ehEngr() ? (a, b) => notaMaq(a) - notaMaq(b) : (a, b) => (b.res.total || 0) - (a.res.total || 0), // engrenagens: mais travada primeiro
+      fat: (a, b) => (+b.perfil.faturamento || 0) - (+a.perfil.faturamento || 0),
       nome: (a, b) => (a.lead.nome || '').localeCompare(b.lead.nome || '', 'pt-BR')}[ordem];
     return L.slice().sort(f);
   }
@@ -387,16 +524,24 @@
         <td><div class="nome">${esc(l.nome) || '—'}${ehTeste(e) ? '<span class="tag-t">teste</span>' : ''}${r > 1 ? `<span class="tag-r" title="Mesmo e-mail ou WhatsApp em ${r} diagnósticos">repetido ×${r}</span>` : ''}${(e.notas || []).length ? `<span class="tag-n" title="Anotações">✎ ${e.notas.length}</span>` : ''}${rdTag(e)}</div></td>
         <td>${link ? `<a href="${link}" target="_blank" rel="noopener">${esc(l.telefone)}</a>` : '—'}</td>
         <td>${l.email ? `<a href="mailto:${esc(l.email)}">${esc(l.email)}</a>` : '—'}</td>
-        <td>${p.nome ? `<div class="nome">${esc(p.nome)}</div>` : ''}${esc(setorDe(p) || '—')}<div class="sub">${esc(p.estado || p.uf || '')} · ${esc(REG2[p.regime] || p.regime || '')}</div></td>
+        ${ehEngr() ? `<td>${esc(cargoTxt(p.cargo) || '—')}${piorDe(e) ? `<div class="sub">trava: ${esc(piorDe(e).nome)}</div>` : ''}</td>`
+          : `<td>${p.nome ? `<div class="nome">${esc(p.nome)}</div>` : ''}${esc(setorDe(p) || '—')}<div class="sub">${esc(p.estado || p.uf || '')} · ${esc(REG2[p.regime] || p.regime || '')}</div></td>`}
         <td>${esc(faixaDe(p.faturamento)) || '—'}</td>
         <td>${esc(funcTxt(p.funcionarios)) || '—'}</td>
         <td>${lixeira ? '<span class="st st-perdido">Na lixeira</span>' : `<select class="etapa-sel" data-et-id="${esc(e.id)}" aria-label="Etapa">${opcoesEtapa(e.status)}</select>`}</td>
-        <td class="num val">${brl(e.res.total)}</td></tr>`;
+        ${ehEngr() ? `<td class="num val ${stEng(notaMaq(e))}" title="${RES_TXT[resMaq(e)]}">${notaMaq(e)}%</td>` : `<td class="num val">${brl(e.res.total)}</td>`}</tr>`;
       if(aberto === e.id){
         const sinais = Object.entries(OPER).filter(([k]) => +p[k]).map(([, n]) => `<span>${esc(n)}</span>`).join('') || '<span>Nenhum</span>';
         const naoF = Object.entries(AUD).filter(([k]) => !+p[k]).map(([, n]) => `<span>${esc(n)}</span>`).join('') || '<span>Tudo em dia</span>';
         const notas = (e.notas || []).slice().reverse().map(n => `<li><small>${esc(n.por)} · ${quandoAno(n.em)}</small><p>${esc(n.texto)}</p><button data-tirar="${esc(n.id)}" title="Apagar anotação" aria-label="Apagar anotação">×</button></li>`).join('');
-        const numeros = ehCurto()
+        const origem = `<h4 style="margin-top:16px">Origem</h4><div class="chips">${Object.entries(e.utm || {}).map(([k, v]) => `<span>${esc(k)}: ${esc(v)}</span>`).join('') || '<span>Direto / sem UTM</span>'}${e.pagina ? `<span>página: ${esc(e.pagina)}</span>` : ''}</div>`;
+        const nao = ehEngr() ? ENG_ORD.flatMap(g => g.qs.filter((q, i) => (respostasDe(e)[g.id - 1] || '')[i] === '0').map(q => `<span title="${esc(g.nome)}">${esc(q)}</span>`)).join('') : '';
+        const numeros = ehEngr()
+          ? `<li><span>Nota da máquina</span><span class="c-${stEng(notaMaq(e))}">${notaMaq(e)}% · ${RES_TXT[resMaq(e)]}</span></li>
+            <li><span>Travadas · rangendo</span><span>${+p.travadas || 0} · ${+p.rangendo || 0}</span></li>
+            <li><span>Faturamento · funcionários</span><span>${esc(faixaDe(p.faturamento) || '—')} · ${esc(funcTxt(p.funcionarios) || '—')}</span></li>
+            <li><span>Cargo</span><span>${esc(cargoTxt(p.cargo) || '—')}</span></li>`
+          : ehCurto()
           ? `<li><span>Economia por ano</span><span>${brl(e.res.economia)}</span></li>
             <li><span>Recuperável</span><span>${brl(e.res.recuperacao)}</span></li>
             <li><span>Faturamento · funcionários</span><span>${esc(faixaDe(p.faturamento) || '—')} · ${esc(funcTxt(p.funcionarios) || '—')}</span></li>`
@@ -405,7 +550,9 @@
             <li><span>Faturamento por mês</span><span>${p.faturamento ? brl(p.faturamento) : '—'}</span></li>
             <li><span>Funcionários CLT · anos de empresa</span><span>${esc(p.funcionarios)} · ${esc(p.anos)}+</span></li>
             ${+p.divida ? `<li><span>Dívida fiscal informada</span><span>${brl(p.passivo_valor)}</span></li>` : ''}`;
-        const meio = ehCurto()
+        const meio = ehEngr()
+          ? `<div><h4>Respondeu "Não é a minha empresa"</h4><div class="chips">${nao || '<span>Nenhuma pergunta</span>'}</div>${origem}</div>`
+          : ehCurto()
           ? `<div><h4>Respostas</h4><ul>${PERGUNTAS.filter(([k]) => p[k] != null && p[k] !== '').map(([k, n]) => `<li><span>${esc(n)}</span><span>${esc(respTxt(k, p[k]))}</span></li>`).join('')}</ul>
             <h4 style="margin-top:16px">Origem</h4><div class="chips">${Object.entries(e.utm || {}).map(([k, v]) => `<span>${esc(k)}: ${esc(v)}</span>`).join('') || '<span>Direto / sem UTM</span>'}${e.pagina ? `<span>página: ${esc(e.pagina)}</span>` : ''}</div></div>`
           : `<div><h4>Como opera</h4><div class="chips">${sinais}</div>
@@ -414,7 +561,9 @@
         const rdLinha = !e.rd ? (rdLigado ? ' · ainda não foi para o RD' : '') : e.rd.status.startsWith('ok') ? ` · enviado ao RD em ${quandoAno(e.rd.em)}${e.rd.status === 'ok-sem-campos' ? ' (sem faturamento/funcionários)' : ''}`
           : e.rd.status.startsWith('erro') ? ` · RD: ${esc(e.rd.status.replace(/^erro: /, ''))}` : ' · enviando ao RD';
         h += `<tr class="det"><td colspan="10"><div class="det-g">
-          <div><h4>Oportunidades encontradas (${e.res.nOpps})</h4><ul>${(e.res.top || []).map(o => `<li><span>${esc(o.nome)}</span><span>${brl(o.val)}</span></li>`).join('') || '<li>—</li>'}</ul>
+          ${ehEngr()
+            ? `<div><h4>Engrenagens (da mais travada)</h4><ul>${(e.res.top || []).map(o => `<li><span>${esc(o.nome)}</span><span class="c-${stEng(o.val)}">${Math.round(o.val)}% · ${ST_TXT[stEng(o.val)]}</span></li>`).join('') || '<li>—</li>'}</ul>`
+            : `<div><h4>Oportunidades encontradas (${e.res.nOpps})</h4><ul>${(e.res.top || []).map(o => `<li><span>${esc(o.nome)}</span><span>${brl(o.val)}</span></li>`).join('') || '<li>—</li>'}</ul>`}
             <h4 style="margin-top:16px">Números</h4><ul>${numeros}</ul></div>
           ${meio}
           <div class="gest">
@@ -521,6 +670,17 @@
 
   function baixaCSV(lista){
     const L = lista || listaLeads(), cel = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    if(ehEngr()){
+      const cab = ['data', 'nome', 'email', 'whatsapp', 'faturamento_mes', 'funcionarios', 'cargo', 'nota_maquina', 'resultado', 'travadas', 'rangendo',
+        ...ENG_ORD.map(g => 'nota_' + numEng(g) + '_' + g.nome.normalize('NFD').replace(/[^\w ]/g, '').trim().toLowerCase().replace(/\s+/g, '_')),
+        'mais_trava', 'respostas', 'etapa', 'teste', 'rd_station', 'anotacoes', 'pagina', 'utm_source', 'utm_campaign', 'utm_content'];
+      const linhas = L.map(e => { const p = e.perfil;
+        return [quandoAno(e.ts), e.lead.nome, e.lead.email, e.lead.telefone, faixaDe(p.faturamento), funcTxt(p.funcionarios), cargoTxt(p.cargo), notaMaq(e), RES_TXT[resMaq(e)],
+          +p.travadas || 0, +p.rangendo || 0, ...ENG_ORD.map(g => notaEng(e, g.id)), (piorDe(e) || {}).nome, p.respostas,
+          e.excluido ? 'lixeira' : ETAPAS[e.status] || '', ehTeste(e) ? 'sim' : 'não', e.rd ? e.rd.status : '',
+          (e.notas || []).map(n => `[${quandoAno(n.em)} ${n.por}] ${n.texto}`).join(' | '), e.pagina, (e.utm || {}).source, (e.utm || {}).campaign, (e.utm || {}).content].map(cel).join(';'); });
+      return salvaCSV(cab, linhas);
+    }
     if(ehCurto()){
       const cab = ['data', 'nome', 'email', 'whatsapp', 'faturamento_mes', 'funcionarios', 'regime', 'setor', 'estado', 'cnpjs', 'vende_para', 'revisao_regime', 'dono_sumir_15_dias',
         'lucro_de_100', 'folha', 'identificado', 'economia_ano', 'recuperavel', 'etapa', 'teste', 'rd_station', 'anotacoes', 'pagina', 'utm_source', 'utm_campaign', 'utm_content'];
@@ -580,7 +740,9 @@
   function mostraProjeto(){
     const p = proj();
     document.body.classList.toggle('f-curto', p.formato === 'curto');
-    document.body.classList.toggle('f-completo', p.formato !== 'curto');
+    document.body.classList.toggle('f-engr', p.formato === 'engrenagens');
+    document.body.classList.toggle('f-completo', p.formato !== 'curto' && p.formato !== 'engrenagens');
+    $('#ordemValor').textContent = p.formato === 'engrenagens' ? 'Máquina mais travada' : 'Maior valor identificado';
     $('#projNome').textContent = p.nome;
     $('#pill').textContent = p.nome + ' · ao vivo';
     document.title = 'Resultômetro | ' + p.nome;

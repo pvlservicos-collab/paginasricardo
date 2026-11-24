@@ -259,10 +259,10 @@ td.dir{font:600 13px var(--mono);font-variant-numeric:tabular-nums;white-space:n
 @font-face{font-family:"Geist Mono";font-style:normal;font-weight:400 700;font-display:swap;src:url(/wp-content/uploads/fonts/xm-geistmono.woff2) format("woff2")}
 .login .lg-campo{display:block}
 .login .lg-campo input{width:100%}
-body:not(.t-xequemate):not(.t-tributario-raiox) .login .lg-t{display:none}
-body:not(.t-xequemate):not(.t-tributario-raiox) .login .lg-capa{width:min(380px,100%)}
-body.t-xequemate .login .lg-padrao,body.t-tributario-raiox .login .lg-padrao{display:none}
-body.t-xequemate .login,body.t-tributario-raiox .login{
+body:not(.t-xequemate):not(.t-tributario-raiox):not(.t-maquinadevendas) .login .lg-t{display:none}
+body:not(.t-xequemate):not(.t-tributario-raiox):not(.t-maquinadevendas) .login .lg-capa{width:min(380px,100%)}
+body.t-xequemate .login .lg-padrao,body.t-tributario-raiox .login .lg-padrao,body.t-maquinadevendas .login .lg-padrao{display:none}
+body.t-xequemate .login,body.t-tributario-raiox .login,body.t-maquinadevendas .login{
   --acc:#FE0026;--acc2:#FE0026;--acc-d:#B8001C;--cta:#FE0026;--cta-tx:#fff;--cta-hv:#B8001C;--fx:#FE0026;
   --l-disp:"Bricolage Grotesque",system-ui,sans-serif;--l-sans:"Rethink Sans",system-ui,sans-serif;--l-mono:"JetBrains Mono",ui-monospace,monospace;
   display:flex;flex-direction:column;align-items:stretch;place-items:initial;padding:0;font-family:var(--l-sans);
@@ -276,40 +276,40 @@ body.t-xequemate .login{--acc:#C28D39;--acc2:#D9AB5E;--cta:#00F000;--cta-tx:#0D0
 .login .lg-topo img{height:30px;width:auto;display:block}
 body.t-xequemate .login .lg-topo img{height:46px}
 .login .lg-tag{font:500 11px var(--l-mono);letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.66)}
-body.t-xequemate .login .lg-capa,body.t-tributario-raiox .login .lg-capa{flex:1;width:min(1180px,calc(100vw - 32px));margin:0 auto;display:grid;grid-template-columns:minmax(0,460px) minmax(0,1fr);gap:48px;align-items:center;padding:48px 0}
-body.t-xequemate .login form,body.t-tributario-raiox .login form{background:none;border:0;padding:0;width:100%;gap:0}
+body.t-xequemate .login .lg-capa,body.t-tributario-raiox .login .lg-capa,body.t-maquinadevendas .login .lg-capa{flex:1;width:min(1180px,calc(100vw - 32px));margin:0 auto;display:grid;grid-template-columns:minmax(0,460px) minmax(0,1fr);gap:48px;align-items:center;padding:48px 0}
+body.t-xequemate .login form,body.t-tributario-raiox .login form,body.t-maquinadevendas .login form{background:none;border:0;padding:0;width:100%;gap:0}
 .login .lg-pill{display:inline-flex;align-self:flex-start;align-items:center;gap:9px;font:500 11px var(--l-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--acc2);
   border:1px solid color-mix(in srgb,var(--acc) 55%,transparent);background:color-mix(in srgb,var(--acc) 8%,transparent);border-radius:999px;padding:9px 14px}
 .login .lg-pill i{width:6px;height:6px;border-radius:50%;background:var(--acc2);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 25%,transparent)}
-body.t-xequemate .login h1,body.t-tributario-raiox .login h1{font:800 clamp(40px,4.6vw,58px)/1.02 var(--l-disp);letter-spacing:-.035em;text-transform:none;text-align:left;margin:22px 0 16px}
+body.t-xequemate .login h1,body.t-tributario-raiox .login h1,body.t-maquinadevendas .login h1{font:800 clamp(40px,4.6vw,58px)/1.02 var(--l-disp);letter-spacing:-.035em;text-transform:none;text-align:left;margin:22px 0 16px}
 body.t-xequemate .login h1{font-weight:500;line-height:1;letter-spacing:-.04em}
 .login h1 em{font-style:normal;color:var(--acc2);display:block}
-body.t-xequemate .login p,body.t-tributario-raiox .login p{text-align:left;margin:0 0 26px;font-size:clamp(15px,1.4vw,17px);line-height:1.55;color:rgba(255,255,255,.78)}
-body.t-xequemate .login .lg-campo,body.t-tributario-raiox .login .lg-campo{margin-bottom:14px}
+body.t-xequemate .login p,body.t-tributario-raiox .login p,body.t-maquinadevendas .login p{text-align:left;margin:0 0 26px;font-size:clamp(15px,1.4vw,17px);line-height:1.55;color:rgba(255,255,255,.78)}
+body.t-xequemate .login .lg-campo,body.t-tributario-raiox .login .lg-campo,body.t-maquinadevendas .login .lg-campo{margin-bottom:14px}
 .login .lg-campo > span{display:block;font:500 11px var(--l-mono);letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.66);margin-bottom:8px}
-body.t-xequemate .login input,body.t-tributario-raiox .login input{background:#161412;border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:16px;font:500 16px var(--l-sans);color:#fff}
-body.t-tributario-raiox .login input{background:#141414}
-body.t-xequemate .login input:focus,body.t-tributario-raiox .login input:focus{outline:none;border-color:#fff}
-body.t-xequemate .login .lg-cta,body.t-tributario-raiox .login .lg-cta{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;margin-top:10px;min-height:56px;border-radius:6px;background:var(--cta);color:var(--cta-tx);font:700 16px var(--l-sans);transition:background .16s,transform .16s,box-shadow .16s}
+body.t-xequemate .login input,body.t-tributario-raiox .login input,body.t-maquinadevendas .login input{background:#161412;border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:16px;font:500 16px var(--l-sans);color:#fff}
+body.t-tributario-raiox .login input,body.t-maquinadevendas .login input{background:#141414}
+body.t-xequemate .login input:focus,body.t-tributario-raiox .login input:focus,body.t-maquinadevendas .login input:focus{outline:none;border-color:#fff}
+body.t-xequemate .login .lg-cta,body.t-tributario-raiox .login .lg-cta,body.t-maquinadevendas .login .lg-cta{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;margin-top:10px;min-height:56px;border-radius:6px;background:var(--cta);color:var(--cta-tx);font:700 16px var(--l-sans);transition:background .16s,transform .16s,box-shadow .16s}
 body.t-xequemate .login .lg-cta{border-radius:10px;font:700 16px/1 var(--l-mono);letter-spacing:-.02em;text-transform:uppercase;box-shadow:0 10px 24px -14px rgba(0,240,0,.55)}
-body.t-xequemate .login .lg-cta:hover,body.t-tributario-raiox .login .lg-cta:hover{background:var(--cta-hv);transform:translateY(-1px)}
-body.t-xequemate .login .erro,body.t-tributario-raiox .login .erro{text-align:left;margin-top:12px;color:#FF6B5E}
+body.t-xequemate .login .lg-cta:hover,body.t-tributario-raiox .login .lg-cta:hover,body.t-maquinadevendas .login .lg-cta:hover{background:var(--cta-hv);transform:translateY(-1px)}
+body.t-xequemate .login .erro,body.t-tributario-raiox .login .erro,body.t-maquinadevendas .login .erro{text-align:left;margin-top:12px;color:#FF6B5E}
 .login .lg-leao{position:relative;align-self:stretch;min-height:520px;-webkit-mask-image:radial-gradient(50% 50% at 50% 48%,#000 52%,transparent 100%);mask-image:radial-gradient(50% 50% at 50% 48%,#000 52%,transparent 100%)}
 .login .lg-leao img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 40%;filter:grayscale(1) contrast(1.1) brightness(.85)}
 body.t-xequemate .login .lg-leao img{filter:grayscale(1) sepia(.25) contrast(1.1) brightness(.82)}
 @media (max-width:820px){
-  body.t-xequemate .login .lg-capa,body.t-tributario-raiox .login .lg-capa{grid-template-columns:1fr;gap:0;padding:0 0 32px}
+  body.t-xequemate .login .lg-capa,body.t-tributario-raiox .login .lg-capa,body.t-maquinadevendas .login .lg-capa{grid-template-columns:1fr;gap:0;padding:0 0 32px}
   .login .lg-leao{order:-1;min-height:0;width:calc(100% + 32px);height:0;padding-top:60%;margin:0 -16px -40px;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 18%,#000 55%,transparent);mask-image:linear-gradient(to bottom,transparent 0,#000 18%,#000 55%,transparent)}
   .login .lg-topo{padding:14px 16px}.login .lg-topo img{height:24px}body.t-xequemate .login .lg-topo img{height:38px}
   .login .lg-faixa{font-size:10.5px;letter-spacing:.6px}
-  body.t-xequemate .login h1,body.t-tributario-raiox .login h1{font-size:min(42px,calc((100vw - 32px) / 9.6))}
+  body.t-xequemate .login h1,body.t-tributario-raiox .login h1,body.t-maquinadevendas .login h1{font-size:min(42px,calc((100vw - 32px) / 9.6))}
 }
 
 /* BRG só no Raio-X Tributário (primeiro da lista) */
 body:not(.p-tributario) .marcas img.brg,body:not(.p-tributario) .marcas img.brg + i,body:not(.p-tributario) .marcas i:has(+ img.brg),body:not(.p-tributario) .so-brg{display:none}
 
 /* ---------- projetos (menu do canto direito) ---------- */
-.f-curto .so-trib,.f-completo .so-curto{display:none!important}
+body:not(.f-completo) .so-trib,body:not(.f-curto) .so-curto,body:not(.f-engr) .so-engr,body.f-completo .so-ce,body.f-engr .no-engr{display:none!important}
 .proj{position:relative;flex-shrink:0}
 .proj-btn{display:flex;align-items:center;gap:8px;border:1px solid var(--line2);background:var(--s1);border-radius:999px;padding:8px 12px 8px 14px;font-size:12.5px;font-weight:700;color:#fff;max-width:240px}
 .proj-btn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -360,6 +360,64 @@ body:not(.p-tributario) .marcas img.brg,body:not(.p-tributario) .marcas img.brg 
 @media (max-width:760px){.rd-proj{grid-template-columns:1fr}.proj-btn{max-width:170px}.integ-btn{min-width:0;width:100%}}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- Raio-X Máquina de Vendas (formato engrenagens): cores de status do quiz ---------- */
+body{--jam:#FF5F57;--mid:#F0A04B;--okk:#8EE3B0}
+.maq{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:32px;align-items:center;max-width:1080px;margin:36px auto 0;text-align:left}
+.maq-svg svg{width:100%;max-width:480px;display:block;margin:0 auto;overflow:visible}
+.maq-svg .anel{fill:none;stroke:rgba(255,255,255,.08);stroke-width:3}
+.maq-svg .anel-v{fill:none;stroke-width:4;stroke-linecap:round}
+.maq-svg .t{font:500 10px var(--mono);letter-spacing:.24em;fill:var(--ink3);text-anchor:middle}
+.g path,.g circle,.g line{fill:none;stroke:rgba(255,255,255,.6);stroke-width:1.5;vector-effect:non-scaling-stroke;transition:stroke .4s,fill .4s}
+.g .body{fill:rgba(255,255,255,.03)}
+.g .hub{fill:var(--bg)}
+.g text{font-family:var(--mono);fill:#fff;text-anchor:middle;dominant-baseline:central}
+.g .pct{fill:var(--ink2)}
+.g .rot{transform-box:fill-box;transform-origin:center;animation:gira var(--t,20s) linear infinite;animation-direction:var(--dir,normal)}
+.g.jam .rot{animation:trava 2.6s var(--ease) infinite}
+@keyframes gira{to{transform:rotate(360deg)}}
+@keyframes trava{0%,72%,100%{transform:rotate(0)}76%{transform:rotate(6deg)}80%{transform:rotate(-2deg)}}
+.g.jam path,.g.jam circle,.g.jam line{stroke:var(--jam)}.g.jam .body{fill:rgba(255,95,87,.14)}
+.g.mid path,.g.mid circle,.g.mid line{stroke:var(--mid)}.g.mid .body{fill:rgba(240,160,75,.12)}
+.g.okk path,.g.okk circle,.g.okk line{stroke:var(--okk)}.g.okk .body{fill:rgba(142,227,176,.08)}
+.maq-lista{display:flex;flex-direction:column;gap:9px}
+.eng{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:6px 12px;align-items:center;background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:11px 16px}
+.eng i{font:500 11px var(--mono);color:var(--ink3);font-style:normal}
+.eng b{font:700 15px var(--disp);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eng .p{font:700 19px var(--mono);font-variant-numeric:tabular-nums}
+.eng .s{grid-column:2/-1;display:flex;align-items:center;gap:10px}
+.eng .s span{font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;width:78px;flex-shrink:0}
+.eng .s em{flex:1;height:5px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden}
+.eng .s em u{display:block;height:100%;border-radius:4px;transition:width .6s var(--ease)}
+.c-jam{color:var(--jam)}.c-mid{color:var(--mid)}.c-okk{color:var(--okk)}
+.b-jam{background:var(--jam)}.b-mid{background:var(--mid)}.b-okk{background:var(--okk)}
+.barra.jam .t i{background:var(--jam)}.barra.mid .t i{background:var(--mid)}.barra.okk .t i{background:var(--okk)}
+.pilhas{display:flex;flex-direction:column;gap:12px}
+.pilha{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 12px;align-items:center}
+.pilha .n{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pilha .q{font:600 11.5px var(--mono);color:var(--ink3);font-variant-numeric:tabular-nums}
+.pilha .t{grid-column:1/-1;display:flex;height:8px;border-radius:5px;overflow:hidden;background:rgba(255,255,255,.06);gap:2px}
+.pilha .t i{display:block;height:100%}
+.leg{display:flex;gap:14px;font:500 11px var(--mono);color:var(--ink3);margin:-6px 0 14px;flex-wrap:wrap}
+.leg span{display:flex;align-items:center;gap:6px}.leg span::before{content:"";width:9px;height:9px;border-radius:3px;background:currentColor}
+td.val.jam{color:var(--jam)}td.val.mid{color:var(--mid)}td.val.okk{color:var(--okk)}
+.kpi .v.txt{font-size:clamp(20px,2vw,26px)}
+@media (max-width:860px){.maq{grid-template-columns:1fr}}
+/* login com a cara do quiz (verde-escuro e dourado) */
+body.t-maquinadevendas .login{--acc:#D9B54F;--acc2:#E2BE5C;--cta:linear-gradient(100deg,#F4DE8A 0%,#E2BE5C 45%,#C99A35 100%);--cta-tx:#07170F;--cta-hv:linear-gradient(100deg,#F8E9AE 0%,#EAC86A 45%,#D4A63E 100%);
+  --l-disp:"Manrope",system-ui,sans-serif;--l-sans:"Manrope",system-ui,sans-serif;--l-mono:"Geist Mono",ui-monospace,monospace;
+  background:#07170F;background-image:radial-gradient(55% 45% at 85% 0%,rgba(217,181,79,.12),transparent 70%),radial-gradient(50% 40% at 0% 100%,rgba(3,13,7,.9),transparent 70%)}
+body.t-maquinadevendas .login h1{font-weight:300;letter-spacing:-.03em}
+body.t-maquinadevendas .login h1 em{font-family:"DM Serif Display",Georgia,serif;font-style:italic;font-weight:400;background:linear-gradient(100deg,#F4DE8A,#D9B54F 55%,#B8892C);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;padding-right:.05em}
+body.t-maquinadevendas .login input{background:#0C2118}
+body.t-maquinadevendas .login .lg-topo img{height:44px}
+body.t-maquinadevendas .login .lg-leao{-webkit-mask-image:none;mask-image:none;display:grid;place-items:center}
+body.t-maquinadevendas .login .lg-leao img{display:none}
+body.t-maquinadevendas .login .lg-leao svg{width:min(100%,500px);height:auto;overflow:visible}
+@media (max-width:820px){
+  body.t-maquinadevendas .login .lg-leao{height:auto;padding-top:0;margin:8px auto -6px;width:62%}
+  body.t-maquinadevendas .login .lg-topo img{height:32px}
+}
 </style>
 </head>
 <body>
@@ -409,15 +467,17 @@ body:not(.p-tributario) .marcas img.brg,body:not(.p-tributario) .marcas img.brg 
     <section class="hero wrap">
       <span class="pill" id="pill">Raio-X Tributário · ao vivo</span>
       <h1>Resultô<span>metro</span></h1>
-      <p class="sub">Soma dos créditos e da economia que o Raio-X encontrou para os empresários que fizeram o diagnóstico.</p>
-      <div class="medidor">
+      <p class="sub no-engr">Soma dos créditos e da economia que o Raio-X encontrou para os empresários que fizeram o diagnóstico.</p>
+      <p class="sub so-engr">Como estão as 7 engrenagens das empresas que fizeram o diagnóstico: média de cada uma, de 0 a 100%.</p>
+      <div class="maq so-engr"><div class="maq-svg" id="maqSvg"></div><div class="maq-lista" id="maqLista"></div></div>
+      <div class="medidor no-engr">
         <div class="tag">A recuperar</div>
         <div class="faixa" id="odoTotal"></div>
       </div>
       <div class="contador">
         <div class="mini"><div class="digs" id="odoPessoas"></div><div class="rot"><b>empresários</b>preencheram o Raio-X<br><em id="hojeTxt">+0 hoje</em></div></div>
-        <div class="mini"><div class="rot"><b id="mediaTxt">R$ 0</b>em média por empresa</div></div>
-        <div class="mini"><div class="rot"><b id="maiorTxt">R$ 0</b>maior diagnóstico</div></div>
+        <div class="mini"><div class="rot"><b id="mediaTxt">R$ 0</b><span id="mediaRot">em média por empresa</span></div></div>
+        <div class="mini"><div class="rot"><b id="maiorTxt">R$ 0</b><span id="maiorRot">maior diagnóstico</span></div></div>
       </div>
     </section>
 
@@ -435,6 +495,12 @@ body:not(.p-tributario) .marcas img.brg,body:not(.p-tributario) .marcas img.brg 
         <div class="card kpi"><div class="k">Qualificados</div><div class="v" id="kQ2">0</div><div class="d"><em id="kQp2">0%</em> faturam R$ 200 mil+/mês</div></div>
         <div class="card kpi"><div class="k">Pontos por empresa</div><div class="v" id="kOpp2">0</div><div class="d">média encontrada pelo Raio-X</div></div>
       </div>
+      <div class="kpis so-engr">
+        <div class="card kpi"><div class="k">Nota média da máquina</div><div class="v" id="kMed">0%</div><div class="d">média das 7 engrenagens, de 0 a 100%</div></div>
+        <div class="card kpi"><div class="k">Máquinas travando</div><div class="v" id="kTrav">0%</div><div class="d"><em id="kTravN">0</em> com média abaixo de 40% ou 3+ travadas</div></div>
+        <div class="card kpi"><div class="k">Engrenagem que mais trava</div><div class="v txt" id="kPior">—</div><div class="d">nota média <em id="kPiorP">0%</em></div></div>
+        <div class="card kpi"><div class="k">Qualificados</div><div class="v" id="kQ3">0</div><div class="d"><em id="kQp3">0%</em> faturam R$ 200 mil+/mês</div></div>
+      </div>
       <div class="kpis so-trib">
         <div class="card kpi"><div class="k">Recuperação retroativa</div><div class="v" id="kRec">R$ 0</div><div class="d">créditos dos últimos 5 anos</div></div>
         <div class="card kpi"><div class="k">Benefícios fiscais</div><div class="v" id="kBen">R$ 0</div><div class="d">programas estaduais e municipais</div></div>
@@ -446,13 +512,19 @@ body:not(.p-tributario) .marcas img.brg,body:not(.p-tributario) .marcas img.brg 
         <div class="card c8"><h3>Diagnósticos por dia <small id="linhaLeg">envios</small></h3><div class="grafico" id="gLinha"></div></div>
         <div class="card c4"><h3>Faturamento por mês <small>empresas</small></h3><div class="barras" id="bFat"></div></div>
 
-        <div class="card c4"><h3>Regime <small>empresas</small></h3><div class="barras" id="bReg"></div></div>
-        <div class="card c4"><h3>Setor <small>top 8</small></h3><div class="barras" id="bSet"></div></div>
-        <div class="card c4"><h3>Estado <small>top 8</small></h3><div class="barras" id="bUf"></div></div>
+        <div class="card c6 so-engr"><h3>Nota média por engrenagem <small>0 a 100%</small></h3><div class="barras" id="bEngr"></div></div>
+        <div class="card c6 so-engr"><h3>Situação de cada engrenagem <small>% das empresas</small></h3><div class="leg"><span class="c-jam">Travada (até 39%)</span><span class="c-mid">Rangendo (40–69%)</span><span class="c-okk">Girando (70%+)</span></div><div class="pilhas" id="bSit"></div></div>
+        <div class="card c4 so-engr"><h3>Resultado da máquina <small>empresas</small></h3><div class="barras" id="bRes"></div></div>
+        <div class="card c4 so-engr"><h3>Engrenagem que mais trava <small>empresas</small></h3><div class="barras" id="bPior"></div></div>
+        <div class="card c4 so-engr"><h3>Cargo <small>empresas</small></h3><div class="barras" id="bCargo"></div></div>
+        <div class="card c6 so-engr"><h3>Perguntas com nota mais baixa <small>média 0 a 100%</small></h3><div class="barras" id="bPerg"></div></div>
+        <div class="card c4 no-engr"><h3>Regime <small>empresas</small></h3><div class="barras" id="bReg"></div></div>
+        <div class="card c4 no-engr"><h3>Setor <small>top 8</small></h3><div class="barras" id="bSet"></div></div>
+        <div class="card c4 no-engr"><h3>Estado <small>top 8</small></h3><div class="barras" id="bUf"></div></div>
 
-        <div class="card c6"><h3>Oportunidades mais encontradas <small>soma R$</small></h3><div class="barras" id="bOpp"></div></div>
+        <div class="card c6 no-engr"><h3>Oportunidades mais encontradas <small>soma R$</small></h3><div class="barras" id="bOpp"></div></div>
         <div class="card c6 so-trib"><h3>Auditoria do dono <small>% que respondeu "não"</small></h3><div class="barras" id="bAud"></div></div>
-        <div class="card c6 so-curto"><h3>Funcionários <small>empresas</small></h3><div class="barras" id="bFunc"></div></div>
+        <div class="card c6 so-ce"><h3>Funcionários <small>empresas</small></h3><div class="barras" id="bFunc"></div></div>
 
         <div class="card c6 so-trib"><h3>Como a empresa opera <small>% que marcou</small></h3><div class="barras" id="bOp"></div></div>
         <div class="card c4 so-curto"><h3>CNPJs <small>empresas</small></h3><div class="barras" id="bCnpj"></div></div>
@@ -462,7 +534,7 @@ body:not(.p-tributario) .marcas img.brg,body:not(.p-tributario) .marcas img.brg 
         <div class="card c4 so-curto"><h3>Lucro de cada R$ 100 <small>empresas</small></h3><div class="barras" id="bMargem"></div></div>
         <div class="card c4 so-curto"><h3>Folha + pró-labore <small>% do faturamento</small></h3><div class="barras" id="bFolha"></div></div>
         <div class="card c6"><h3>Origem <small>utm_source · campanha</small></h3><div class="barras" id="bOri"></div></div>
-        <div class="card c6 so-curto"><h3>Página <small>diagnósticos</small></h3><div class="barras" id="bPag"></div></div>
+        <div class="card c6 so-ce"><h3>Página <small>diagnósticos</small></h3><div class="barras" id="bPag"></div></div>
       </div>
     </section>
   </main>
@@ -475,7 +547,7 @@ body:not(.p-tributario) .marcas img.brg,body:not(.p-tributario) .marcas img.brg 
         <input class="busca" id="busca" type="search" placeholder="Buscar nome, e-mail, telefone, setor, anotação…">
         <select class="sel" id="ordem" aria-label="Ordenar">
           <option value="recente">Mais recentes</option><option value="antigo">Mais antigos</option>
-          <option value="valor">Maior valor identificado</option><option value="fat">Maior faturamento</option><option value="nome">Nome (A–Z)</option>
+          <option value="valor" id="ordemValor">Maior valor identificado</option><option value="fat">Maior faturamento</option><option value="nome">Nome (A–Z)</option>
         </select>
         <button class="btn-r" id="csv">Baixar CSV</button>
       </div>
@@ -489,7 +561,7 @@ body:not(.p-tributario) .marcas img.brg,body:not(.p-tributario) .marcas img.brg 
       </div>
       <div class="etapas" id="etapas"></div>
       <div class="tabela"><table>
-        <thead><tr><th class="ck"><input type="checkbox" id="selTodos" aria-label="Selecionar todos"></th><th>Quando</th><th>Nome</th><th>WhatsApp</th><th>E-mail</th><th>Empresa</th><th>Faturamento/mês</th><th>Funcionários</th><th>Etapa</th><th style="text-align:right">Identificado</th></tr></thead>
+        <thead><tr><th class="ck"><input type="checkbox" id="selTodos" aria-label="Selecionar todos"></th><th>Quando</th><th>Nome</th><th>WhatsApp</th><th>E-mail</th><th><span class="no-engr">Empresa</span><span class="so-engr">Cargo</span></th><th>Faturamento/mês</th><th>Funcionários</th><th>Etapa</th><th style="text-align:right"><span class="no-engr">Identificado</span><span class="so-engr">Nota</span></th></tr></thead>
         <tbody id="tLeads"></tbody>
       </table></div>
       <div class="mais esc"><button class="btn-l" id="mais">Mostrar mais</button></div>
@@ -521,14 +593,21 @@ body:not(.p-tributario) .marcas img.brg,body:not(.p-tributario) .marcas img.brg 
       <div class="kpis">
         <div class="card kpi"><div class="k">Diagnósticos</div><div class="v" id="cN">0</div><div class="d"><em id="c7">0</em> nos últimos 7 dias</div></div>
         <div class="card kpi"><div class="k">Qualificados</div><div class="v" id="cQ">0</div><div class="d"><em id="cQp">0%</em> faturam R$ 200 mil+/mês</div></div>
-        <div class="card kpi"><div class="k">Identificado nos qualificados</div><div class="v" id="cQv">R$ 0</div><div class="d">média <em id="cQm">R$ 0</em> por empresa</div></div>
-        <div class="card kpi"><div class="k">Deixaram WhatsApp</div><div class="v" id="cW">0%</div><div class="d so-trib"><em id="cDiv">0%</em> com dívida fiscal ativa</div><div class="d so-curto"><em id="cF10">0%</em> com 10+ funcionários</div></div>
+        <div class="card kpi so-engr"><div class="k">Nota dos qualificados</div><div class="v" id="cQn">0%</div><div class="d">nos demais: <em id="cQo">0%</em></div></div>
+        <div class="card kpi no-engr"><div class="k">Identificado nos qualificados</div><div class="v" id="cQv">R$ 0</div><div class="d">média <em id="cQm">R$ 0</em> por empresa</div></div>
+        <div class="card kpi"><div class="k">Deixaram WhatsApp</div><div class="v" id="cW">0%</div><div class="d so-trib"><em id="cDiv">0%</em> com dívida fiscal ativa</div><div class="d so-ce"><em id="cF10">0%</em> com 10+ funcionários</div></div>
       </div>
       <div class="kpis so-curto" style="margin-top:14px">
         <div class="card kpi"><div class="k">Economia por ano</div><div class="v" id="cEco2">R$ 0</div><div class="d">somando todas as empresas</div></div>
         <div class="card kpi"><div class="k">Recuperável</div><div class="v" id="cRec2">R$ 0</div><div class="d">pago a mais nos últimos anos</div></div>
         <div class="card kpi"><div class="k">Pontos por empresa</div><div class="v" id="cOpp2">0</div><div class="d">média encontrada pelo Raio-X</div></div>
         <div class="card kpi"><div class="k">Faturamento médio</div><div class="v" id="cFat2">R$ 0</div><div class="d">por mês, pelo meio de cada faixa</div></div>
+      </div>
+      <div class="kpis so-engr" style="margin-top:14px">
+        <div class="card kpi"><div class="k">Máquinas girando</div><div class="v" id="cGir">0%</div><div class="d">média de 70% ou mais</div></div>
+        <div class="card kpi"><div class="k">Engrenagens travadas</div><div class="v" id="cJam">0</div><div class="d">em média por empresa, de 7</div></div>
+        <div class="card kpi"><div class="k">Sócios e CEOs</div><div class="v" id="cDono">0%</div><div class="d">sócio, fundador, presidente ou CEO</div></div>
+        <div class="card kpi"><div class="k">Faturamento médio</div><div class="v" id="cFat3">R$ 0</div><div class="d">por mês, pelo meio de cada faixa</div></div>
       </div>
       <div class="kpis so-trib" style="margin-top:14px">
         <div class="card kpi"><div class="k">Dívida fiscal informada</div><div class="v" id="cDv">R$ 0</div><div class="d">soma do que os empresários declararam</div></div>
@@ -537,11 +616,14 @@ body:not(.p-tributario) .marcas img.brg,body:not(.p-tributario) .marcas img.brg 
         <div class="card kpi"><div class="k">Faturamento médio</div><div class="v" id="cFat">R$ 0</div><div class="d">por mês, das empresas</div></div>
       </div>
       <div class="grade">
-        <div class="card c6"><h3>Valor identificado por empresa <small>empresas</small></h3><div class="barras" id="bValor"></div></div>
-        <div class="card c6 so-curto"><h3>Qualificados por funcionários <small>R$ 200 mil+/mês</small></h3><div class="barras" id="bFuncQ"></div></div>
+        <div class="card c6 so-engr"><h3>Nota da máquina por empresa <small>empresas</small></h3><div class="barras" id="bNota"></div></div>
+        <div class="card c6 no-engr"><h3>Valor identificado por empresa <small>empresas</small></h3><div class="barras" id="bValor"></div></div>
+        <div class="card c6 so-ce"><h3>Qualificados por funcionários <small>R$ 200 mil+/mês</small></h3><div class="barras" id="bFuncQ"></div></div>
         <div class="card c6 so-trib"><h3>Carga tributária declarada <small>% do faturamento</small></h3><div class="barras" id="bCarga"></div></div>
-        <div class="card c6"><h3>Setores com maior valor médio <small>R$ por empresa</small></h3><div class="barras" id="bSetMed"></div></div>
-        <div class="card c6"><h3>Qualificados por regime <small>R$ 200 mil+/mês</small></h3><div class="barras" id="bRegQ"></div></div>
+        <div class="card c6 so-engr"><h3>Nota média por faturamento <small>0 a 100%</small></h3><div class="barras" id="bNotaFat"></div></div>
+        <div class="card c6 so-engr"><h3>Nota média por cargo <small>0 a 100%</small></h3><div class="barras" id="bNotaCargo"></div></div>
+        <div class="card c6 no-engr"><h3>Setores com maior valor médio <small>R$ por empresa</small></h3><div class="barras" id="bSetMed"></div></div>
+        <div class="card c6 no-engr"><h3>Qualificados por regime <small>R$ 200 mil+/mês</small></h3><div class="barras" id="bRegQ"></div></div>
         <div class="card c6"><h3>Horário do diagnóstico <small>Brasília</small></h3><div class="barras" id="bHora"></div></div>
         <div class="card c6"><h3>Dia da semana <small>diagnósticos</small></h3><div class="barras" id="bDia"></div></div>
       </div>
@@ -607,7 +689,7 @@ body:not(.p-tributario) .marcas img.brg,body:not(.p-tributario) .marcas img.brg 
     </section>
   </main>
 
-  <p class="rod">Valores estimados pelo Raio-X a partir das respostas de cada empresário. Grupo R1<span class="so-brg"> · BRG</span>.</p>
+  <p class="rod"><span class="no-engr">Valores estimados pelo Raio-X a partir das respostas de cada empresário.</span><span class="so-engr">Notas calculadas pelo Raio-X Máquina de Vendas a partir das 28 respostas de cada empresário.</span> Grupo R1<span class="so-brg"> · BRG</span>.</p>
 </div>
 
 <div class="tip" id="tip"></div>

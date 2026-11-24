@@ -50,7 +50,7 @@
   },
   "headers": [
     {
-      "source": "/((?!painel|trackeamento|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|fabrica|gestao-membros|aprovacoes|dashboardscriacao|otimizar).*)",
+      "source": "/((?!painel|trackeamento|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|raioxmaquinadevendasdash|fabrica|gestao-membros|aprovacoes|dashboardscriacao|otimizar).*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
@@ -162,7 +162,7 @@
       ]
     },
     {
-      "source": "/(raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash)(/.*)?",
+      "source": "/(raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|raioxmaquinadevendasdash)(/.*)?",
       "headers": [
         {
           "key": "Content-Security-Policy",
@@ -449,7 +449,11 @@
       "destination": "/raioxtributariodash"
     },
     {
-      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|fabrica|gestao-membros|aprovacoes|dashboardscriacao|otimizar|trackeamento$|wp-content|_vercel|_p/|zz-lab|\\.well-known).+)",
+      "source": "/raioxmaquinadevendasdash",
+      "destination": "/raioxtributariodash"
+    },
+    {
+      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|raioxmaquinadevendasdash|fabrica|gestao-membros|aprovacoes|dashboardscriacao|otimizar|trackeamento$|wp-content|_vercel|_p/|zz-lab|\\.well-known).+)",
       "has": [
         {
           "type": "host",
@@ -459,7 +463,7 @@
       "destination": "/_p/:host/:caminho"
     },
     {
-      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|fabrica|gestao-membros|aprovacoes|dashboardscriacao|otimizar|trackeamento$|wp-content|_vercel|_p/|\\.well-known).+)",
+      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|raioxmaquinadevendasdash|fabrica|gestao-membros|aprovacoes|dashboardscriacao|otimizar|trackeamento$|wp-content|_vercel|_p/|\\.well-known).+)",
       "destination": "/api/servir?caminho=:caminho"
     }
   ],
