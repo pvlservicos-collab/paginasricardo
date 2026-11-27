@@ -309,7 +309,7 @@ body.t-xequemate .login .lg-leao img{filter:grayscale(1) sepia(.25) contrast(1.1
 body:not(.p-tributario) .marcas img.brg,body:not(.p-tributario) .marcas img.brg + i,body:not(.p-tributario) .marcas i:has(+ img.brg),body:not(.p-tributario) .so-brg{display:none}
 
 /* ---------- projetos (menu do canto direito) ---------- */
-body:not(.f-completo) .so-trib,body:not(.f-curto) .so-curto,body:not(.f-engr) .so-engr,body.f-completo .so-ce,body.f-engr .no-engr{display:none!important}
+body:not(.f-completo) .so-trib,body:not(.f-curto) .so-curto,body:not(.f-engr) .so-engr,body:not(.f-proc) .so-proc,body.f-completo .so-ce,body.f-engr .no-engr,body.f-proc .no-engr,body.f-proc .no-proc{display:none!important}
 .proj{position:relative;flex-shrink:0}
 .proj-btn{display:flex;align-items:center;gap:8px;border:1px solid var(--line2);background:var(--s1);border-radius:999px;padding:8px 12px 8px 14px;font-size:12.5px;font-weight:700;color:#fff;max-width:240px}
 .proj-btn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -418,6 +418,22 @@ body.t-maquinadevendas .login .lg-leao svg{width:min(100%,500px);height:auto;ove
   body.t-maquinadevendas .login .lg-leao{height:auto;padding-top:0;margin:8px auto -6px;width:62%}
   body.t-maquinadevendas .login .lg-topo img{height:32px}
 }
+
+/* ---------- Diagnóstico RGV Processos (formato processos): matriz processos × autonomia ---------- */
+.mtz svg{width:100%;max-width:500px;display:block;margin:0 auto;overflow:visible}
+.mtz .q rect{stroke:var(--line2);stroke-width:1}
+.mtz .q text{font:700 13px var(--disp);fill:#fff}
+.mtz .q .n{font:800 30px var(--disp);letter-spacing:-.03em}
+.mtz .q .p{font:500 11px var(--mono);fill:var(--ink3)}
+.mtz .eixo{font:500 10px var(--mono);letter-spacing:.14em;fill:var(--ink3);text-transform:uppercase}
+.mtz .lim{stroke:rgba(255,255,255,.25);stroke-dasharray:4 4}
+.mtz circle{stroke:#0D0D0D;stroke-width:1.5}
+.perf{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:4px 12px;align-items:center;background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:13px 16px}
+.perf i{width:12px;height:12px;border-radius:4px}
+.perf b{font:700 15px var(--disp)}
+.perf .p{font:700 19px var(--mono);font-variant-numeric:tabular-nums}
+.perf small{grid-column:2/-1;color:var(--ink3);font-size:12.5px;line-height:1.45}
+.det-txt{font-size:13px;line-height:1.5;color:var(--ink2);white-space:pre-wrap;background:var(--s1);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 </style>
 </head>
 <body>
@@ -469,6 +485,8 @@ body.t-maquinadevendas .login .lg-leao svg{width:min(100%,500px);height:auto;ove
       <h1>Resultô<span>metro</span></h1>
       <p class="sub no-engr">Soma dos créditos e da economia que o Raio-X encontrou para os empresários que fizeram o diagnóstico.</p>
       <p class="sub so-engr">Como estão as 7 engrenagens das empresas que fizeram o diagnóstico: média de cada uma, de 0 a 100%.</p>
+      <p class="sub so-proc">Onde estão os processos das empresas que fizeram o diagnóstico: maturidade e perfil na matriz processos × autonomia.</p>
+      <div class="maq so-proc"><div class="mtz" id="mtz"></div><div class="maq-lista" id="mtzLista"></div></div>
       <div class="maq so-engr"><div class="maq-svg" id="maqSvg"></div><div class="maq-lista" id="maqLista"></div></div>
       <div class="medidor no-engr">
         <div class="tag">A recuperar</div>
@@ -501,6 +519,12 @@ body.t-maquinadevendas .login .lg-leao svg{width:min(100%,500px);height:auto;ove
         <div class="card kpi"><div class="k">Engrenagem que mais trava</div><div class="v txt" id="kPior">—</div><div class="d">nota média <em id="kPiorP">0%</em></div></div>
         <div class="card kpi"><div class="k">Qualificados</div><div class="v" id="kQ3">0</div><div class="d"><em id="kQp3">0%</em> faturam R$ 200 mil+/mês</div></div>
       </div>
+      <div class="kpis so-proc">
+        <div class="card kpi"><div class="k">Maturidade média</div><div class="v" id="pMat">0%</div><div class="d">processos, autonomia e tempo do dono</div></div>
+        <div class="card kpi"><div class="k">Empresa refém do dono</div><div class="v" id="pRef">0%</div><div class="d"><em id="pRefN">0</em> empresas nesse perfil</div></div>
+        <div class="card kpi"><div class="k">Dor mais citada</div><div class="v txt" id="pDor">—</div><div class="d"><em id="pDorP">0%</em> das empresas</div></div>
+        <div class="card kpi"><div class="k">Qualificados</div><div class="v" id="pQ">0</div><div class="d"><em id="pQp">0%</em> faturam R$ 300 mil+/mês</div></div>
+      </div>
       <div class="kpis so-trib">
         <div class="card kpi"><div class="k">Recuperação retroativa</div><div class="v" id="kRec">R$ 0</div><div class="d">créditos dos últimos 5 anos</div></div>
         <div class="card kpi"><div class="k">Benefícios fiscais</div><div class="v" id="kBen">R$ 0</div><div class="d">programas estaduais e municipais</div></div>
@@ -512,6 +536,18 @@ body.t-maquinadevendas .login .lg-leao svg{width:min(100%,500px);height:auto;ove
         <div class="card c8"><h3>Diagnósticos por dia <small id="linhaLeg">envios</small></h3><div class="grafico" id="gLinha"></div></div>
         <div class="card c4"><h3>Faturamento por mês <small>empresas</small></h3><div class="barras" id="bFat"></div></div>
 
+        <div class="card c4 so-proc"><h3>Perfil <small>empresas</small></h3><div class="barras" id="dPerfil"></div></div>
+        <div class="card c4 so-proc"><h3>Maturidade <small>empresas</small></h3><div class="barras" id="dNivel"></div></div>
+        <div class="card c4 so-proc"><h3>Maiores dores <small>% das empresas</small></h3><div class="barras" id="dDores"></div></div>
+        <div class="card c6 so-proc"><h3>Onde está o tempo do dono <small>empresas</small></h3><div class="barras" id="dPapel"></div></div>
+        <div class="card c6 so-proc"><h3>Se o dono sumir 15 dias <small>empresas</small></h3><div class="barras" id="dAus"></div></div>
+        <div class="card c6 so-proc"><h3>Processos documentados <small>empresas</small></h3><div class="barras" id="dDoc"></div></div>
+        <div class="card c6 so-proc"><h3>Indicadores toda semana <small>empresas</small></h3><div class="barras" id="dInd"></div></div>
+        <div class="card c4 so-proc"><h3>Chamados por dia para decidir <small>empresas</small></h3><div class="barras" id="dCham"></div></div>
+        <div class="card c4 so-proc"><h3>Líderes abaixo do dono <small>empresas</small></h3><div class="barras" id="dLid"></div></div>
+        <div class="card c4 so-proc"><h3>Já tentou organizar antes <small>empresas</small></h3><div class="barras" id="dTent"></div></div>
+        <div class="card c6 so-proc"><h3>Segmento <small>empresas</small></h3><div class="barras" id="dSeg"></div></div>
+        <div class="card c6 so-proc"><h3>Papel na empresa <small>empresas</small></h3><div class="barras" id="dCargo"></div></div>
         <div class="card c6 so-engr"><h3>Nota média por engrenagem <small>0 a 100%</small></h3><div class="barras" id="bEngr"></div></div>
         <div class="card c6 so-engr"><h3>Situação de cada engrenagem <small>% das empresas</small></h3><div class="leg"><span class="c-jam">Travada (até 39%)</span><span class="c-mid">Rangendo (40–69%)</span><span class="c-okk">Girando (70%+)</span></div><div class="pilhas" id="bSit"></div></div>
         <div class="card c4 so-engr"><h3>Resultado da máquina <small>empresas</small></h3><div class="barras" id="bRes"></div></div>
@@ -561,7 +597,7 @@ body.t-maquinadevendas .login .lg-leao svg{width:min(100%,500px);height:auto;ove
       </div>
       <div class="etapas" id="etapas"></div>
       <div class="tabela"><table>
-        <thead><tr><th class="ck"><input type="checkbox" id="selTodos" aria-label="Selecionar todos"></th><th>Quando</th><th>Nome</th><th>WhatsApp</th><th>E-mail</th><th><span class="no-engr">Empresa</span><span class="so-engr">Cargo</span></th><th>Faturamento/mês</th><th>Funcionários</th><th>Etapa</th><th style="text-align:right"><span class="no-engr">Identificado</span><span class="so-engr">Nota</span></th></tr></thead>
+        <thead><tr><th class="ck"><input type="checkbox" id="selTodos" aria-label="Selecionar todos"></th><th>Quando</th><th>Nome</th><th>WhatsApp</th><th>E-mail</th><th><span class="no-engr">Empresa</span><span class="so-engr">Cargo</span><span class="so-proc">Empresa</span></th><th>Faturamento/mês</th><th>Funcionários</th><th>Etapa</th><th style="text-align:right"><span class="no-engr">Identificado</span><span class="so-engr">Nota</span><span class="so-proc">Maturidade</span></th></tr></thead>
         <tbody id="tLeads"></tbody>
       </table></div>
       <div class="mais esc"><button class="btn-l" id="mais">Mostrar mais</button></div>
@@ -593,15 +629,22 @@ body.t-maquinadevendas .login .lg-leao svg{width:min(100%,500px);height:auto;ove
       <div class="kpis">
         <div class="card kpi"><div class="k">Diagnósticos</div><div class="v" id="cN">0</div><div class="d"><em id="c7">0</em> nos últimos 7 dias</div></div>
         <div class="card kpi"><div class="k">Qualificados</div><div class="v" id="cQ">0</div><div class="d"><em id="cQp">0%</em> faturam R$ 200 mil+/mês</div></div>
+        <div class="card kpi so-proc"><div class="k">Maturidade dos qualificados</div><div class="v" id="cMatQ">0%</div><div class="d">nos demais: <em id="cMatO">0%</em></div></div>
         <div class="card kpi so-engr"><div class="k">Nota dos qualificados</div><div class="v" id="cQn">0%</div><div class="d">nos demais: <em id="cQo">0%</em></div></div>
         <div class="card kpi no-engr"><div class="k">Identificado nos qualificados</div><div class="v" id="cQv">R$ 0</div><div class="d">média <em id="cQm">R$ 0</em> por empresa</div></div>
-        <div class="card kpi"><div class="k">Deixaram WhatsApp</div><div class="v" id="cW">0%</div><div class="d so-trib"><em id="cDiv">0%</em> com dívida fiscal ativa</div><div class="d so-ce"><em id="cF10">0%</em> com 10+ funcionários</div></div>
+        <div class="card kpi"><div class="k">Deixaram WhatsApp</div><div class="v" id="cW">0%</div><div class="d so-trib"><em id="cDiv">0%</em> com dívida fiscal ativa</div><div class="d so-ce no-proc"><em id="cF10">0%</em> com 10+ funcionários</div><div class="d so-proc"><em id="cC16">0%</em> com 16+ colaboradores</div></div>
       </div>
       <div class="kpis so-curto" style="margin-top:14px">
         <div class="card kpi"><div class="k">Economia por ano</div><div class="v" id="cEco2">R$ 0</div><div class="d">somando todas as empresas</div></div>
         <div class="card kpi"><div class="k">Recuperável</div><div class="v" id="cRec2">R$ 0</div><div class="d">pago a mais nos últimos anos</div></div>
         <div class="card kpi"><div class="k">Pontos por empresa</div><div class="v" id="cOpp2">0</div><div class="d">média encontrada pelo Raio-X</div></div>
         <div class="card kpi"><div class="k">Faturamento médio</div><div class="v" id="cFat2">R$ 0</div><div class="d">por mês, pelo meio de cada faixa</div></div>
+      </div>
+      <div class="kpis so-proc" style="margin-top:14px">
+        <div class="card kpi"><div class="k">Empresas em rota</div><div class="v" id="cRota">0%</div><div class="d">processos e autonomia no lugar</div></div>
+        <div class="card kpi"><div class="k">Dono 100% no operacional</div><div class="v" id="cOper">0%</div><div class="d">das empresas</div></div>
+        <div class="card kpi"><div class="k">Sem indicador semanal</div><div class="v" id="cSemInd">0%</div><div class="d">não acompanha ou só o faturamento</div></div>
+        <div class="card kpi"><div class="k">Faturamento médio</div><div class="v" id="cFat4">R$ 0</div><div class="d">por mês, pelo meio de cada faixa</div></div>
       </div>
       <div class="kpis so-engr" style="margin-top:14px">
         <div class="card kpi"><div class="k">Máquinas girando</div><div class="v" id="cGir">0%</div><div class="d">média de 70% ou mais</div></div>
@@ -616,6 +659,9 @@ body.t-maquinadevendas .login .lg-leao svg{width:min(100%,500px);height:auto;ove
         <div class="card kpi"><div class="k">Faturamento médio</div><div class="v" id="cFat">R$ 0</div><div class="d">por mês, das empresas</div></div>
       </div>
       <div class="grade">
+        <div class="card c6 so-proc"><h3>Maturidade por faturamento <small>0 a 100%</small></h3><div class="barras" id="mFat"></div></div>
+        <div class="card c6 so-proc"><h3>Maturidade por segmento <small>0 a 100%</small></h3><div class="barras" id="mSeg"></div></div>
+        <div class="card c6 so-proc"><h3>Maturidade por tamanho do time <small>0 a 100%</small></h3><div class="barras" id="mCol"></div></div>
         <div class="card c6 so-engr"><h3>Nota da máquina por empresa <small>empresas</small></h3><div class="barras" id="bNota"></div></div>
         <div class="card c6 no-engr"><h3>Valor identificado por empresa <small>empresas</small></h3><div class="barras" id="bValor"></div></div>
         <div class="card c6 so-ce"><h3>Qualificados por funcionários <small>R$ 200 mil+/mês</small></h3><div class="barras" id="bFuncQ"></div></div>
@@ -689,7 +735,7 @@ body.t-maquinadevendas .login .lg-leao svg{width:min(100%,500px);height:auto;ove
     </section>
   </main>
 
-  <p class="rod"><span class="no-engr">Valores estimados pelo Raio-X a partir das respostas de cada empresário.</span><span class="so-engr">Notas calculadas pelo Raio-X Máquina de Vendas a partir das 28 respostas de cada empresário.</span> Grupo R1<span class="so-brg"> · BRG</span>.</p>
+  <p class="rod"><span class="no-engr">Valores estimados pelo Raio-X a partir das respostas de cada empresário.</span><span class="so-proc">Maturidade calculada pelo Diagnóstico RGV Processos a partir das respostas de cada empresário.</span><span class="so-engr">Notas calculadas pelo Raio-X Máquina de Vendas a partir das 28 respostas de cada empresário.</span> Grupo R1<span class="so-brg"> · BRG</span>.</p>
 </div>
 
 <div class="tip" id="tip"></div>

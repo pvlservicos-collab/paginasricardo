@@ -50,7 +50,7 @@
   },
   "headers": [
     {
-      "source": "/((?!painel|trackeamento|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|raioxmaquinadevendasdash|fabrica|gestao-membros|aprovacoes|dashboardscriacao|otimizar).*)",
+      "source": "/((?!painel|trackeamento|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|raioxmaquinadevendasdash|diagnosticoprocessosdash|fabrica|gestao-membros|aprovacoes|dashboardscriacao|otimizar).*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
@@ -162,7 +162,7 @@
       ]
     },
     {
-      "source": "/(raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|raioxmaquinadevendasdash)(/.*)?",
+      "source": "/(raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|raioxmaquinadevendasdash|diagnosticoprocessosdash)(/.*)?",
       "headers": [
         {
           "key": "Content-Security-Policy",
@@ -468,6 +468,10 @@
       "destination": "/raioxtributariodash"
     },
     {
+      "source": "/diagnosticoprocessosdash",
+      "destination": "/raioxtributariodash"
+    },
+    {
       "source": "/criadordechat",
       "destination": "https://srv2157937.hstgr.cloud/criadordechat"
     },
@@ -486,7 +490,7 @@
       "destination": "https://srv2157937.hstgr.cloud/criadordechat/c/:host/:slug"
     },
     {
-      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|raioxmaquinadevendasdash|fabrica|gestao-membros|aprovacoes|dashboardscriacao|otimizar|criadordechat|chat/|trackeamento$|wp-content|_vercel|_p/|zz-lab|\\.well-known).+)",
+      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|raioxmaquinadevendasdash|diagnosticoprocessosdash|fabrica|gestao-membros|aprovacoes|dashboardscriacao|otimizar|criadordechat|chat/|trackeamento$|wp-content|_vercel|_p/|zz-lab|\\.well-known).+)",
       "has": [
         {
           "type": "host",
@@ -496,7 +500,7 @@
       "destination": "/_p/:host/:caminho"
     },
     {
-      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|raioxmaquinadevendasdash|fabrica|gestao-membros|aprovacoes|dashboardscriacao|otimizar|criadordechat|chat/|trackeamento$|wp-content|_vercel|_p/|\\.well-known).+)",
+      "source": "/:caminho((?!api/|api$|painel|raioxtributariodash|raiox-xequemate2dash|tributario-raioxdash|raioxmaquinadevendasdash|diagnosticoprocessosdash|fabrica|gestao-membros|aprovacoes|dashboardscriacao|otimizar|criadordechat|chat/|trackeamento$|wp-content|_vercel|_p/|\\.well-known).+)",
       "destination": "/api/servir?caminho=:caminho"
     }
   ],

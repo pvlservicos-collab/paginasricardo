@@ -96,13 +96,64 @@
       <g transform="translate(-10 -33) scale(.94)">${ENG.map(g => gearSVG(g, sc ? stEng(sc[g.id]) : '', sc ? sc[g.id] : null)).join('')}</g></svg>`;
   }
 
+  // ---------- Diagnóstico RGV Processos (/diagnosticoprocessos): maturidade e matriz processos × autonomia ----------
+  // Opções iguais às do quiz (na ordem dele: do pior para o melhor nas perguntas de maturidade). O quiz manda perfil.nome
+  // (empresa), as respostas, maturidade (Baixa/Média/Alta), quadrante (0 a 3), eixo_processos e eixo_autonomia (0 a 100).
+  const DP = {
+    cargo: ['Dono', 'Sócio', 'Diretor', 'Outro'],
+    segmento: ['Serviços', 'Comércio/Varejo', 'Indústria', 'Tecnologia/Software', 'Construção Civil', 'Outro'],
+    faturamento: ['Até R$ 50 mil', 'R$ 50 mil a R$ 100 mil', 'R$ 100 mil a R$ 300 mil', 'R$ 300 mil a R$ 1 milhão', 'Acima de R$ 1 milhão'],
+    colaboradores: ['1 a 5', '6 a 15', '16 a 50', 'Mais de 50'],
+    lideres: ['Não, tudo passa por mim', 'Sim, 1 líder', 'Sim, 2 ou mais'],
+    papel: ['100% focado no operacional', 'Dividido entre operação e gestão estratégica', '100% focado no estratégico e crescimento'],
+    chamados: ['Perdi a conta', 'De 5 a 15', 'Até 5', 'Nenhuma'], // do pior para o melhor
+    documentacao: ['Nenhuma documentação formal', 'Anotações básicas e dispersas', 'POPs criados mas pouco seguidos', 'Processos mapeados, documentados e com indicadores'],
+    indicadores: ['Não acompanho', 'Só o faturamento', 'Alguns, sem rotina', 'Sim, com reunião de resultado'],
+    ausencia: ['A empresa para ou entra em caos', 'Funciona com muitos problemas e decisões travadas', 'Funciona, mas com queda de qualidade', 'Funciona normalmente, a equipe é autônoma'],
+    tentativa: ['Nunca tentei', 'Comecei e parou', 'Contratei consultoria e não ficou', 'Funciona em parte'],
+    dores: ['Retrabalho frequente', 'Centralização excessiva', 'Dificuldade em delegar/treinar', 'Falta de clareza de papéis/organograma', 'Custos operacionais e desperdício'],
+  };
+  const DP_PERG = [['cargo', 'Papel na empresa'], ['segmento', 'Segmento'], ['faturamento', 'Faturamento por mês'], ['colaboradores', 'Colaboradores'],
+    ['lideres', 'Líderes abaixo do dono'], ['papel', 'Onde está o tempo do dono'], ['chamados', 'Chamados por dia para decidir'], ['documentacao', 'Processos documentados'],
+    ['indicadores', 'Indicadores toda semana'], ['ausencia', 'Se o dono sumir 15 dias'], ['tentativa', 'Já tentou organizar antes']];
+  // quadrantes do quiz: 0 = processos e autonomia altos; 1 = só autonomia; 2 = nenhum; 3 = só processos (limite 67)
+  const QUAD = [
+    {n: 'Empresa em rota', cls: 'okk', cor: 'var(--okk)', d: 'Processos escritos e um time que anda sem o dono.'},
+    {n: 'Time no improviso', cls: 'mid', cor: 'var(--mid)', d: 'O time roda, mas cada um do seu jeito.'},
+    {n: 'Empresa refém do dono', cls: 'jam', cor: 'var(--jam)', d: 'Pouco processo escrito e tudo passando pelo dono.'},
+    {n: 'Processo na gaveta', cls: 'mid', cor: '#FBBF24', d: 'O processo existe no papel, mas a operação espera o dono.'}];
+  const quadDe = e => { const q = +e.perfil.quadrante; return Number.isInteger(q) && q >= 0 && q <= 3 ? q : 2; };
+  const doresDe = e => String(e.perfil.dores || '').split(' | ').filter(Boolean);
+  const segDe = p => /^Outro/.test(p.segmento || '') ? 'Outro' : p.segmento || '';
+  // faturamento do quiz em faixas: [valor do quiz, rótulo, piso, meio]
+  const FAT_DP = [['Até R$ 50 mil', 'Até R$ 50 mil', 0, 25000], ['R$ 50 mil a R$ 100 mil', 'R$ 50 a 100 mil', 50000, 75000], ['R$ 100 mil a R$ 300 mil', 'R$ 100 a 300 mil', 100000, 200000],
+    ['R$ 300 mil a R$ 1 milhão', 'R$ 300 mil a 1 mi', 300000, 650000], ['Acima de R$ 1 milhão', 'Acima de R$ 1 mi', 1e6, 1e6]];
+  // matriz: X = autonomia (descentralização), Y = processos documentados; cada ponto é uma empresa
+  function matrizSVG(L, cont){
+    const S = 400, m = 34, X = v => m + v / 100 * S, Y = v => m + (1 - v / 100) * S, lim = 67, N = L.length;
+    const canto = (q, x, y, anc) => `<g class="q"><text x="${x}" y="${y}" text-anchor="${anc}">${QUAD[q].n}</text><text class="n" x="${x}" y="${y + 34}" text-anchor="${anc}" style="fill:${QUAD[q].cor}">${cont[q]}</text><text class="p" x="${x}" y="${y + 52}" text-anchor="${anc}">${pct(cont[q], N)}% das empresas</text></g>`;
+    const ret = (q, x0, y0, x1, y1) => `<g class="q"><rect x="${X(x0)}" y="${Y(y1)}" width="${X(x1) - X(x0)}" height="${Y(y0) - Y(y1)}" fill="${QUAD[q].cor}" fill-opacity=".07"/></g>`;
+    const pontos = L.map((e, i) => { const q = quadDe(e), j = k => ((i * 2654435761 + k) % 7) - 3; // espalha um pouco quem caiu no mesmo lugar
+      const x = Math.max(1, Math.min(99, (+e.perfil.eixo_autonomia || 0) + j(1))), y = Math.max(1, Math.min(99, (+e.perfil.eixo_processos || 0) + j(5)));
+      return `<circle cx="${X(x).toFixed(1)}" cy="${Y(y).toFixed(1)}" r="5" fill="${QUAD[q].cor}" fill-opacity=".85"><title>${QUAD[q].n} · maturidade ${notaMaq(e)}%</title></circle>`; }).join('');
+    return `<svg viewBox="0 0 ${S + 2 * m} ${S + 2 * m}" role="img" aria-label="Matriz processos × autonomia">
+      ${ret(3, 0, lim, lim, 100)}${ret(0, lim, lim, 100, 100)}${ret(2, 0, 0, lim, lim)}${ret(1, lim, 0, 100, lim)}
+      <line class="lim" x1="${X(lim)}" x2="${X(lim)}" y1="${Y(100)}" y2="${Y(0)}"/><line class="lim" x1="${X(0)}" x2="${X(100)}" y1="${Y(lim)}" y2="${Y(lim)}"/>
+      <rect x="${X(0)}" y="${Y(100)}" width="${S}" height="${S}" fill="none" stroke="rgba(255,255,255,.14)"/>
+      ${canto(3, X(0) + 12, Y(100) + 22, 'start')}${canto(0, X(100) - 12, Y(100) + 22, 'end')}${canto(2, X(0) + 12, Y(lim) + 22, 'start')}${canto(1, X(100) - 12, Y(lim) + 22, 'end')}
+      ${pontos}
+      <text class="eixo" x="${X(50)}" y="${S + 2 * m - 6}" text-anchor="middle">Autonomia do time →</text>
+      <text class="eixo" transform="translate(12 ${Y(50)}) rotate(-90)" text-anchor="middle">Processos documentados →</text></svg>`;
+  }
+
   // ---------- projeto (cada quiz tem o seu dashboard; o menu do canto direito troca) ----------
   // cada dashboard tem o seu endereço, no padrão do quiz + "dash"
   let PROJS = [
     {id: 'tributario', nome: 'Raio-X Tributário', pagina: '/raioxtributario', dash: '/raioxtributariodash', formato: 'completo', n: 0},
     {id: 'xequemate', nome: 'Raio-X Xeque-Mate', pagina: '/raiox-xequemate2', dash: '/raiox-xequemate2dash', formato: 'curto', n: 0},
     {id: 'tributario-raiox', nome: 'Tributário Raio-X', pagina: '/tributario-raiox', dash: '/tributario-raioxdash', formato: 'curto', n: 0},
-    {id: 'maquinadevendas', nome: 'Raio-X Máquina de Vendas', pagina: '/raioxmaquinadevendas', dash: '/raioxmaquinadevendasdash', formato: 'engrenagens', n: 0}];
+    {id: 'maquinadevendas', nome: 'Raio-X Máquina de Vendas', pagina: '/raioxmaquinadevendas', dash: '/raioxmaquinadevendasdash', formato: 'engrenagens', n: 0},
+    {id: 'processos', nome: 'Diagnóstico RGV Processos', pagina: '/diagnosticoprocessos', dash: '/diagnosticoprocessosdash', formato: 'processos', n: 0}];
   const aqui = location.pathname.replace(/\/+$/, '').toLowerCase();
   let projeto = (PROJS.find(p => p.dash === aqui) || {}).id || (new URLSearchParams(location.search).get('p') || 'tributario').replace(/[^a-z-]/g, '');
   const proj = () => PROJS.find(p => p.id === projeto) || PROJS[0];
@@ -132,9 +183,10 @@
   })();
   const ehCurto = () => proj().formato === 'curto';
   const ehEngr = () => proj().formato === 'engrenagens';
+  const ehProc = () => proj().formato === 'processos';
   // texto do valor somado de um grupo: R$ nos tributários, nota média nas engrenagens (res.total = nota da máquina)
-  const somaTxt = (soma, q) => ehEngr() ? 'nota média ' + (q ? Math.round(soma / q) : 0) + '%' : curto(soma) + ' identificados';
-  const linhaFat = f => FAT2.find(x => x[0] === f);
+  const somaTxt = (soma, q) => ehProc() ? 'maturidade média ' + (q ? Math.round(soma / q) : 0) + '%' : ehEngr() ? 'nota média ' + (q ? Math.round(soma / q) : 0) + '%' : curto(soma) + ' identificados';
+  const linhaFat = f => FAT2.find(x => x[0] === f) || FAT_DP.find(x => x[0] === f);
   // faturamento por mês em número: o quiz completo manda o valor; os curtos, a faixa (piso ou meio dela)
   const fatNum = (e, meio) => { const f = e.perfil.faturamento; if(typeof f === 'number' || /^\d+(\.\d+)?$/.test(f || '')) return +f;
     const l = linhaFat(f); return l ? l[meio ? 3 : 2] : 0; };
@@ -250,11 +302,11 @@
     const semT = semTeste ? ativos().filter(e => !ehTeste(e)) : ativos();
     const hoje = semT.filter(e => diaBR(e.ts) === hojeBR()).length;
     $('#hojeTxt').textContent = '+' + hoje + ' hoje';
-    const E = ehEngr();
-    $('#mediaTxt').textContent = E ? media(L.map(notaMaq)) + '%' : curto(N ? total / N : 0);
-    $('#mediaRot').textContent = E ? 'nota média da máquina' : 'em média por empresa';
-    $('#maiorTxt').textContent = E ? pct(L.filter(e => resMaq(e) === 'jam').length, N) + '%' : curto(Math.max(0, ...L.map(e => e.res.total || 0)));
-    $('#maiorRot').textContent = E ? 'das máquinas travando' : 'maior diagnóstico';
+    const E = ehEngr(), P = ehProc();
+    $('#mediaTxt').textContent = E || P ? media(L.map(notaMaq)) + '%' : curto(N ? total / N : 0);
+    $('#mediaRot').textContent = P ? 'maturidade média' : E ? 'nota média da máquina' : 'em média por empresa';
+    $('#maiorTxt').textContent = P ? pct(L.filter(e => quadDe(e) === 2).length, N) + '%' : E ? pct(L.filter(e => resMaq(e) === 'jam').length, N) + '%' : curto(Math.max(0, ...L.map(e => e.res.total || 0)));
+    $('#maiorRot').textContent = P ? 'reféns do dono' : E ? 'das máquinas travando' : 'maior diagnóstico';
 
     $('#kRec').textContent = curto(L.reduce((s, e) => s + e.res.recuperacao, 0));
     $('#kBen').textContent = curto(L.reduce((s, e) => s + e.res.beneficios, 0));
@@ -277,12 +329,12 @@
     const agrupa = (fn, ordem) => { const m = new Map(); L.forEach(e => { const k = fn(e); if(!k) return; const o = m.get(k) || {n: k, v: 0, soma: 0}; o.v++; o.soma += e.res.total; m.set(k, o); });
       const arr = [...m.values()]; return ordem ? ordem.map(k => m.get(k)).filter(Boolean) : arr.sort((a, b) => b.v - a.v); };
     const C = ehCurto();
-    barras($('#bFat'), C || E ? agrupa(e => faixaDe(e.perfil.faturamento), FAT2.map(f => f[1])) : agrupa(e => (FAIXAS.find(([lim]) => +e.perfil.faturamento <= lim) || [])[1], FAIXAS.map(f => f[1])), {tipFn: tipQ});
+    barras($('#bFat'), C || E || P ? agrupa(e => faixaDe(e.perfil.faturamento), (P ? FAT_DP : FAT2).map(f => f[1])) : agrupa(e => (FAIXAS.find(([lim]) => +e.perfil.faturamento <= lim) || [])[1], FAIXAS.map(f => f[1])), {tipFn: tipQ});
     barras($('#bReg'), agrupa(e => REG2[e.perfil.regime] || e.perfil.regime, Object.values(REG2)), {tipFn: tipQ});
     barras($('#bSet'), agrupa(e => setorDe(e.perfil)).slice(0, 8), {tipFn: tipQ});
     barras($('#bUf'), agrupa(e => e.perfil.estado || e.perfil.uf).slice(0, 8), {tipFn: tipQ});
-    if(C || E){
-      barras($('#bFunc'), agrupa(e => funcTxt(e.perfil.funcionarios), FUNC2.map(f => f[1])), {tipFn: tipQ});
+    if(C || E || P){
+      barras($('#bFunc'), P ? agrupa(e => e.perfil.colaboradores, DP.colaboradores) : agrupa(e => funcTxt(e.perfil.funcionarios), FUNC2.map(f => f[1])), {tipFn: tipQ});
       barras($('#bPag'), agrupa(e => e.pagina || '—'), {neutra: true, tipFn: tipQ});
     }
     if(C){
@@ -290,6 +342,7 @@
         barras($(el), agrupa(e => respTxt(k, e.perfil[k]), Object.values(CURTO[k])), {neutra: true, tipFn: tipQ});
     }
     if(E) desenhaEngr(L, agrupa, tipQ);
+    if(P) desenhaProc(L, agrupa, tipQ);
 
     const opp = new Map(); L.forEach(e => (e.res.top || []).forEach(o => { const x = opp.get(o.nome) || {n: o.nome, v: 0, q: 0}; x.v += o.val; x.q++; opp.set(o.nome, x); }));
     barras($('#bOpp'), [...opp.values()].sort((a, b) => b.v - a.v).slice(0, 8), {fmt: curto, tipFn: l => `<b>${esc(l.n)}</b><br>apareceu em ${l.q} diagnóstico${l.q === 1 ? '' : 's'}<br>${curto(l.v)} somados`});
@@ -350,6 +403,47 @@
     perg.sort((a, b) => a.v - b.v);
     barras($('#bPerg'), perg.slice(0, 8).map(l => ({...l, cls: stEng(l.v)})), {fmt: v => v + '%', topo: 100,
       tipFn: l => `<b>${esc(l.n)}</b><br>${esc(l.g)} · nota média ${l.v}%<br>${l.z} de ${l.q} responderam "Não é a minha empresa"`});
+  }
+  // cor de cada opção pela posição (do pior para o melhor) nas perguntas de maturidade
+  const corPos = (lista, v) => { const i = lista.indexOf(v), r = lista.length > 1 ? i / (lista.length - 1) : 1; return i < 0 ? '' : r < .34 ? 'jam' : r < .67 ? 'mid' : 'okk'; };
+  function desenhaProc(L, agrupa, tipQ){
+    const N = L.length, cont = [0, 0, 0, 0];
+    L.forEach(e => { cont[quadDe(e)]++; });
+    $('#mtz').innerHTML = matrizSVG(L, cont);
+    $('#mtzLista').innerHTML = [0, 3, 1, 2].map(q => `<div class="perf"><i style="background:${QUAD[q].cor}"></i><b>${QUAD[q].n}</b><span class="p">${pct(cont[q], N)}%</span>
+      <small>${cont[q]} empresa${cont[q] === 1 ? '' : 's'} · ${QUAD[q].d}</small></div>`).join('');
+    $('#pMat').textContent = media(L.map(notaMaq)) + '%';
+    $('#pRef').textContent = pct(cont[2], N) + '%';
+    $('#pRefN').textContent = cont[2].toLocaleString('pt-BR');
+    const dores = DP.dores.map(n => { const q = L.filter(e => doresDe(e).includes(n)).length; return {n, q, v: pct(q, N)}; }).sort((a, b) => b.q - a.q);
+    $('#pDor').textContent = N && dores[0].q ? dores[0].n : '—';
+    $('#pDorP').textContent = (N && dores[0].q ? dores[0].v : 0) + '%';
+    $('#pQ').textContent = L.filter(ehQualif).length.toLocaleString('pt-BR');
+    $('#pQp').textContent = pct(L.filter(ehQualif).length, N) + '%';
+    barras($('#dPerfil'), N ? [0, 3, 1, 2].map(q => { const x = L.filter(e => quadDe(e) === q); return {n: QUAD[q].n, v: x.length, soma: x.reduce((s, e) => s + notaMaq(e), 0), cls: QUAD[q].cls}; }) : [], {tipFn: tipQ});
+    barras($('#dNivel'), agrupa(e => e.perfil.maturidade, ['Baixa', 'Média', 'Alta']).map(l => ({...l, cls: {Baixa: 'jam', 'Média': 'mid', Alta: 'okk'}[l.n]})), {tipFn: tipQ});
+    barras($('#dDores'), N ? dores.filter(l => l.q) : [], {fmt: v => v + '%', topo: 100, neutra: true, tipFn: l => `<b>${esc(l.n)}</b><br>${l.q} de ${N} empresa${N === 1 ? '' : 's'} (cada uma escolhe 2)`});
+    for(const [el, k, cor] of [['#dPapel', 'papel', 1], ['#dAus', 'ausencia', 1], ['#dDoc', 'documentacao', 1], ['#dInd', 'indicadores', 1], ['#dCham', 'chamados', 1], ['#dLid', 'lideres', 1], ['#dTent', 'tentativa', 0], ['#dCargo', 'cargo', 0]])
+      barras($(el), agrupa(e => e.perfil[k], DP[k]).map(l => ({...l, cls: cor ? corPos(DP[k], l.n) : ''})), {neutra: !cor, tipFn: tipQ});
+    barras($('#dSeg'), agrupa(e => segDe(e.perfil), DP.segmento), {neutra: true, tipFn: tipQ});
+  }
+  function metricasProc(L){
+    const N = L.length, Q = L.filter(ehQualif);
+    $('#cMatQ').textContent = media(Q.map(notaMaq)) + '%';
+    $('#cMatO').textContent = media(L.filter(e => !ehQualif(e)).map(notaMaq)) + '%';
+    $('#cC16').textContent = pct(L.filter(e => ['16 a 50', 'Mais de 50'].includes(e.perfil.colaboradores)).length, N) + '%';
+    $('#cRota').textContent = pct(L.filter(e => quadDe(e) === 0).length, N) + '%';
+    $('#cOper').textContent = pct(L.filter(e => e.perfil.papel === DP.papel[0]).length, N) + '%';
+    $('#cSemInd').textContent = pct(L.filter(e => DP.indicadores.slice(0, 2).includes(e.perfil.indicadores)).length, N) + '%';
+    const comFat = L.filter(e => fatNum(e, true) > 0);
+    $('#cFat4').textContent = curto(comFat.length ? comFat.reduce((s, e) => s + fatNum(e, true), 0) / comFat.length : 0);
+    const porGrupo = (lista, chave) => lista.map(([k, n]) => { const x = L.filter(e => chave(e) === k); return {n, q: x.length, v: media(x.map(notaMaq))}; })
+      .filter(l => l.q).map(l => ({...l, cls: stEng(l.v)}));
+    barras($('#mFat'), porGrupo(FAT_DP, e => e.perfil.faturamento), {fmt: v => v + '%', topo: 100, tipFn: tipNota});
+    barras($('#mSeg'), porGrupo(DP.segmento.map(s => [s, s]), e => segDe(e.perfil)), {fmt: v => v + '%', topo: 100, tipFn: tipNota});
+    barras($('#mCol'), porGrupo(DP.colaboradores.map(s => [s, s]), e => e.perfil.colaboradores), {fmt: v => v + '%', topo: 100, tipFn: tipNota});
+    barras($('#bFuncQ'), DP.colaboradores.map(n => { const x = L.filter(e => e.perfil.colaboradores === n); return {n, v: pct(x.filter(ehQualif).length, x.length), q: x.length, ql: x.filter(ehQualif).length}; }).filter(l => l.q),
+      {fmt: v => v + '%', tipFn: l => `<b>${esc(l.n)}</b><br>${l.ql} de ${l.q} faturam R$ 300 mil+/mês`});
   }
   function metricasEngr(L){
     const N = L.length, Q = L.filter(ehQualif);
@@ -413,6 +507,7 @@
     barras($('#bDia'), N ? DS.map((n, i) => { const x = L.filter(e => dia(e.ts) === i); return {n, v: x.length, soma: x.reduce((s, e) => s + e.res.total, 0)}; }) : [],
       {neutra: true, tipFn: l => `<b>${esc(l.n)}</b><br>${l.v} diagnóstico${l.v === 1 ? '' : 's'} · ${pct(l.v, N)}%<br>${somaTxt(l.soma, l.v)}`});
     if(ehEngr()) metricasEngr(L);
+    if(ehProc()) metricasProc(L);
   }
 
   // ---------- usuários (admin) ----------
@@ -460,7 +555,9 @@
   const opcoesEtapa = atual => Object.entries(ETAPAS).map(([k, n]) => `<option value="${k}"${k === atual ? ' selected' : ''}>${n}</option>`).join('');
   $('#mEtapa').insertAdjacentHTML('beforeend', opcoesEtapa(''));
   const piorDe = e => ENG.find(g => g.id === +e.perfil.pior);
-  const msgWhats = e => `Olá, ${((e.lead.nome || '').trim().split(/\s+/)[0]) || 'tudo bem'}! Aqui é do time do Ricardo Nunes. ` + (ehEngr()
+  const msgWhats = e => `Olá, ${((e.lead.nome || '').trim().split(/\s+/)[0]) || 'tudo bem'}! Aqui é do time do Ricardo Nunes. ` + (ehProc()
+    ? `Vi que você fez o ${proj().nome} e a sua empresa ficou no perfil "${QUAD[quadDe(e)].n}". Posso te mostrar como organizar isso antes da imersão?`
+    : ehEngr()
     ? `Vi que você fez o ${proj().nome}${piorDe(e) ? ` e a engrenagem que mais trava na sua empresa é ${piorDe(e).nome}` : ''}. Posso te mostrar como destravar?`
     : `Vi que você fez o ${proj().nome} e ele apontou ${brl(e.res.total)} em oportunidades para a sua empresa. Posso te mostrar os próximos passos?`);
 
@@ -475,13 +572,13 @@
     if(soQualif) L = L.filter(ehQualif);
     if(soWhats) L = L.filter(temWhats);
     if(q) L = L.filter(e => [e.lead.nome, e.lead.email, e.lead.telefone, soDig(e.lead.telefone), e.perfil.nome, setorDe(e.perfil), e.perfil.estado, e.perfil.uf, faixaDe(e.perfil.faturamento), funcTxt(e.perfil.funcionarios),
-      REGIMES[e.perfil.regime], cargoTxt(e.perfil.cargo), ETAPAS[e.status], ...(e.notas || []).map(n => n.texto)].join(' ').toLowerCase().includes(q));
+      REGIMES[e.perfil.regime], cargoTxt(e.perfil.cargo), e.perfil.segmento, e.perfil.perfil_nome, ETAPAS[e.status], ...(e.notas || []).map(n => n.texto)].join(' ').toLowerCase().includes(q));
     return L;
   }
   function listaLeads(){
     let L = etapa === 'lixeira' ? baseLeads(true) : baseLeads(false).filter(e => etapa === 'todos' || e.status === etapa);
     const f = {recente: (a, b) => +new Date(b.ts) - +new Date(a.ts), antigo: (a, b) => +new Date(a.ts) - +new Date(b.ts),
-      valor: ehEngr() ? (a, b) => notaMaq(a) - notaMaq(b) : (a, b) => (b.res.total || 0) - (a.res.total || 0), // engrenagens: mais travada primeiro
+      valor: ehEngr() || ehProc() ? (a, b) => notaMaq(a) - notaMaq(b) : (a, b) => (b.res.total || 0) - (a.res.total || 0), // engrenagens: mais travada primeiro
       fat: (a, b) => (+b.perfil.faturamento || 0) - (+a.perfil.faturamento || 0),
       nome: (a, b) => (a.lead.nome || '').localeCompare(b.lead.nome || '', 'pt-BR')}[ordem];
     return L.slice().sort(f);
@@ -524,19 +621,25 @@
         <td><div class="nome">${esc(l.nome) || '—'}${ehTeste(e) ? '<span class="tag-t">teste</span>' : ''}${r > 1 ? `<span class="tag-r" title="Mesmo e-mail ou WhatsApp em ${r} diagnósticos">repetido ×${r}</span>` : ''}${(e.notas || []).length ? `<span class="tag-n" title="Anotações">✎ ${e.notas.length}</span>` : ''}${rdTag(e)}</div></td>
         <td>${link ? `<a href="${link}" target="_blank" rel="noopener">${esc(l.telefone)}</a>` : '—'}</td>
         <td>${l.email ? `<a href="mailto:${esc(l.email)}">${esc(l.email)}</a>` : '—'}</td>
-        ${ehEngr() ? `<td>${esc(cargoTxt(p.cargo) || '—')}${piorDe(e) ? `<div class="sub">trava: ${esc(piorDe(e).nome)}</div>` : ''}</td>`
+        ${ehProc() ? `<td>${p.nome ? `<div class="nome">${esc(p.nome)}</div>` : ''}${esc(p.segmento || '—')}<div class="sub">${esc(p.cargo || '')}${p.perfil_nome ? ' · ' + esc(p.perfil_nome) : ''}</div></td>`
+          : ehEngr() ? `<td>${esc(cargoTxt(p.cargo) || '—')}${piorDe(e) ? `<div class="sub">trava: ${esc(piorDe(e).nome)}</div>` : ''}</td>`
           : `<td>${p.nome ? `<div class="nome">${esc(p.nome)}</div>` : ''}${esc(setorDe(p) || '—')}<div class="sub">${esc(p.estado || p.uf || '')} · ${esc(REG2[p.regime] || p.regime || '')}</div></td>`}
         <td>${esc(faixaDe(p.faturamento)) || '—'}</td>
-        <td>${esc(funcTxt(p.funcionarios)) || '—'}</td>
+        <td>${esc(funcTxt(p.funcionarios ?? p.colaboradores)) || '—'}</td>
         <td>${lixeira ? '<span class="st st-perdido">Na lixeira</span>' : `<select class="etapa-sel" data-et-id="${esc(e.id)}" aria-label="Etapa">${opcoesEtapa(e.status)}</select>`}</td>
-        ${ehEngr() ? `<td class="num val ${stEng(notaMaq(e))}" title="${RES_TXT[resMaq(e)]}">${notaMaq(e)}%</td>` : `<td class="num val">${brl(e.res.total)}</td>`}</tr>`;
+        ${ehProc() ? `<td class="num val ${QUAD[quadDe(e)].cls}" title="${QUAD[quadDe(e)].n}">${esc(p.maturidade || '')} · ${notaMaq(e)}%</td>`
+          : ehEngr() ? `<td class="num val ${stEng(notaMaq(e))}" title="${RES_TXT[resMaq(e)]}">${notaMaq(e)}%</td>` : `<td class="num val">${brl(e.res.total)}</td>`}</tr>`;
       if(aberto === e.id){
         const sinais = Object.entries(OPER).filter(([k]) => +p[k]).map(([, n]) => `<span>${esc(n)}</span>`).join('') || '<span>Nenhum</span>';
         const naoF = Object.entries(AUD).filter(([k]) => !+p[k]).map(([, n]) => `<span>${esc(n)}</span>`).join('') || '<span>Tudo em dia</span>';
         const notas = (e.notas || []).slice().reverse().map(n => `<li><small>${esc(n.por)} · ${quandoAno(n.em)}</small><p>${esc(n.texto)}</p><button data-tirar="${esc(n.id)}" title="Apagar anotação" aria-label="Apagar anotação">×</button></li>`).join('');
         const origem = `<h4 style="margin-top:16px">Origem</h4><div class="chips">${Object.entries(e.utm || {}).map(([k, v]) => `<span>${esc(k)}: ${esc(v)}</span>`).join('') || '<span>Direto / sem UTM</span>'}${e.pagina ? `<span>página: ${esc(e.pagina)}</span>` : ''}</div>`;
         const nao = ehEngr() ? ENG_ORD.flatMap(g => g.qs.filter((q, i) => (respostasDe(e)[g.id - 1] || '')[i] === '0').map(q => `<span title="${esc(g.nome)}">${esc(q)}</span>`)).join('') : '';
-        const numeros = ehEngr()
+        const numeros = ehProc()
+          ? `<li><span>Maturidade</span><span class="c-${QUAD[quadDe(e)].cls}">${esc(p.maturidade || '—')} · ${notaMaq(e)}%</span></li>
+            <li><span>Faturamento · colaboradores</span><span>${esc(faixaDe(p.faturamento) || '—')} · ${esc(p.colaboradores || '—')}</span></li>
+            <li><span>Papel · segmento</span><span>${esc(p.cargo || '—')} · ${esc(p.segmento || '—')}</span></li>`
+          : ehEngr()
           ? `<li><span>Nota da máquina</span><span class="c-${stEng(notaMaq(e))}">${notaMaq(e)}% · ${RES_TXT[resMaq(e)]}</span></li>
             <li><span>Travadas · rangendo</span><span>${+p.travadas || 0} · ${+p.rangendo || 0}</span></li>
             <li><span>Faturamento · funcionários</span><span>${esc(faixaDe(p.faturamento) || '—')} · ${esc(funcTxt(p.funcionarios) || '—')}</span></li>
@@ -550,7 +653,12 @@
             <li><span>Faturamento por mês</span><span>${p.faturamento ? brl(p.faturamento) : '—'}</span></li>
             <li><span>Funcionários CLT · anos de empresa</span><span>${esc(p.funcionarios)} · ${esc(p.anos)}+</span></li>
             ${+p.divida ? `<li><span>Dívida fiscal informada</span><span>${brl(p.passivo_valor)}</span></li>` : ''}`;
-        const meio = ehEngr()
+        const meio = ehProc()
+          ? `<div><h4>Respostas</h4><ul>${DP_PERG.filter(([k]) => p[k]).map(([k, n]) => `<li><span>${esc(n)}</span><span>${esc(p[k])}</span></li>`).join('')}</ul>
+            <h4 style="margin-top:16px">Maiores dores</h4><div class="chips">${doresDe(e).map(d => `<span>${esc(d)}</span>`).join('') || '<span>—</span>'}</div>
+            ${p.resultado ? `<h4 style="margin-top:16px">O que espera da imersão</h4><div class="det-txt">${esc(p.resultado)}</div>` : ''}
+            ${p.processo ? `<h4 style="margin-top:16px">Processo que mais trava</h4><div class="det-txt">${esc(p.processo)}</div>` : ''}${origem}</div>`
+          : ehEngr()
           ? `<div><h4>Respondeu "Não é a minha empresa"</h4><div class="chips">${nao || '<span>Nenhuma pergunta</span>'}</div>${origem}</div>`
           : ehCurto()
           ? `<div><h4>Respostas</h4><ul>${PERGUNTAS.filter(([k]) => p[k] != null && p[k] !== '').map(([k, n]) => `<li><span>${esc(n)}</span><span>${esc(respTxt(k, p[k]))}</span></li>`).join('')}</ul>
@@ -561,7 +669,9 @@
         const rdLinha = !e.rd ? (rdLigado ? ' · ainda não foi para o RD' : '') : e.rd.status.startsWith('ok') ? ` · enviado ao RD em ${quandoAno(e.rd.em)}${e.rd.status === 'ok-sem-campos' ? ' (sem faturamento/funcionários)' : ''}`
           : e.rd.status.startsWith('erro') ? ` · RD: ${esc(e.rd.status.replace(/^erro: /, ''))}` : ' · enviando ao RD';
         h += `<tr class="det"><td colspan="10"><div class="det-g">
-          ${ehEngr()
+          ${ehProc()
+            ? `<div><h4>Perfil: ${esc(QUAD[quadDe(e)].n)}</h4><ul>${(e.res.top || []).map(o => `<li><span>${esc(o.nome)}</span><span class="c-${stEng(o.val)}">${Math.round(o.val)}%</span></li>`).join('') || '<li>—</li>'}</ul>`
+            : ehEngr()
             ? `<div><h4>Engrenagens (da mais travada)</h4><ul>${(e.res.top || []).map(o => `<li><span>${esc(o.nome)}</span><span class="c-${stEng(o.val)}">${Math.round(o.val)}% · ${ST_TXT[stEng(o.val)]}</span></li>`).join('') || '<li>—</li>'}</ul>`
             : `<div><h4>Oportunidades encontradas (${e.res.nOpps})</h4><ul>${(e.res.top || []).map(o => `<li><span>${esc(o.nome)}</span><span>${brl(o.val)}</span></li>`).join('') || '<li>—</li>'}</ul>`}
             <h4 style="margin-top:16px">Números</h4><ul>${numeros}</ul></div>
@@ -670,6 +780,16 @@
 
   function baixaCSV(lista){
     const L = lista || listaLeads(), cel = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    if(ehProc()){
+      const ks = DP_PERG.map(([k]) => k);
+      const cab = ['data', 'nome', 'whatsapp', 'empresa', ...ks, 'dores', 'o_que_espera', 'processo_que_trava', 'maturidade', 'maturidade_pct', 'perfil',
+        'etapa', 'teste', 'anotacoes', 'pagina', 'utm_source', 'utm_campaign', 'utm_content'];
+      const linhas = L.map(e => { const p = e.perfil;
+        return [quandoAno(e.ts), e.lead.nome, e.lead.telefone, p.nome, ...ks.map(k => p[k]), doresDe(e).join(' | '), p.resultado, p.processo, p.maturidade, notaMaq(e), QUAD[quadDe(e)].n,
+          e.excluido ? 'lixeira' : ETAPAS[e.status] || '', ehTeste(e) ? 'sim' : 'não', (e.notas || []).map(n => `[${quandoAno(n.em)} ${n.por}] ${n.texto}`).join(' | '),
+          e.pagina, (e.utm || {}).source, (e.utm || {}).campaign, (e.utm || {}).content].map(cel).join(';'); });
+      return salvaCSV(cab, linhas);
+    }
     if(ehEngr()){
       const cab = ['data', 'nome', 'email', 'whatsapp', 'faturamento_mes', 'funcionarios', 'cargo', 'nota_maquina', 'resultado', 'travadas', 'rangendo',
         ...ENG_ORD.map(g => 'nota_' + numEng(g) + '_' + g.nome.normalize('NFD').replace(/[^\w ]/g, '').trim().toLowerCase().replace(/\s+/g, '_')),
@@ -741,8 +861,9 @@
     const p = proj();
     document.body.classList.toggle('f-curto', p.formato === 'curto');
     document.body.classList.toggle('f-engr', p.formato === 'engrenagens');
-    document.body.classList.toggle('f-completo', p.formato !== 'curto' && p.formato !== 'engrenagens');
-    $('#ordemValor').textContent = p.formato === 'engrenagens' ? 'Máquina mais travada' : 'Maior valor identificado';
+    document.body.classList.toggle('f-proc', p.formato === 'processos');
+    document.body.classList.toggle('f-completo', !['curto', 'engrenagens', 'processos'].includes(p.formato));
+    $('#ordemValor').textContent = p.formato === 'engrenagens' ? 'Máquina mais travada' : p.formato === 'processos' ? 'Menor maturidade' : 'Maior valor identificado';
     $('#projNome').textContent = p.nome;
     $('#pill').textContent = p.nome + ' · ao vivo';
     document.title = 'Resultômetro | ' + p.nome;
